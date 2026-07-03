@@ -27,7 +27,7 @@
             <artifactId>spring-boot-jdbc</artifactId>
             <optional>true</optional>
         </dependency>
-        <!-- Optional: enables the telaio metrics actuator endpoint -->
+        <!-- Optional: enables the telaiometrics actuator endpoint -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-actuator</artifactId>
