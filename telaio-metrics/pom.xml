@@ -27,7 +27,7 @@
             <artifactId>spring-boot-jdbc</artifactId>
             <optional>true</optional>
         </dependency>
-        <!-- Optional: enables the telaiometrics actuator endpoint -->
+        <!-- Optional: enables the telaio metrics actuator endpoint -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-actuator</artifactId>
@@ -74,9 +74,7 @@
             <artifactId>h2</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- Vendor integration-test matrix: every supported platform is verified at its
-             documented minimum version (see CLAUDE.md). Requires Docker; tests self-disable
-             without it. -->
+        <!-- Requires Docker; tests self-disable without it. -->
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers-junit-jupiter</artifactId>
