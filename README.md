@@ -12,7 +12,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Java-21-orange" alt="Java 21">
-  <img src="https://img.shields.io/badge/Spring%20Boot-4.1.0-brightgreen" alt="Spring Boot 4.1.0">
+  <img src="https://img.shields.io/badge/Powered%20by-Spring%20Boot%204.1.0-6DB33F" alt="Powered by Spring Boot 4.1.0">
   <img src="https://img.shields.io/badge/License-Apache%202.0-blue" alt="License Apache 2.0">
   <img src="https://img.shields.io/badge/status-pre--release%20(0.0.1--SNAPSHOT)-lightgrey" alt="Status pre-release (0.0.1-SNAPSHOT)">
 </p>
