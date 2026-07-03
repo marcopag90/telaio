@@ -33,7 +33,8 @@ Most CRUD backends repeat the same ceremony for every resource: a controller, a 
 service, a repository. Telaio collapses that into one abstraction:
 
 - **The entity is the API.** There is no DTO layer — the entity is read, written, and returned
-  directly. What you model is what the client sees.
+  directly. What you model is what the client sees — though not necessarily under your field
+  names (see [No DTOs — and no lock-in to your field names](#no-dtos--and-no-lock-in-to-your-field-names)).
 - **Persistence-agnostic by design.** The `Dal` contract lives in `telaio-core` and depends only on
   Spring Data's paging/sorting abstractions; a backend implements a small `execute*` SPI. JPA is
   the first implementation — not a constraint of the architecture.
@@ -55,6 +56,42 @@ service, a repository. Telaio collapses that into one abstraction:
   Micrometer.
 - **Auto-generated OpenAPI.** A concrete, per-DAL OpenAPI/Swagger document is synthesized from the
   entity and its exposure rules — no handwritten schema.
+
+## No DTOs — and no lock-in to your field names
+
+Skipping the DTO layer is a deliberate choice, not a shortcut. The classic DTO/mapper pair
+duplicates every entity, and the copies drift: each new field must be declared twice and mapped
+once more, and every mapping is one more place to be wrong. The three jobs a DTO actually does —
+**rename** fields for the client, **hide** fields from the client, and **shape** a different
+payload per audience — Telaio covers declaratively, on the entity itself:
+
+**Rename with Jackson.** `@JsonProperty` (or a global `PropertyNamingStrategy`) decouples the wire
+name from the Java attribute, and Telaio honors it end-to-end, not just in payloads (from the
+showcase's `Product`):
+
+```java
+@JsonProperty("cost_price")
+private BigDecimal costPrice;   // the client reads and writes "cost_price"
+```
+
+The renamed field works in filter queries (`q=cost_price>100`), is reported under its wire name in
+RFC 9457 validation errors, and is documented under its wire name in the generated OpenAPI schema —
+with `readOnly`/`writeOnly` derived from `@JsonProperty(access = ...)`, which also lets you add
+derived, wire-only fields (a `@Transient` read-only `profit`, say) with no DTO in sight.
+
+**Hide and shape with field-level RBAC.** Combine the renaming with a `DalRbacAdapter` and each
+role receives a different **projection** of the same entity — what elsewhere costs one DTO per
+audience:
+
+- `PropertyBasedDalRbacAdapter` — declare per-role readable/writable field sets using type-safe
+  Java property references (`propertyName(Product::getCostPrice)`); the translation to wire names
+  is automatic. See `ProductRbacAdapter` in the showcase.
+- `JsonViewDalRbacAdapter` — for hierarchical roles, tier the fields with Jackson `@JsonView` and
+  map each role to a view. See `EmployeeRbacAdapter` in the showcase, where `USER` ⊂ `ADMIN` ⊂
+  `DEVELOPER` see progressively wider projections (renamed fields like `employeeName` included).
+
+Both strategies are covered in depth in the [security guide](docs/security-guide.md); filter-side
+renaming is in the [REST API reference](docs/rest-api.md).
 
 ## Quick start
 
