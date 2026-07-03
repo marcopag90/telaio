@@ -1,0 +1,26 @@
+# Test profile for the end-to-end integration suite (*IT).
+# Activated via @ActiveProfiles("test") on AbstractShowcaseIT. The datasource is provided by
+# Testcontainers (@ServiceConnection in TestcontainersConfiguration), so docker-compose is off.
+spring:
+  docker:
+    compose:
+      enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        # Keep the integration-test logs readable.
+        show_sql: false
+        format_sql: false
+
+telaio:
+  metrics:
+    enabled: true
+    # Very short windows, so the telaiometrics actuator endpoint reflects activity within a couple of
+    # seconds (it exposes flushed buckets only). MetricsEndpointIT polls until the data appears.
+    bucket-duration: 1s
+    flush-interval: 1s
+    jdbc:
+      enabled: true
+      initialize-schema: always

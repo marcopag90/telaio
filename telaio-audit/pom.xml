@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.paganbit</groupId>
+        <artifactId>telaio</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>telaio-audit</artifactId>
+    <name>Telaio :: Audit</name>
+    <description>
+        Opt-in auditing of Telaio DAL operations (operation, arguments, principal, outcome, duration).
+    </description>
+    <url>https://github.com/marcopag90/telaio</url>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.paganbit</groupId>
+            <artifactId>telaio-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- Optional: enables principal resolution and DENIED outcome classification -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-core</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <!-- Optional: provides jakarta.validation annotations for @Validated on TelaioAuditProperties;
+             consumers decide whether a validation implementation (e.g., Hibernate Validator) is present. -->
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <!-- Test dependencies -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Validation implementation for TelaioAuditPropertiesTest -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

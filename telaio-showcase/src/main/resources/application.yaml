@@ -1,0 +1,51 @@
+spring:
+  docker:
+    compose:
+      enabled: true
+      file: ./telaio-showcase/compose.yaml
+      skip:
+        in-tests: true
+  # The datasource is provided automatically by spring-boot-docker-compose: it starts the
+  # PostgreSQL service declared in compose.yaml and wires connection details via @ServiceConnection.
+  jpa:
+    open-in-view: false
+    # Use the canonical Spring Boot property: against a non-embedded DB (PostgreSQL) the default
+    # ddl-auto is "none", so the schema must be requested explicitly for Hibernate to create it.
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        show_sql: true
+        format_sql: true
+  web:
+    error:
+      include-exception: true
+
+springdoc:
+  show-actuator: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, telaiometrics
+
+telaio:
+  web:
+    openapi:
+      enabled: true
+  metrics:
+    enabled: true
+    bucket-duration: 10s
+    flush-interval: 10s
+    jdbc:
+      enabled: true
+      initialize-schema: always
+      table-name: telaio_metrics_bucket
+      retention: P1D
+      cleanup-interval: PT1H
+  openapi:
+    enabled: true
+    include-examples: false
+    tag-per-dal: true
+

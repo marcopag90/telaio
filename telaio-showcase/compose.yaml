@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: 'postgres:17'
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - '5432:5432'
+    volumes:
+      # Named volume keeps the data across application stop/restart and container recreation.
+      - telaio_showcase_pgdata:/var/lib/postgresql/data
+
+volumes:
+  telaio_showcase_pgdata:

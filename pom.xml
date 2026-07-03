@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.1.0</version>
+    </parent>
+
+    <groupId>io.paganbit</groupId>
+    <artifactId>telaio</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>Telaio</name>
+    <inceptionYear>2025</inceptionYear>
+    <description>
+        Spring Boot framework providing a unified Data Access Layer (DAL) abstraction for CRUD
+        operations across persistence backends, with dynamic REST API generation, security,
+        filtering and entity transformation.
+    </description>
+
+    <url>https://github.com/marcopag90/telaio</url>
+    <scm>
+        <connection>scm:git:https://github.com/marcopag90/telaio.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/marcopag90/telaio.git</developerConnection>
+        <url>https://github.com/marcopag90/telaio/tree/main</url>
+    </scm>
+    <developers>
+        <developer>
+            <id>marcopag90</id>
+            <name>Marco Pagan</name>
+            <email>marcopag90@gmail.com</email>
+            <url>https://github.com/marcopag90</url>
+        </developer>
+    </developers>
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <properties>
+        <!-- Project settings. maven.compiler.release (not java.version) is the per-module Java
+             target knob: java.version collides with the reserved JVM system property, so it cannot
+             be reliably read by the enforcer requireProperty rule below. -->
+        <maven.compiler.release>21</maven.compiler.release>
+        <!-- Libraries -->
+        <turkraft-springfilter.version>3.2.5</turkraft-springfilter.version>
+        <springdoc-openapi-starter-webmvc-ui.version>3.0.3</springdoc-openapi-starter-webmvc-ui.version>
+        <!-- Supported database images for Testcontainers integration tests, pinned to the
+             documented minimum supported versions. Shared across modules: surefire exposes each as
+             a system property (see pluginManagement below), read by the vendor test matrices. -->
+        <testcontainers.image.postgresql>postgres:17</testcontainers.image.postgresql>
+        <testcontainers.image.mysql>mysql:8.4</testcontainers.image.mysql>
+        <testcontainers.image.mariadb>mariadb:11.4</testcontainers.image.mariadb>
+        <testcontainers.image.sqlserver>mcr.microsoft.com/mssql/server:2022-latest</testcontainers.image.sqlserver>
+        <testcontainers.image.oracle>gvenzl/oracle-xe:21-slim</testcontainers.image.oracle>
+        <!-- Plugins -->
+    </properties>
+
+    <modules>
+        <module>telaio-introspection</module>
+        <module>telaio-core</module>
+        <module>telaio-security</module>
+        <module>telaio-audit</module>
+        <module>telaio-metrics</module>
+        <module>telaio-web</module>
+        <module>telaio-openapi</module>
+        <module>telaio-jpa</module>
+        <module>telaio-showcase</module>
+    </modules>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.turkraft.springfilter</groupId>
+                <artifactId>core</artifactId>
+                <version>${turkraft-springfilter.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.turkraft.springfilter</groupId>
+                <artifactId>jpa</artifactId>
+                <version>${turkraft-springfilter.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc-openapi-starter-webmvc-ui.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <configuration>
+                        <!-- Expose the supported database images to tests; every module inherits
+                             these, so any vendor test matrix reads them from one place. -->
+                        <!--@formatter:off-->
+                        <systemPropertyVariables>
+                            <testcontainers.image.postgresql>${testcontainers.image.postgresql}</testcontainers.image.postgresql>
+                            <testcontainers.image.mysql>${testcontainers.image.mysql}</testcontainers.image.mysql>
+                            <testcontainers.image.mariadb>${testcontainers.image.mariadb}</testcontainers.image.mariadb>
+                            <testcontainers.image.sqlserver>${testcontainers.image.sqlserver}</testcontainers.image.sqlserver>
+                            <testcontainers.image.oracle>${testcontainers.image.oracle}</testcontainers.image.oracle>
+                        </systemPropertyVariables>
+                        <!--@formatter:on-->
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${maven-compiler-plugin.version}</version>
+                    <configuration>
+                        <release>${maven.compiler.release}</release>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                                <version>${lombok.version}</version>
+                            </path>
+                            <path>
+                                <groupId>org.springframework.boot</groupId>
+                                <artifactId>spring-boot-configuration-processor</artifactId>
+                            </path>
+                        </annotationProcessorPaths>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+        <plugins>
+            <!-- Enforce the build JDK and per-module Java target. The version is managed by the
+                 Spring Boot parent. Two separate executions so telaio-showcase can override only
+                 the per-module version check while still inheriting the build-JDK check. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>enforce-build-jdk</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireJavaVersion>
+                                    <version>[25,)</version>
+                                    <message>
+                                        This project must be built with JDK 25 or newer (telaio-showcase targets
+                                        Java 25). Library modules still emit Java 21 bytecode via --release 21.
+                                    </message>
+                                </requireJavaVersion>
+                            </rules>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>enforce-module-java-version</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireProperty>
+                                    <property>maven.compiler.release</property>
+                                    <regex>^21$</regex>
+                                    <regexMessage>
+                                        Library modules must target Java 21 (maven.compiler.release must be 21).
+                                        Only telaio-showcase may override this to 25.
+                                    </regexMessage>
+                                </requireProperty>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Attach a -sources.jar to every module so the published library carries its sources.
+                 The version is managed by the Spring Boot parent. telaio-showcase disables this via
+                 maven.source.skip=true (it is a demo app, not a published artifact). -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

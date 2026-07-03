@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 424 120" role="img" aria-label="Telaio">
+  <!-- Wordmark: T E L [delta-layers] I O — stroke-drawn letters, no external fonts -->
+  <g stroke="#1F2937" stroke-width="13" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- T -->
+    <path d="M16 28 H64 M40 28 V92"/>
+    <!-- E -->
+    <path d="M88 28 V92 M88 28 H124 M88 60 H118 M88 92 H124"/>
+    <!-- L -->
+    <path d="M148 28 V92 H184"/>
+    <!-- I -->
+    <path d="M306 28 H322 M314 28 V92 M306 92 H322"/>
+    <!-- O -->
+    <circle cx="372" cy="60" r="32"/>
+  </g>
+  <!-- The A as a delta of three stacked layers (a stratified peak) -->
+  <g stroke-linejoin="round">
+    <path d="M244 22 L254.9 42 H233.1 Z" fill="#2DD4BF" stroke="#2DD4BF" stroke-width="4"/>
+    <path d="M231 46 H257 L267.9 66 H220.1 Z" fill="#14B8A6" stroke="#14B8A6" stroke-width="4"/>
+    <path d="M217.9 70 H270.1 L282 92 H206 Z" fill="#0D9488" stroke="#0D9488" stroke-width="4"/>
+  </g>
+</svg>

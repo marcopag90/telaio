@@ -1,0 +1,156 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.paganbit</groupId>
+        <artifactId>telaio</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>telaio-showcase</artifactId>
+    <name>Telaio :: Showcase</name>
+    <description>Telaio Showcase Web Application</description>
+    <url>https://github.com/marcopag90/telaio</url>
+
+    <properties>
+        <!-- The showcase demo app targets Java 25; library modules stay on Java 21. -->
+        <maven.compiler.release>25</maven.compiler.release>
+        <!-- The showcase is a demo app, not a published artifact: skip the -sources.jar. -->
+        <maven.source.skip>true</maven.source.skip>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>io.paganbit</groupId>
+            <artifactId>telaio-web</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.paganbit</groupId>
+            <artifactId>telaio-openapi</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.paganbit</groupId>
+            <artifactId>telaio-security</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.paganbit</groupId>
+            <artifactId>telaio-audit</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.paganbit</groupId>
+            <artifactId>telaio-metrics</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.paganbit</groupId>
+            <artifactId>telaio-jpa</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <!-- Automatically starts the compose.yaml PostgreSQL service on boot and wires the datasource. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-docker-compose</artifactId>
+            <optional>true</optional>
+            <scope>runtime</scope>
+        </dependency>
+        <!-- Test dependencies -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Boots a real PostgreSQL via Testcontainers, wired with @ServiceConnection. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- TestRestTemplate (spring-boot-resttestclient) needs RestTemplateBuilder, which lives in
+             spring-boot-restclient — not pulled transitively by the webmvc starters, so add it for tests. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-restclient</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Override only the per-module version check (same execution id as the parent) so
+                 this module is required to target Java 25. combine.self="override" replaces the
+                 parent's ^21$ rule instead of merging it. The enforce-build-jdk execution is
+                 inherited unchanged. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>enforce-module-java-version</id>
+                        <configuration combine.self="override">
+                            <rules>
+                                <requireProperty>
+                                    <property>maven.compiler.release</property>
+                                    <regex>^25$</regex>
+                                    <regexMessage>
+                                        telaio-showcase must target Java 25 (maven.compiler.release must be 25).
+                                    </regexMessage>
+                                </requireProperty>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- The end-to-end integration tests (*IT) are the release gate: they boot the full showcase
+                 over real HTTP against Testcontainers PostgreSQL and exercise every DAL scenario. Bound to
+                 the verify phase so `mvn verify` runs them, kept separate from the fast surefire smoke test
+                 (`TelaioShowcaseApplicationTests`). Version is managed by the Spring Boot parent. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>integration-tests</id>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

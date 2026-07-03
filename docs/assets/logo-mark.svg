@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Telaio mark">
+  <!-- Standalone Telaio mark: a delta of three stacked layers (Data Access LAYER) -->
+  <g stroke-linejoin="round">
+    <path d="M60 10 L74 38 H46 Z" fill="#2DD4BF" stroke="#2DD4BF" stroke-width="5"/>
+    <path d="M43 44 H77 L91 72 H29 Z" fill="#14B8A6" stroke="#14B8A6" stroke-width="5"/>
+    <path d="M26 78 H94 L110 110 H10 Z" fill="#0D9488" stroke="#0D9488" stroke-width="5"/>
+  </g>
+</svg>
