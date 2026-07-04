@@ -30,15 +30,11 @@
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <optional>true</optional>
         </dependency>
-        <!-- Optional: provides @Valid for cascade validation on TelaioWebProperties -->
         <dependency>
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
             <optional>true</optional>
         </dependency>
-        <!-- Optional: lets the web boundary map Spring Security's AccessDeniedException to a
-             generic 403 ProblemDetail. Present at runtime transitively whenever telaio-security
-             (or any Spring Security) is on the classpath; the mapping advice is conditional on it. -->
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-core</artifactId>

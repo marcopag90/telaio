@@ -23,14 +23,11 @@
             <artifactId>telaio-core</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <!-- Optional: enables principal resolution and DENIED outcome classification -->
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-core</artifactId>
             <optional>true</optional>
         </dependency>
-        <!-- Optional: provides jakarta.validation annotations for @Validated on TelaioAuditProperties;
-             consumers decide whether a validation implementation (e.g., Hibernate Validator) is present. -->
         <dependency>
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
@@ -47,7 +44,6 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- Validation implementation for TelaioAuditPropertiesTest -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>

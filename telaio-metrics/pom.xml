@@ -21,13 +21,11 @@
             <artifactId>telaio-core</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <!-- Optional: enables the JDBC metrics store and its multivendor schema initialization -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-jdbc</artifactId>
             <optional>true</optional>
         </dependency>
-        <!-- Optional: enables the telaiometrics actuator endpoint -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-actuator</artifactId>
@@ -38,15 +36,11 @@
             <artifactId>spring-boot-actuator-autoconfigure</artifactId>
             <optional>true</optional>
         </dependency>
-        <!-- Optional: provides jakarta.validation annotations for @Validated on TelaioMetricsProperties;
-             consumers decide whether a validation implementation (e.g., Hibernate Validator) is present. -->
         <dependency>
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
             <optional>true</optional>
         </dependency>
-        <!-- Optional: enables the Micrometer recorder.
-             Activation is opt-in via telaio.metrics.micrometer.enabled, not classpath presence. -->
         <dependency>
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-core</artifactId>
@@ -63,7 +57,6 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- Validation implementation for TelaioMetricsPropertiesTest -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
@@ -74,7 +67,6 @@
             <artifactId>h2</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- Requires Docker; tests self-disable without it. -->
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers-junit-jupiter</artifactId>

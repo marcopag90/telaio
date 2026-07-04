@@ -66,8 +66,6 @@
 
     <build>
         <resources>
-            <!-- Filter only the library version file; it carries the @project.version@
-                 so that TelaioVersionProvider reports the library version, segregated from the consumer app. -->
             <resource>
                 <directory>src/main/resources</directory>
                 <filtering>true</filtering>
