@@ -46,22 +46,12 @@
     </licenses>
 
     <properties>
-        <!-- Project settings. maven.compiler.release (not java.version) is the per-module Java
-             target knob: java.version collides with the reserved JVM system property, so it cannot
-             be reliably read by the enforcer requireProperty rule below. -->
         <maven.compiler.release>21</maven.compiler.release>
-        <!-- Libraries -->
-        <turkraft-springfilter.version>3.2.5</turkraft-springfilter.version>
-        <springdoc-openapi-starter-webmvc-ui.version>3.0.3</springdoc-openapi-starter-webmvc-ui.version>
-        <!-- Supported database images for Testcontainers integration tests, pinned to the
-             documented minimum supported versions. Shared across modules: surefire exposes each as
-             a system property (see pluginManagement below), read by the vendor test matrices. -->
         <testcontainers.image.postgresql>postgres:17</testcontainers.image.postgresql>
         <testcontainers.image.mysql>mysql:8.4</testcontainers.image.mysql>
         <testcontainers.image.mariadb>mariadb:11.4</testcontainers.image.mariadb>
         <testcontainers.image.sqlserver>mcr.microsoft.com/mssql/server:2022-latest</testcontainers.image.sqlserver>
         <testcontainers.image.oracle>gvenzl/oracle-xe:21-slim</testcontainers.image.oracle>
-        <!-- Plugins -->
     </properties>
 
     <modules>
@@ -73,25 +63,18 @@
         <module>telaio-web</module>
         <module>telaio-openapi</module>
         <module>telaio-jpa</module>
+        <module>telaio-bom</module>
         <module>telaio-showcase</module>
     </modules>
 
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>com.turkraft.springfilter</groupId>
-                <artifactId>core</artifactId>
-                <version>${turkraft-springfilter.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.turkraft.springfilter</groupId>
-                <artifactId>jpa</artifactId>
-                <version>${turkraft-springfilter.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.springdoc</groupId>
-                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-                <version>${springdoc-openapi-starter-webmvc-ui.version}</version>
+                <groupId>io.paganbit</groupId>
+                <artifactId>telaio-bom</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -103,8 +86,6 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <configuration>
-                        <!-- Expose the supported database images to tests; every module inherits
-                             these, so any vendor test matrix reads them from one place. -->
                         <!--@formatter:off-->
                         <systemPropertyVariables>
                             <testcontainers.image.postgresql>${testcontainers.image.postgresql}</testcontainers.image.postgresql>
@@ -138,9 +119,6 @@
             </plugins>
         </pluginManagement>
         <plugins>
-            <!-- Enforce the build JDK and per-module Java target. The version is managed by the
-                 Spring Boot parent. Two separate executions so telaio-showcase can override only
-                 the per-module version check while still inheriting the build-JDK check. -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
@@ -182,9 +160,6 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- Attach a -sources.jar to every module so the published library carries its sources.
-                 The version is managed by the Spring Boot parent. telaio-showcase disables this via
-                 maven.source.skip=true (it is a demo app, not a published artifact). -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
