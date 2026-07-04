@@ -1,6 +1,2 @@
-# Shows the "Sponsor" button on the GitHub repository page.
-# PayPal is not a native FUNDING.yml platform; it is supported via a custom URL
-# (https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository).
-# Uncomment the github entry once GitHub Sponsors is enabled on the profile:
-# github: marcopag90
-custom: ["https://www.paypal.me/MarcoPag90"]
+github: marcopag90
+custom: [ "https://www.paypal.me/MarcoPag90" ]
