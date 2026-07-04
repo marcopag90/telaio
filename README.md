@@ -27,6 +27,15 @@ generates a dynamic REST endpoint for it — with filtering, pagination, operati
 authorization, field-level RBAC, structured audit logging, and performance metrics, all wired in
 by auto-configuration.
 
+```java
+@DalService(name = "products")
+public class ProductDalService extends JpaDal<Product, Long> {
+}
+```
+
+`Product` is now a full CRUD REST resource at `/dal/v1/products` — no controller, no DTO, no
+mapper. See the [Quick start](#quick-start) for the complete three-file example.
+
 ## Why Telaio
 
 Most CRUD backends repeat the same ceremony for every resource: a controller, a DTO, a mapper, a
