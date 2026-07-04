@@ -106,43 +106,77 @@ renaming is in the [REST API reference](docs/rest-api.md).
 
 ### 1. Add the dependencies
 
-There is no single "starter" artifact — depend on the modules your project needs directly. At a
-minimum you need `telaio-web` (REST exposure) and `telaio-jpa` (the first persistence backend of
-the `Dal` abstraction, built on Spring Data JPA), plus a JDBC driver:
+There is no single "starter" artifact — depend on the modules your project needs directly.
+
+**Using a single module?** Declare it with an explicit version:
 
 ```xml
 <dependency>
     <groupId>io.paganbit</groupId>
-    <artifactId>telaio-web</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
-</dependency>
-<dependency>
-    <groupId>io.paganbit</groupId>
-    <artifactId>telaio-jpa</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
-</dependency>
-<!-- Optional cross-cutting modules -->
-<dependency>
-    <groupId>io.paganbit</groupId>
-    <artifactId>telaio-security</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
-</dependency>
-<dependency>
-    <groupId>io.paganbit</groupId>
-    <artifactId>telaio-audit</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
-</dependency>
-<dependency>
-    <groupId>io.paganbit</groupId>
-    <artifactId>telaio-metrics</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
-</dependency>
-<dependency>
-    <groupId>io.paganbit</groupId>
-    <artifactId>telaio-openapi</artifactId>
+    <artifactId>telaio-core</artifactId>
     <version>0.0.1-SNAPSHOT</version>
 </dependency>
 ```
+
+**Using several modules (the usual case)?** Import the `telaio-bom` Bill of Materials in
+`dependencyManagement` once, then declare the modules without versions. At a minimum you need
+`telaio-web` (REST exposure) and `telaio-jpa` (the first persistence backend of the `Dal`
+abstraction, built on Spring Data JPA), plus a JDBC driver:
+
+```xml
+<dependencyManagement>
+    <dependencies>
+        <dependency>
+            <groupId>io.paganbit</groupId>
+            <artifactId>telaio-bom</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
+</dependencyManagement>
+```
+
+```xml
+<dependencies>
+    <dependency>
+        <groupId>io.paganbit</groupId>
+        <artifactId>telaio-web</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>io.paganbit</groupId>
+        <artifactId>telaio-jpa</artifactId>
+    </dependency>
+    <!-- JDBC driver (PostgreSQL shown; use MySQL, MariaDB, etc. as needed) -->
+    <dependency>
+        <groupId>org.postgresql</groupId>
+        <artifactId>postgresql</artifactId>
+        <scope>runtime</scope>
+    </dependency>
+    <!-- Optional cross-cutting modules -->
+    <dependency>
+        <groupId>io.paganbit</groupId>
+        <artifactId>telaio-security</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>io.paganbit</groupId>
+        <artifactId>telaio-audit</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>io.paganbit</groupId>
+        <artifactId>telaio-metrics</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>io.paganbit</groupId>
+        <artifactId>telaio-openapi</artifactId>
+    </dependency>
+</dependencies>
+```
+
+The BOM manages every Telaio library module and also aligns the third-party libraries Telaio
+integrates (Turkraft Spring Filter, SpringDoc) to the versions Telaio is tested against — so if
+you declare those directly, they can stay version-less too. It does **not** touch Spring Boot's own
+dependency management.
 
 Each module autoconfigures itself (`META-INF/spring/...AutoConfiguration.imports`) — no manual
 `@Import`, no `@ComponentScan` to add.
@@ -293,6 +327,7 @@ module.
 | `telaio-web`           | Dynamic REST exposure of every registered DAL.                       | `DalRestApiV1Controller`, `@DalId`                             | [docs/modules/web.md](docs/modules/web.md)                     |
 | `telaio-openapi`       | Generates concrete, per-DAL OpenAPI/Swagger documentation.           | `DalOpenApiCustomizer`, `DalPathsGenerator`                    | [docs/modules/openapi.md](docs/modules/openapi.md)             |
 | `telaio-jpa`           | JPA/Hibernate `Dal` backend — the first persistence implementation.  | `JpaDal<E,I>`, `JpaDalRepository<E,I>`                         | [docs/modules/jpa.md](docs/modules/jpa.md)                     |
+| `telaio-bom`           | Bill of Materials: import it to align all Telaio module versions.    | —                                                              | [Quick start](#quick-start)                                    |
 | `telaio-showcase`      | Runnable reference application exercising every module.              | `TelaioShowcaseApplication`                                    | [docs/modules/showcase.md](docs/modules/showcase.md)           |
 
 ## Roadmap

@@ -12,25 +12,37 @@ minutes.
 
 ## Step 1: Add Dependencies
 
-In your Spring Boot project's `pom.xml`, add the feature modules you need. For a minimal setup:
+In your Spring Boot project's `pom.xml`, import the `telaio-bom` Bill of Materials in
+`dependencyManagement`, then add the feature modules you need — without repeating the version on
+each one. For a minimal setup:
 
 ```xml
 <properties>
     <telaio.version>0.0.1-SNAPSHOT</telaio.version>
 </properties>
 
+<dependencyManagement>
+    <dependencies>
+        <dependency>
+            <groupId>io.paganbit</groupId>
+            <artifactId>telaio-bom</artifactId>
+            <version>${telaio.version}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
+</dependencyManagement>
+
 <dependencies>
     <!-- Web API exposure -->
     <dependency>
         <groupId>io.paganbit</groupId>
         <artifactId>telaio-web</artifactId>
-        <version>${telaio.version}</version>
     </dependency>
     <!-- JPA/Hibernate implementation -->
     <dependency>
         <groupId>io.paganbit</groupId>
         <artifactId>telaio-jpa</artifactId>
-        <version>${telaio.version}</version>
     </dependency>
     <!-- Database driver (PostgreSQL shown; use MySQL, MariaDB, etc. as needed) -->
     <dependency>
@@ -41,36 +53,41 @@ In your Spring Boot project's `pom.xml`, add the feature modules you need. For a
 </dependencies>
 ```
 
+> **Note:** the BOM manages the Telaio modules and the third-party libraries Telaio integrates
+> (Turkraft Spring Filter, SpringDoc); it does **not** override Spring Boot's own dependency
+> management.
+
+> **Using a single Telaio module only?** You can skip the BOM import and declare the version
+> directly on that dependency (e.g. `telaio-core` with `<version>${telaio.version}</version>`).
+
 ### Optional Modules
 
-Add these if you need the features:
+Add these if you need the features (versions still come from the BOM):
 
 ```xml
 <!-- Field-level access control -->
 <dependency>
     <groupId>io.paganbit</groupId>
     <artifactId>telaio-security</artifactId>
-    <version>${telaio.version}</version>
 </dependency>
 <!-- Operation auditing -->
 <dependency>
     <groupId>io.paganbit</groupId>
     <artifactId>telaio-audit</artifactId>
-    <version>${telaio.version}</version>
 </dependency>
 <!-- Performance monitoring -->
 <dependency>
     <groupId>io.paganbit</groupId>
     <artifactId>telaio-metrics</artifactId>
-    <version>${telaio.version}</version>
 </dependency>
 <!-- Auto-generated OpenAPI docs -->
 <dependency>
     <groupId>io.paganbit</groupId>
     <artifactId>telaio-openapi</artifactId>
-    <version>${telaio.version}</version>
 </dependency>
-<!-- Swagger UI for OpenAPI (optional but recommended) -->
+<!-- Swagger UI for OpenAPI (optional but recommended). Version-less on purpose: the BOM also
+     manages the third-party libraries Telaio integrates (Turkraft Spring Filter, SpringDoc),
+     keeping them aligned with the versions Telaio is tested against. -->
 <dependency>
     <groupId>org.springdoc</groupId>
     <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
