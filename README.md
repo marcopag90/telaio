@@ -228,7 +228,9 @@ curl -u developer:developer http://localhost:8080/dal/v1/announcements/1
 ```
 
 `PATCH /dal/v1/announcements/{id}` applies a partial update, `DELETE /dal/v1/announcements/{id}`
-removes it. Errors follow RFC 9457 (`application/problem+json`).
+removes it. Errors follow RFC 9457 (`application/problem+json`). Entities with a composite key are
+addressed by passing the key's JSON as a Base64 URL-safe `{id}` segment — see
+[Composite IDs](docs/rest-api.md#composite-ids).
 
 ## Architecture at a glance
 

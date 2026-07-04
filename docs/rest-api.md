@@ -130,9 +130,9 @@ GET /dal/v1/{dalName}/{id}
 
 **Path Parameters:**
 
-| Parameter | Type   | Description                                                                             |
-|-----------|--------|-----------------------------------------------------------------------------------------|
-| `id`      | varies | The entity ID. Type depends on the entity's `@Id` field (e.g., `Long`, `String`, UUID). |
+| Parameter | Type   | Description                                                                                                                                                    |
+|-----------|--------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `id`      | varies | The entity ID. Type depends on the entity's `@Id` field (e.g., `Long`, `String`, UUID). Composite keys are Base64-encoded JSON — see [Composite IDs](#composite-ids). |
 
 **Response (200 OK):**
 
@@ -233,6 +233,48 @@ No response body is returned on successful deletion.
 ```bash
 curl -X DELETE http://localhost:8080/dal/v1/products/1
 ```
+
+### Composite IDs
+
+When an entity uses a composite key (JPA `@EmbeddedId` or `@IdClass` — i.e. the DAL's `getIdClass()` is a
+complex type rather than `Long`, `String`, UUID, …), the ID crosses the wire in two different shapes:
+
+- **In request/response bodies** (Create, Read, Update responses) the ID is a plain **nested JSON object**.
+- **In the `{id}` path segment** (Read One, Update, Delete) it is the ID's JSON representation encoded as
+  **Base64 URL-safe** (RFC 4648 §5; padding optional). `DalIdArgumentResolver` decodes the segment and
+  deserializes it into the DAL's ID class.
+
+Simple IDs are unaffected: they are passed as-is in the path (`/dal/v1/products/1`).
+
+**Example** — the showcase `translations` DAL uses the composite key `TranslationId { messageKey, locale }`:
+
+```text
+JSON id:      {"messageKey":"greeting","locale":"it"}
+Path segment: eyJtZXNzYWdlS2V5IjoiZ3JlZXRpbmciLCJsb2NhbGUiOiJpdCJ9
+```
+
+```bash
+# Encode the id (Base64 URL-safe, padding stripped)
+ID=$(printf '%s' '{"messageKey":"greeting","locale":"it"}' | basenc --base64url | tr -d '=')
+
+# Read one
+curl "http://localhost:8080/dal/v1/translations/$ID"
+
+# Update
+curl -X PATCH "http://localhost:8080/dal/v1/translations/$ID" \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Ciao!"}'
+
+# Delete
+curl -X DELETE "http://localhost:8080/dal/v1/translations/$ID"
+```
+
+The JSON field names are the **wire names** (after any `@JsonProperty` / naming strategy), exactly as the
+entity serializes them in response bodies. A malformed Base64 segment or JSON that doesn't match the ID
+class is rejected.
+
+> **Tip:** the generated OpenAPI documentation shows a copy-pasteable Base64 example for the `id`
+> parameter of every composite-key DAL in Swagger UI.
 
 ## Filtering (Query Language)
 

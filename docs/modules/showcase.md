@@ -13,17 +13,17 @@ itself is compiled to and distributed as Java 21, so this is a property of the d
 
 ## Key Demo DALs
 
-| DAL               | Highlights                                                                   | Key File                 |
-|-------------------|------------------------------------------------------------------------------|--------------------------|
-| **announcements** | Baseline: no security, no audit, metrics disabled                            | `AnnouncementDalService` |
-| **articles**      | Read-only (via `operations`), audit, default filter, role-based visibility   | `ArticleDalService`      |
-| **products**      | Full: auth + property-based RBAC, lifecycle hooks, multi-entity transactions | `ProductDalService`      |
-| **employees**     | JsonView RBAC with hierarchical role visibility                              | `EmployeeDalService`     |
-| **bulletins**     | Custom auth adapter (admin writes), metrics disabled                         | `BulletinDalService`     |
-| **departments**   | Simple CRUD example                                                          | `DepartmentDalService`   |
-| **translations**  | Composite ID (`TranslationId`)                                               | `TranslationDalService`  |
-| **app-settings**  | Internal DAL (no REST/OpenAPI)                                               | `AppSettingDalService`   |
-| **feed**          | Append-only, `operations={CREATE,READ}`                                      | `FeedEntryDalService`    |
+| DAL               | Highlights                                                                             | Key File                 |
+|-------------------|----------------------------------------------------------------------------------------|--------------------------|
+| **announcements** | Baseline: no security, no audit, metrics disabled                                      | `AnnouncementDalService` |
+| **articles**      | Read-only (via `operations`), audit, default filter, role-based visibility             | `ArticleDalService`      |
+| **products**      | Full: auth + property-based RBAC, lifecycle hooks, multi-entity transactions           | `ProductDalService`      |
+| **employees**     | JsonView RBAC with hierarchical role visibility                                        | `EmployeeDalService`     |
+| **bulletins**     | Custom auth adapter (admin writes), metrics disabled                                   | `BulletinDalService`     |
+| **departments**   | Simple CRUD example                                                                    | `DepartmentDalService`   |
+| **translations**  | Composite ID (`TranslationId`) — [Base64 `{id}` segment](../rest-api.md#composite-ids) | `TranslationDalService`  |
+| **app-settings**  | Internal DAL (no REST/OpenAPI)                                                         | `AppSettingDalService`   |
+| **feed**          | Append-only, `operations={CREATE,READ}`                                                | `FeedEntryDalService`    |
 
 ## Running the Showcase
 
@@ -99,6 +99,7 @@ spring:
 **Seeding:** `DataInitializer` populates demo data **idempotently** on startup:
 
 ```java
+
 @Component
 public class DataInitializer implements CommandLineRunner {
 
@@ -128,6 +129,7 @@ Tests use **Testcontainers** to spin up a fresh PostgreSQL 17 container. All int
 class:
 
 ```java
+
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @AutoConfigureTestRestTemplate

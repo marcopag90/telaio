@@ -37,13 +37,13 @@ handling, and the adapter chain that wires together security, audit, metrics, an
 
 ### Exposure Control & Error Handling
 
-| Type                                 | Purpose                                                                                                                                                                                                                      |
-|--------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `WebDalExposureInterceptor`          | Outermost interceptor: enforces `@DalService(operations)` and `internal` flag. Raises `DalOperationNotExposedException` (→ 405 + `Allow` header or 404).                                                                     |
-| `DalOperationNotExposedException`    | Exception: operation is not exposed (404 or 405).                                                                                                                                                                            |
+| Type                                 | Purpose                                                                                                                                                                                                                                                                                       |
+|--------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `WebDalExposureInterceptor`          | Outermost interceptor: enforces `@DalService(operations)` and `internal` flag. Raises `DalOperationNotExposedException` (→ 405 + `Allow` header or 404).                                                                                                                                      |
+| `DalOperationNotExposedException`    | Exception: operation is not exposed (404 or 405).                                                                                                                                                                                                                                             |
 | `TelaioWebExceptionHandler`          | Global exception handler: maps `DalEntityValidationException` (400), `DalEntityNotFoundException` / `DalNotFoundException` / `DalResourceNotFoundException` (404), `DalRegistryException` (500, generic detail), and `DalOperationNotExposedException` (405/404) to RFC 9457 `ProblemDetail`. |
-| `TelaioAccessDeniedExceptionHandler` | Global exception handler: maps Spring Security's `AccessDeniedException` (including `DalAccessDeniedException`) to 403 `ProblemDetail` with minimal detail (OWASP CWE-209). Registered only when Spring Security is present. |
-| `ValidationError`                    | Detail object in validation error responses: `object`, `field`, `rejectValue`, `message`                                                                                                                                     |
+| `TelaioAccessDeniedExceptionHandler` | Global exception handler: maps Spring Security's `AccessDeniedException` (including `DalAccessDeniedException`) to 403 `ProblemDetail` with minimal detail (OWASP CWE-209). Registered only when Spring Security is present.                                                                  |
+| `ValidationError`                    | Detail object in validation error responses: `object`, `field`, `rejectValue`, `message`                                                                                                                                                                                                      |
 
 ### Configuration
 
@@ -59,6 +59,7 @@ handling, and the adapter chain that wires together security, audit, metrics, an
 Once you declare a DAL service, the REST API exists with no additional controller code:
 
 ```java
+
 @DalService(name = "announcements")
 public class AnnouncementDalService extends JpaDal<Announcement, Long> {
 }
@@ -92,6 +93,7 @@ Details: see [REST API Guide](../rest-api.md).
 ### Control Which Operations Are Exposed
 
 ```java
+
 @DalService(name = "articles", operations = {DalOperationType.READ, DalOperationType.READ_ONE})
 public class ArticleDalService extends JpaDal<Article, Long> {
 }
@@ -106,6 +108,7 @@ public class ArticleDalService extends JpaDal<Article, Long> {
 ### Hide a DAL Entirely
 
 ```java
+
 @DalService(name = "app-settings", internal = true)
 public class AppSettingDalService extends JpaDal<AppSetting, String> {
 }
@@ -118,6 +121,7 @@ public class AppSettingDalService extends JpaDal<AppSetting, String> {
 When a DAL uses a non-numeric ID type, use `@DalId` to extract and convert:
 
 ```java
+
 @DalService(name = "settings")
 public class SettingDalService extends JpaDal<Setting, String> {
 }
@@ -136,6 +140,17 @@ Object readOne(
 → `GET /dal/v1/settings/MY_SETTING_KEY` resolves `id` as `"MY_SETTING_KEY"` (String, not Long), because the target
 DAL's id type is `String`.
 
+**Composite IDs:** when the DAL's id class is a complex type (e.g. a JPA `@EmbeddedId`), the `{id}` path segment
+must be the id's JSON representation encoded as **Base64 URL-safe**; `DalIdArgumentResolver` decodes it and
+deserializes the JSON into the id class (in request/response bodies the id stays a plain nested JSON object):
+
+```text
+GET /dal/v1/translations/eyJtZXNzYWdlS2V5IjoiZ3JlZXRpbmciLCJsb2NhbGUiOiJpdCJ9
+                          └── base64url({"messageKey":"greeting","locale":"it"}) ──┘
+```
+
+See [REST API — Composite IDs](../rest-api.md#composite-ids) for the full client-side contract and examples.
+
 ### Handle Errors
 
 All errors are returned as RFC 9457 `ProblemDetail` (content-type `application/problem+json`):
@@ -150,8 +165,18 @@ All errors are returned as RFC 9457 `ProblemDetail` (content-type `application/p
   "detail": "Validation failed",
   "instance": "/dal/v1/products",
   "errors": [
-    { "object": "product", "field": "price", "rejectValue": -1, "message": "must be greater than 0" },
-    { "object": "product", "field": "name", "rejectValue": null, "message": "must not be blank" }
+    {
+      "object": "product",
+      "field": "price",
+      "rejectValue": -1,
+      "message": "must be greater than 0"
+    },
+    {
+      "object": "product",
+      "field": "name",
+      "rejectValue": null,
+      "message": "must not be blank"
+    }
   ]
 }
 ```
