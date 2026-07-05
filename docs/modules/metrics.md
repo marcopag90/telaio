@@ -24,7 +24,7 @@ percentiles. Metrics are **ON by default** via `@DalMetrics`.
 
 | Type                    | Purpose                                                                                                      |
 |-------------------------|--------------------------------------------------------------------------------------------------------------|
-| `DalMetricsInterceptor` | Channel-agnostic: intercepts every DAL operation to measure latency and count outcomes (SUCCESS/ERROR)       |
+| `DalMetricsInterceptor` | Channel-agnostic: intercepts every DAL operation to measure latency and count outcomes (SUCCESS / CLIENT_ERROR for validation, not-found and conflicts / ERROR for service faults). Classification follows core's fixed `DalFailureKind` taxonomy — unlike audit there is no classifier SPI; to customize it, replace the `DalMetricsInterceptorProvider` bean |
 | `DalMetricsRecorder`    | SPI: sink for recording individual operation timings (aggregator + optional Micrometer)                      |
 | `DalMetricsAggregator`  | Lock-free in-memory accumulator: buckets timings by 1-minute windows (configurable) and computes percentiles |
 

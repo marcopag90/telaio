@@ -157,7 +157,7 @@ graph TD
     D -->|2. METRICS_PRECEDENCE<br/>= AUDIT + 1000| E["DalMetricsInterceptor"]
     E -->|Time the op| F["Invoke next"]
     F -->|Call the actual| G["Dal Method<br/>create/read/update/etc"]
-    G -->|Success or error| H["Audit records<br/>SUCCESS/ERROR"]
+    G -->|Outcome| H["Audit records<br/>SUCCESS / client faults<br/>(VALIDATION, NOT_FOUND, CONFLICT) / ERROR"]
     H -->|Metrics recorded| I["Result returned<br/>to caller"]
 ```
 
