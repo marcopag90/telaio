@@ -64,6 +64,10 @@ public interface Dal<E, I> extends DalMetadata<E, I> {
     /**
      * Deletes an entity identified by {@code id}.
      *
+     * <p>An entity that does not exist — or that is hidden by the DAL's default filter — cannot
+     * be deleted: the operation fails with
+     * {@link io.paganbit.telaio.core.exception.DalEntityNotFoundException}.</p>
+     *
      * @param id the entity identifier
      */
     @DalOperation(DalOperationType.DELETE)

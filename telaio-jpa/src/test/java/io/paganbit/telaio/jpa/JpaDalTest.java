@@ -6,6 +6,7 @@ import com.turkraft.springfilter.converter.FilterSpecificationConverter;
 import com.turkraft.springfilter.converter.FilterStringConverter;
 import com.turkraft.springfilter.parser.node.FilterNode;
 import io.paganbit.telaio.core.beans.DalPropertyMerger;
+import io.paganbit.telaio.core.exception.DalEntityNotFoundException;
 import io.paganbit.telaio.core.transaction.DalTransactionPolicy;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.metamodel.EntityType;
@@ -23,15 +24,16 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
 import org.springframework.validation.beanvalidation.SpringValidatorAdapter;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatNullPointerException;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -320,6 +322,69 @@ class JpaDalTest {
 
         assertThat(result).isNotNull().isNotSameAs(input);
         verify(specificationConverter).convert(defaultFilter);
+    }
+
+    // -----------------------------------------------------------------------------------------------
+    // Delete honors the default filter (by-id operations go through the filtered lookup)
+    // -----------------------------------------------------------------------------------------------
+
+    /**
+     * Returns a fully initialized DAL whose {@code defaultFilter()} converts to the given
+     * specification, so the filtered by-id lookup is exercised end-to-end at the mock level.
+     */
+    private DefaultFilteredJpaDal filteredDal(FilterNode defaultFilter) {
+        DefaultFilteredJpaDal dal = new DefaultFilteredJpaDal(repository, entityManager, defaultFilter);
+        wireAbstractDalCollaborators(dal);
+        dal.setSpecificationConverter(specificationConverter);
+        dal.afterPropertiesSet();
+        return dal;
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void delete_entityHiddenByDefaultFilter_throwsNotFoundAndNeverDeletes() {
+        FilterNode defaultFilter = mock(FilterNode.class);
+        DefaultFilteredJpaDal dal = filteredDal(defaultFilter);
+        FilterSpecification<TestEntity> defaultSpec = mock(FilterSpecification.class);
+        doReturn(defaultSpec).when(specificationConverter).convert(defaultFilter);
+        // The filtered by-id lookup does not see the row: hidden behaves exactly like missing.
+        when(repository.findOne(any(Specification.class))).thenReturn(Optional.empty());
+
+        assertThatExceptionOfType(DalEntityNotFoundException.class)
+            .isThrownBy(() -> dal.delete(42L));
+
+        verify(repository, never()).deleteById(any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void update_entityHiddenByDefaultFilter_throwsNotFoundAndNeverSaves() {
+        FilterNode defaultFilter = mock(FilterNode.class);
+        DefaultFilteredJpaDal dal = filteredDal(defaultFilter);
+        FilterSpecification<TestEntity> defaultSpec = mock(FilterSpecification.class);
+        doReturn(defaultSpec).when(specificationConverter).convert(defaultFilter);
+        when(repository.findOne(any(Specification.class))).thenReturn(Optional.empty());
+
+        assertThatExceptionOfType(DalEntityNotFoundException.class)
+            .isThrownBy(() -> dal.update(42L, Map.of()));
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void delete_visibleEntity_deletesById() {
+        FilterNode defaultFilter = mock(FilterNode.class);
+        DefaultFilteredJpaDal dal = filteredDal(defaultFilter);
+        FilterSpecification<TestEntity> defaultSpec = mock(FilterSpecification.class);
+        doReturn(defaultSpec).when(specificationConverter).convert(defaultFilter);
+        when(repository.findOne(any(Specification.class))).thenReturn(Optional.of(new TestEntity()));
+        when(transactionPolicy.forDelete()).thenReturn(new DefaultTransactionDefinition());
+
+        dal.delete(42L);
+
+        verify(repository).findOne(any(Specification.class));
+        verify(repository).deleteById(42L);
     }
 
     // -----------------------------------------------------------------------------------------------
