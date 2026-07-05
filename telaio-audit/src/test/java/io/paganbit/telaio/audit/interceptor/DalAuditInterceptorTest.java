@@ -106,6 +106,20 @@ class DalAuditInterceptorTest {
     }
 
     @Test
+    void create_whenClassifiedAsClientFault_shouldStoreGranularOutcome() throws Throwable {
+        RuntimeException failure = new RuntimeException("missing");
+        when(invocation.getMethod()).thenReturn(Dal.class.getMethod("create", Map.class));
+        when(invocation.getArguments()).thenReturn(new Object[]{Map.of()});
+        when(invocation.proceed()).thenThrow(failure);
+        when(outcomeClassifier.classify(failure)).thenReturn(DalAuditOutcome.NOT_FOUND);
+
+        assertThatThrownBy(() -> interceptor.invoke(invocation)).isSameAs(failure);
+
+        assertThat(storedEvent().outcome()).isEqualTo(DalAuditOutcome.NOT_FOUND);
+        assertThat(storedEvent().errorType()).isEqualTo(RuntimeException.class.getName());
+    }
+
+    @Test
     void operationOutsideAuditedSet_shouldPassThroughWithoutStoring() throws Throwable {
         interceptor = new DalAuditInterceptor(
             "testDal", EnumSet.of(DalOperationType.CREATE), store, principalResolver, outcomeClassifier,

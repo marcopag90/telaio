@@ -4,7 +4,9 @@ import org.springframework.security.access.AccessDeniedException;
 
 /**
  * {@link DalAuditOutcomeClassifier} aware of Spring Security: authorization failures are
- * classified as {@link DalAuditOutcome#DENIED}, anything else as {@link DalAuditOutcome#ERROR}.
+ * classified as {@link DalAuditOutcome#DENIED}; everything else follows the shared
+ * {@link io.paganbit.telaio.core.exception.DalFailureKind} taxonomy (validation, not-found,
+ * conflict, error) exactly like {@link DefaultDalAuditOutcomeClassifier}.
  *
  * <p>Telaio's own {@code DalAccessDeniedException} extends {@link AccessDeniedException}, so DAL
  * authorization failures are covered without a dependency on the security module.</p>
@@ -14,8 +16,12 @@ import org.springframework.security.access.AccessDeniedException;
  */
 public class SecurityDalAuditOutcomeClassifier implements DalAuditOutcomeClassifier {
 
+    private final DalAuditOutcomeClassifier fallback = new DefaultDalAuditOutcomeClassifier();
+
     @Override
     public DalAuditOutcome classify(Throwable failure) {
-        return failure instanceof AccessDeniedException ? DalAuditOutcome.DENIED : DalAuditOutcome.ERROR;
+        return failure instanceof AccessDeniedException
+            ? DalAuditOutcome.DENIED
+            : fallback.classify(failure);
     }
 }
