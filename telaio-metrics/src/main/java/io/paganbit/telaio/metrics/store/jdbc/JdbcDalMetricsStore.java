@@ -76,6 +76,7 @@ public class JdbcDalMetricsStore implements DalMetricsStore, DalMetricsQueryServ
         DalOperationType.valueOf(rs.getString("operation")),
         rs.getLong("invocation_count"),
         rs.getLong("error_count"),
+        rs.getLong("client_error_count"),
         rs.getLong("total_duration_nanos"),
         rs.getLong("min_duration_nanos"),
         rs.getLong("max_duration_nanos"),
@@ -145,12 +146,13 @@ public class JdbcDalMetricsStore implements DalMetricsStore, DalMetricsQueryServ
                 instance_id,
                 invocation_count,
                 error_count,
+                client_error_count,
                 total_duration_nanos,
                 min_duration_nanos,
                 max_duration_nanos,
                 histogram_counts
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """.formatted(tableName);
         jdbcTemplate.update(sql,
             toDbTimestamp(bucket.bucketStart()),
@@ -160,6 +162,7 @@ public class JdbcDalMetricsStore implements DalMetricsStore, DalMetricsQueryServ
             instanceId,
             bucket.count(),
             bucket.errorCount(),
+            bucket.clientErrorCount(),
             bucket.totalDurationNanos(),
             bucket.minDurationNanos(),
             bucket.maxDurationNanos(),
@@ -196,6 +199,7 @@ public class JdbcDalMetricsStore implements DalMetricsStore, DalMetricsQueryServ
             UPDATE %s
             SET invocation_count = ?,
                 error_count = ?,
+                client_error_count = ?,
                 total_duration_nanos = ?,
                 min_duration_nanos = ?,
                 max_duration_nanos = ?,
@@ -206,7 +210,7 @@ public class JdbcDalMetricsStore implements DalMetricsStore, DalMetricsQueryServ
               AND instance_id = ?
             """.formatted(tableName);
         jdbcTemplate.update(updateSql,
-            merged.count(), merged.errorCount(), merged.totalDurationNanos(),
+            merged.count(), merged.errorCount(), merged.clientErrorCount(), merged.totalDurationNanos(),
             merged.minDurationNanos(), merged.maxDurationNanos(),
             formatHistogram(merged.histogramCounts()),
             toDbTimestamp(incoming.bucketStart()), incoming.dalName(),

@@ -2,6 +2,7 @@ package io.paganbit.telaio.metrics.collector;
 
 import io.paganbit.telaio.core.Dal;
 import io.paganbit.telaio.core.adapter.DalOperationType;
+import io.paganbit.telaio.core.exception.DalEntityNotFoundException;
 import org.aopalliance.intercept.MethodInvocation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,7 +43,7 @@ class DalMetricsInterceptorTest {
         Object result = interceptor.invoke(invocation);
 
         assertThat(result).isEqualTo("entity");
-        verify(aggregator).doRecord(eq("testDal"), eq(DalOperationType.CREATE), anyLong(), eq(false));
+        verify(aggregator).doRecord(eq("testDal"), eq(DalOperationType.CREATE), anyLong(), eq(DalMetricsOutcome.SUCCESS));
     }
 
     @Test
@@ -53,7 +54,20 @@ class DalMetricsInterceptorTest {
 
         assertThatThrownBy(() -> interceptor.invoke(invocation)).isSameAs(failure);
 
-        verify(aggregator).doRecord(eq("testDal"), eq(DalOperationType.DELETE), anyLong(), eq(true));
+        verify(aggregator).doRecord(eq("testDal"), eq(DalOperationType.DELETE), anyLong(), eq(DalMetricsOutcome.ERROR));
+    }
+
+    @Test
+    void clientFault_shouldRecordClientErrorAndRethrow() throws Throwable {
+        // A missing/hidden entity is the caller's fault: counted apart from service errors.
+        DalEntityNotFoundException failure = new DalEntityNotFoundException(Object.class, 42L);
+        when(invocation.getMethod()).thenReturn(Dal.class.getMethod("delete", Object.class));
+        when(invocation.proceed()).thenThrow(failure);
+
+        assertThatThrownBy(() -> interceptor.invoke(invocation)).isSameAs(failure);
+
+        verify(aggregator).doRecord(
+            eq("testDal"), eq(DalOperationType.DELETE), anyLong(), eq(DalMetricsOutcome.CLIENT_ERROR));
     }
 
     @Test
@@ -84,7 +98,7 @@ class DalMetricsInterceptorTest {
         when(invocation.getMethod()).thenReturn(Dal.class.getMethod("create", Map.class));
         when(invocation.proceed()).thenReturn("entity");
         doThrow(new IllegalStateException("aggregator down"))
-            .when(aggregator).doRecord(eq("testDal"), eq(DalOperationType.CREATE), anyLong(), anyBoolean());
+            .when(aggregator).doRecord(eq("testDal"), eq(DalOperationType.CREATE), anyLong(), any(DalMetricsOutcome.class));
 
         Object result = interceptor.invoke(invocation);
 
@@ -97,7 +111,7 @@ class DalMetricsInterceptorTest {
         when(invocation.getMethod()).thenReturn(Dal.class.getMethod("create", Map.class));
         when(invocation.proceed()).thenThrow(failure);
         doThrow(new IllegalStateException("aggregator down"))
-            .when(aggregator).doRecord(eq("testDal"), eq(DalOperationType.CREATE), anyLong(), anyBoolean());
+            .when(aggregator).doRecord(eq("testDal"), eq(DalOperationType.CREATE), anyLong(), any(DalMetricsOutcome.class));
 
         assertThatThrownBy(() -> interceptor.invoke(invocation)).isSameAs(failure);
     }
@@ -107,7 +121,7 @@ class DalMetricsInterceptorTest {
         DalMetricsRecorder first = mock(DalMetricsRecorder.class);
         DalMetricsRecorder second = mock(DalMetricsRecorder.class);
         doThrow(new IllegalStateException("first down"))
-            .when(first).doRecord(eq("testDal"), eq(DalOperationType.CREATE), anyLong(), anyBoolean());
+            .when(first).doRecord(eq("testDal"), eq(DalOperationType.CREATE), anyLong(), any(DalMetricsOutcome.class));
         interceptor = new DalMetricsInterceptor(
             "testDal", EnumSet.allOf(DalOperationType.class), List.of(first, second));
         when(invocation.getMethod()).thenReturn(Dal.class.getMethod("create", Map.class));
@@ -116,8 +130,8 @@ class DalMetricsInterceptorTest {
         Object result = interceptor.invoke(invocation);
 
         assertThat(result).isEqualTo("entity");
-        verify(first).doRecord(eq("testDal"), eq(DalOperationType.CREATE), anyLong(), eq(false));
-        verify(second).doRecord(eq("testDal"), eq(DalOperationType.CREATE), anyLong(), eq(false));
+        verify(first).doRecord(eq("testDal"), eq(DalOperationType.CREATE), anyLong(), eq(DalMetricsOutcome.SUCCESS));
+        verify(second).doRecord(eq("testDal"), eq(DalOperationType.CREATE), anyLong(), eq(DalMetricsOutcome.SUCCESS));
     }
 
     @Test
@@ -129,7 +143,7 @@ class DalMetricsInterceptorTest {
 
         interceptor.invoke(invocation);
 
-        verify(aggregator).doRecord(eq("testDal"), eq(DalOperationType.READ), anyLong(), eq(false));
-        verify(aggregator, never()).doRecord(eq("testDal"), eq(DalOperationType.CREATE), anyLong(), anyBoolean());
+        verify(aggregator).doRecord(eq("testDal"), eq(DalOperationType.READ), anyLong(), eq(DalMetricsOutcome.SUCCESS));
+        verify(aggregator, never()).doRecord(eq("testDal"), eq(DalOperationType.CREATE), anyLong(), any(DalMetricsOutcome.class));
     }
 }

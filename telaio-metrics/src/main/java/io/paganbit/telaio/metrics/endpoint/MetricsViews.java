@@ -28,6 +28,7 @@ public final class MetricsViews {
     public record StatsView(
         long count,
         long errorCount,
+        long clientErrorCount,
         double meanMs,
         double minMs,
         double maxMs,
@@ -42,6 +43,7 @@ public final class MetricsViews {
             return new StatsView(
                 stats.count(),
                 stats.errorCount(),
+                stats.clientErrorCount(),
                 toMillis(stats.mean()),
                 toMillis(stats.min()),
                 toMillis(stats.max()),

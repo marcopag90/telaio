@@ -10,6 +10,7 @@ BEGIN
             instance_id          VARCHAR2(36)    NOT NULL,
             invocation_count     NUMBER(19)      NOT NULL,
             error_count          NUMBER(19)      NOT NULL,
+            client_error_count   NUMBER(19)      NOT NULL,
             total_duration_nanos NUMBER(19)      NOT NULL,
             min_duration_nanos   NUMBER(19)      NOT NULL,
             max_duration_nanos   NUMBER(19)      NOT NULL,

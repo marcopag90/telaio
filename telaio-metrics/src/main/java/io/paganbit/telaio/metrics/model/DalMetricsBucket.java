@@ -17,7 +17,10 @@ import java.util.Objects;
  * {@link LatencyHistogramScale} — so statistics over any time range are computed by merging the
  * buckets it covers.</p>
  *
- * <p>Outcomes are SUCCESS or ERROR only ({@code count - errorCount} = successes): authorization
+ * <p>Outcomes are SUCCESS, CLIENT_ERROR, or ERROR
+ * ({@code count - errorCount - clientErrorCount} = successes): client faults (validation,
+ * not-found, conflicts — see {@link io.paganbit.telaio.core.exception.DalFailureKind}) are
+ * counted apart from service errors so the error rate reflects service health. Authorization
  * denials happen at the web operation-adapter boundary and never reach the {@code Dal} bean, so
  * they are not DAL usage and are not observable here.</p>
  *
@@ -26,7 +29,9 @@ import java.util.Objects;
  * @param dalName            registration name of the DAL
  * @param operation          the DAL operation
  * @param count              total invocations
- * @param errorCount         invocations that threw
+ * @param errorCount         invocations that failed because of the service
+ * @param clientErrorCount   invocations that failed because of the caller (validation,
+ *                           not-found, conflict)
  * @param totalDurationNanos sum of elapsed times, in nanoseconds
  * @param minDurationNanos   smallest elapsed time, in nanoseconds
  * @param maxDurationNanos   largest elapsed time, in nanoseconds
@@ -42,6 +47,7 @@ public record DalMetricsBucket(
     DalOperationType operation,
     long count,
     long errorCount,
+    long clientErrorCount,
     long totalDurationNanos,
     long minDurationNanos,
     long maxDurationNanos,
@@ -77,6 +83,7 @@ public record DalMetricsBucket(
             operation,
             count + other.count,
             errorCount + other.errorCount,
+            clientErrorCount + other.clientErrorCount,
             totalDurationNanos + other.totalDurationNanos,
             Math.min(minDurationNanos, other.minDurationNanos),
             Math.max(maxDurationNanos, other.maxDurationNanos),
@@ -89,11 +96,12 @@ public record DalMetricsBucket(
         if (this == o) return true;
         if (!(o instanceof DalMetricsBucket(
             Instant start, Duration duration, String name,
-            DalOperationType operation1, long count1, long errorCount1,
+            DalOperationType operation1, long count1, long errorCount1, long clientErrorCount1,
             long durationNanos, long nanos, long maxDurationNanos1, long[] counts
         ))) return false;
         return count == count1
             && errorCount == errorCount1
+            && clientErrorCount == clientErrorCount1
             && totalDurationNanos == durationNanos
             && minDurationNanos == nanos
             && maxDurationNanos == maxDurationNanos1
@@ -108,8 +116,8 @@ public record DalMetricsBucket(
     public int hashCode() {
         return Objects.hash(
             bucketStart, bucketDuration, dalName, operation,
-            count, errorCount, totalDurationNanos, minDurationNanos, maxDurationNanos,
-            Arrays.hashCode(histogramCounts)
+            count, errorCount, clientErrorCount, totalDurationNanos, minDurationNanos,
+            maxDurationNanos, Arrays.hashCode(histogramCounts)
         );
     }
 
@@ -122,6 +130,7 @@ public record DalMetricsBucket(
             "operation=" + operation + ", " +
             "count=" + count + ", " +
             "errorCount=" + errorCount + ", " +
+            "clientErrorCount=" + clientErrorCount + ", " +
             "totalDurationNanos=" + totalDurationNanos + ", " +
             "minDurationNanos=" + minDurationNanos + ", " +
             "maxDurationNanos=" + maxDurationNanos + ", " +

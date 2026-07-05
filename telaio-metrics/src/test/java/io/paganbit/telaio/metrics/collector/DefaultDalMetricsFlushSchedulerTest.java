@@ -33,7 +33,7 @@ class DefaultDalMetricsFlushSchedulerTest {
     private DalMetricsBucket sampleBucket() {
         return new DalMetricsBucket(
             Instant.parse("2026-06-12T10:00:00Z"), Duration.ofMinutes(1), "products",
-            DalOperationType.READ, 1, 0, 1_000_000, 1_000_000, 1_000_000, new long[]{0, 1});
+            DalOperationType.READ, 1, 0, 0, 1_000_000, 1_000_000, 1_000_000, new long[]{0, 1});
     }
 
     @Test
@@ -112,7 +112,7 @@ class DefaultDalMetricsFlushSchedulerTest {
         final List<DalMetricsBucket> all = new ArrayList<>();
 
         @Override
-        public void doRecord(String dalName, DalOperationType operation, long durationNanos, boolean error) {
+        public void doRecord(String dalName, DalOperationType operation, long durationNanos, DalMetricsOutcome outcome) {
             // not exercised by these tests
         }
 

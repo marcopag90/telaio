@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS @@table_name@@ (
     instance_id          VARCHAR(36)   NOT NULL,
     invocation_count     BIGINT        NOT NULL,
     error_count          BIGINT        NOT NULL,
+    client_error_count   BIGINT        NOT NULL,
     total_duration_nanos BIGINT        NOT NULL,
     min_duration_nanos   BIGINT        NOT NULL,
     max_duration_nanos   BIGINT        NOT NULL,

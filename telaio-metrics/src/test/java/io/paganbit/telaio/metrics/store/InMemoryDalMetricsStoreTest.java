@@ -34,7 +34,8 @@ class InMemoryDalMetricsStoreTest {
 
     private DalMetricsBucket bucket(
         Instant start, String dal, DalOperationType op, long count, long errors, long totalNanos) {
-        return new DalMetricsBucket(start, Duration.ofMinutes(1), dal, op, count, errors,
+        // clientErrorCount = errors * 2: distinct from errorCount, so a counter swap fails merges.
+        return new DalMetricsBucket(start, Duration.ofMinutes(1), dal, op, count, errors, errors * 2,
             totalNanos, totalNanos / Math.max(count, 1), totalNanos / Math.max(count, 1),
             new long[]{0, count, 0, 0});
     }
@@ -47,6 +48,7 @@ class InMemoryDalMetricsStoreTest {
         DalMetricsStats stats = store.stats("products", DalOperationType.READ, T0, NOW);
         assertThat(stats.count()).isEqualTo(8);
         assertThat(stats.errorCount()).isEqualTo(1);
+        assertThat(stats.clientErrorCount()).isEqualTo(2);
         assertThat(stats.totalDuration()).isEqualTo(Duration.ofNanos(8_000_000));
     }
 

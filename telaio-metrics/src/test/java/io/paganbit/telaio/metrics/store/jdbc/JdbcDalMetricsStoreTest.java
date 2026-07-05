@@ -87,7 +87,9 @@ class JdbcDalMetricsStoreTest {
 
     private DalMetricsBucket bucket(
         Instant start, String dal, DalOperationType op, long count, long errors, long totalNanos) {
-        return new DalMetricsBucket(start, Duration.ofMinutes(1), dal, op, count, errors,
+        // clientErrorCount = errors * 2: distinct from errorCount, so a positional swap of the
+        // two columns in the INSERT/UPDATE bindings fails the round-trip assertions.
+        return new DalMetricsBucket(start, Duration.ofMinutes(1), dal, op, count, errors, errors * 2,
             totalNanos, totalNanos / Math.max(count, 1), totalNanos / Math.max(count, 1),
             new long[]{0, count, 0, 0});
     }

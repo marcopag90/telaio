@@ -42,6 +42,7 @@ public class DefaultDalMetricsBucketMerger implements DalMetricsBucketMerger {
     ) {
         long count = 0;
         long errorCount = 0;
+        long clientErrorCount = 0;
         long totalNanos = 0;
         long minNanos = Long.MAX_VALUE;
         long maxNanos = Long.MIN_VALUE;
@@ -53,6 +54,7 @@ public class DefaultDalMetricsBucketMerger implements DalMetricsBucketMerger {
             }
             count += bucket.count();
             errorCount += bucket.errorCount();
+            clientErrorCount += bucket.clientErrorCount();
             totalNanos += bucket.totalDurationNanos();
             minNanos = Math.min(minNanos, bucket.minDurationNanos());
             maxNanos = Math.max(maxNanos, bucket.maxDurationNanos());
@@ -65,7 +67,7 @@ public class DefaultDalMetricsBucketMerger implements DalMetricsBucketMerger {
         }
 
         if (count == 0) {
-            return new DalMetricsStats(dalName, operation, from, to, 0, 0,
+            return new DalMetricsStats(dalName, operation, from, to, 0, 0, 0,
                 Duration.ZERO, Duration.ZERO, Duration.ZERO, Duration.ZERO, Map.of());
         }
 
@@ -80,6 +82,7 @@ public class DefaultDalMetricsBucketMerger implements DalMetricsBucketMerger {
             to,
             count,
             errorCount,
+            clientErrorCount,
             Duration.ofNanos(totalNanos),
             Duration.ofNanos(minNanos),
             Duration.ofNanos(maxNanos),

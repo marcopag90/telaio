@@ -47,7 +47,7 @@ class TelaioMetricsEndpointTest {
     }
 
     private DalMetricsStats stats(String dal, DalOperationType op, long count, long meanNanos) {
-        return new DalMetricsStats(dal, op, NOW.minus(Duration.ofHours(1)), NOW, count, 0,
+        return new DalMetricsStats(dal, op, NOW.minus(Duration.ofHours(1)), NOW, count, 0, 1,
             Duration.ofNanos(meanNanos * count), Duration.ofNanos(meanNanos),
             Duration.ofNanos(meanNanos), Duration.ofNanos(meanNanos),
             Map.of(0.5, Duration.ofNanos(meanNanos), 0.9, Duration.ofNanos(meanNanos),
@@ -105,6 +105,7 @@ class TelaioMetricsEndpointTest {
 
         assertThat(view.operation()).isEqualTo(DalOperationType.READ);
         assertThat(view.stats().count()).isEqualTo(7);
+        assertThat(view.stats().clientErrorCount()).isEqualTo(1);
         assertThat(view.stats().meanMs()).isEqualTo(3.0);
         assertThat(view.stats().percentilesMs()).containsKey("p95");
     }
@@ -113,7 +114,7 @@ class TelaioMetricsEndpointTest {
     void operation_shouldReportZerosWhenNoData() {
         when(queryService.stats(eq("products"), eq(DalOperationType.DELETE), any(), any()))
             .thenReturn(new DalMetricsStats("products", DalOperationType.DELETE,
-                NOW.minus(Duration.ofHours(1)), NOW, 0, 0, Duration.ZERO, Duration.ZERO,
+                NOW.minus(Duration.ofHours(1)), NOW, 0, 0, 0, Duration.ZERO, Duration.ZERO,
                 Duration.ZERO, Duration.ZERO, Map.of()));
 
         MetricsViews.OperationView view = endpoint.operation("products", "DELETE", null, null);

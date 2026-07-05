@@ -17,8 +17,10 @@ import java.util.Map;
  * @param operation     the DAL operation, or {@code null} when merged across all operations
  * @param from          start of the queried range (inclusive)
  * @param to            end of the queried range (exclusive)
- * @param count         total invocations
- * @param errorCount    invocations that threw
+ * @param count            total invocations
+ * @param errorCount       invocations that failed because of the service
+ * @param clientErrorCount invocations that failed because of the caller (validation, not-found,
+ *                         conflict — see {@link io.paganbit.telaio.core.exception.DalFailureKind})
  * @param totalDuration sum of elapsed times
  * @param min           smallest elapsed time
  * @param max           largest elapsed time
@@ -34,6 +36,7 @@ public record DalMetricsStats(
     Instant to,
     long count,
     long errorCount,
+    long clientErrorCount,
     Duration totalDuration,
     Duration min,
     Duration max,
