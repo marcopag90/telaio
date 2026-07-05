@@ -246,12 +246,14 @@ class JpaDalTest {
     }
 
     @Test
-    void executeDelete_delegatesToRepositoryDeleteById() {
+    void executeDelete_delegatesToRepositoryManagedDelete() {
         TestJpaDal dal = readyDal();
+        TestEntity entity = new TestEntity();
 
-        dal.executeDelete(42L);
+        dal.executeDelete(entity);
 
-        verify(repository).deleteById(42L);
+        // Managed remove (not deleteById): honors @Version when the entity declares one.
+        verify(repository).delete(entity);
     }
 
     @Test
@@ -348,11 +350,14 @@ class JpaDalTest {
         FilterSpecification<TestEntity> defaultSpec = mock(FilterSpecification.class);
         doReturn(defaultSpec).when(specificationConverter).convert(defaultFilter);
         // The filtered by-id lookup does not see the row: hidden behaves exactly like missing.
+        // The pre-check now runs inside the delete transaction, so the policy is consulted.
         when(repository.findOne(any(Specification.class))).thenReturn(Optional.empty());
+        when(transactionPolicy.forDelete()).thenReturn(new DefaultTransactionDefinition());
 
         assertThatExceptionOfType(DalEntityNotFoundException.class)
             .isThrownBy(() -> dal.delete(42L));
 
+        verify(repository, never()).delete(any(TestEntity.class));
         verify(repository, never()).deleteById(any());
     }
 
@@ -373,18 +378,20 @@ class JpaDalTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void delete_visibleEntity_deletesById() {
+    void delete_visibleEntity_deletesTheLoadedInstance() {
         FilterNode defaultFilter = mock(FilterNode.class);
         DefaultFilteredJpaDal dal = filteredDal(defaultFilter);
         FilterSpecification<TestEntity> defaultSpec = mock(FilterSpecification.class);
         doReturn(defaultSpec).when(specificationConverter).convert(defaultFilter);
-        when(repository.findOne(any(Specification.class))).thenReturn(Optional.of(new TestEntity()));
+        TestEntity loaded = new TestEntity();
+        when(repository.findOne(any(Specification.class))).thenReturn(Optional.of(loaded));
         when(transactionPolicy.forDelete()).thenReturn(new DefaultTransactionDefinition());
 
         dal.delete(42L);
 
         verify(repository).findOne(any(Specification.class));
-        verify(repository).deleteById(42L);
+        // The very instance returned by the filtered lookup is removed (managed delete).
+        verify(repository).delete(loaded);
     }
 
     // -----------------------------------------------------------------------------------------------
