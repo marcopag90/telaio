@@ -144,7 +144,10 @@ Available hooks (from `AbstractDal`):
 - `finalizeAfterCreate/Update/Read/ReadOne(E)` — Side-effects after the operation
 - `finalizeBeforeDelete/AfterDelete(I)` — Hooks around deletion (receive the entity id)
 - `defaultSort()` → `Sort` — Default sort order
-- `defaultFilter()` → `FilterNode?` — Implicit baseline filter (enforced on reads, updates and deletes)
+- `defaultFilter()` → `FilterNode?` — Implicit baseline filter (enforced on reads, updates and deletes).
+  The delete pre-check runs inside the delete transaction and removes the loaded managed instance, so an
+  entity with a JPA `@Version` attribute is race-proof (concurrent modification → `409 Conflict`); without
+  `@Version` a theoretical intra-transaction window remains (known limitation)
 
 ### 5. Use Filtering
 
