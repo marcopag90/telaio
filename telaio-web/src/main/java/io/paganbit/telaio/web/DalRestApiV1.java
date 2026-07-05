@@ -112,6 +112,10 @@ public interface DalRestApiV1 {
         description = "Access denied",
         content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     @ApiResponse(responseCode = "404", description = "DAL service or entity not found", content = @Content)
+    @ApiResponse(
+        responseCode = "409",
+        description = "Concurrent modification of a versioned entity — re-read and retry",
+        content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     ResponseEntity<Object> update(
         @PathVariable String dalName,
         @Parameter(name = PATH_VARIABLE_ID, schema = @Schema(type = "string"), in = ParameterIn.PATH)
@@ -128,6 +132,10 @@ public interface DalRestApiV1 {
         description = "Access denied",
         content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     @ApiResponse(responseCode = "404", description = "DAL service or entity not found", content = @Content)
+    @ApiResponse(
+        responseCode = "409",
+        description = "Concurrent modification of a versioned entity — re-read and retry",
+        content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     void delete(
         @PathVariable String dalName,
         @Parameter(name = PATH_VARIABLE_ID, schema = @Schema(type = "string"), in = ParameterIn.PATH)

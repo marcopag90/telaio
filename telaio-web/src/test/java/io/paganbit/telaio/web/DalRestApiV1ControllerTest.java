@@ -1,6 +1,7 @@
 package io.paganbit.telaio.web;
 
 import com.turkraft.springfilter.converter.FilterStringConverter;
+import io.paganbit.telaio.core.adapter.DalOperationAdapter;
 import io.paganbit.telaio.core.exception.DalNotFoundException;
 import io.paganbit.telaio.core.registry.DalManager;
 import io.paganbit.telaio.web.adapter.WebDalOperationAdapter;
@@ -11,13 +12,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -123,5 +128,38 @@ class DalRestApiV1ControllerTest {
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.status").value(404))
             .andExpect(jsonPath("$.detail").value("DAL service not found: unknown"));
+    }
+
+    @Test
+    void updateCompany_concurrentModification_shouldReturnConflict() throws Exception {
+        DalOperationAdapter<Object, Object> adapter = mock();
+        doThrow(new OptimisticLockingFailureException("Row was updated by another transaction"))
+            .when(adapter).update(any(), anyMap());
+        doReturn(adapter).when(adapterRegistry).get("company");
+
+        mockMvc.perform(patch("/dal/v1/company/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\": \"Updated Company\"}")
+                .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isConflict())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.status").value(409))
+            .andExpect(jsonPath("$.detail")
+                .value("The resource was modified concurrently; re-read and retry"));
+    }
+
+    @Test
+    void deleteCompany_concurrentModification_shouldReturnConflict() throws Exception {
+        DalOperationAdapter<Object, Object> adapter = mock();
+        doThrow(new OptimisticLockingFailureException("Row was updated or deleted by another transaction"))
+            .when(adapter).delete(any());
+        doReturn(adapter).when(adapterRegistry).get("company");
+
+        mockMvc.perform(delete("/dal/v1/company/1"))
+            .andExpect(status().isConflict())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.status").value(409))
+            .andExpect(jsonPath("$.detail")
+                .value("The resource was modified concurrently; re-read and retry"));
     }
 }

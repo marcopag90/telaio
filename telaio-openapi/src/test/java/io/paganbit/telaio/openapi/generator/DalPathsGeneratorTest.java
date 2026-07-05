@@ -100,15 +100,17 @@ class DalPathsGeneratorTest {
 
         Operation update = item.getPatch();
         assertThat(update.getRequestBody().getContent()).containsKey("application/json");
-        assertThat(update.getResponses()).containsKeys("200", "204", "400", "403", "404", "500");
+        assertThat(update.getResponses()).containsKeys("200", "204", "400", "403", "404", "409", "500");
         assertErrorBody(update, "400");
         assertErrorBody(update, "403");
         assertErrorBody(update, "404");
+        assertErrorBody(update, "409");
         assertErrorBody(update, "500");
 
-        assertThat(item.getDelete().getResponses()).containsKeys("204", "403", "404", "500");
+        assertThat(item.getDelete().getResponses()).containsKeys("204", "403", "404", "409", "500");
         assertErrorBody(item.getDelete(), "403");
         assertErrorBody(item.getDelete(), "404");
+        assertErrorBody(item.getDelete(), "409");
         assertErrorBody(item.getDelete(), "500");
     }
 
