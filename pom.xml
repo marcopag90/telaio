@@ -210,7 +210,20 @@
                         <hotfixFinishDevMergeMessage>chore(hotfix): merge hotfix @{version} into development</hotfixFinishDevMergeMessage>
                         <hotfixFinishReleaseMergeMessage>chore(hotfix): merge hotfix @{version} into release</hotfixFinishReleaseMergeMessage>
                         <updateReleaseToAvoidConflictsMessage>chore(hotfix): align release branch to hotfix version @{version}</updateReleaseToAvoidConflictsMessage>
+                        <updateReleaseBackPreMergeStateMessage>chore(hotfix): restore release branch pre-merge state</updateReleaseBackPreMergeStateMessage>
+                        <hotfixFinishSupportMergeMessage>chore(hotfix): merge hotfix @{version} into support</hotfixFinishSupportMergeMessage>
                         <tagHotfixMessage>chore(hotfix): tag v@{version}</tagHotfixMessage>
+                        <featureStartMessage>chore(feature): set feature version @{version}</featureStartMessage>
+                        <featureFinishMessage>chore(feature): restore development version @{version}</featureFinishMessage>
+                        <featureFinishDevMergeMessage>chore(feature): merge @{featureName} into development</featureFinishDevMergeMessage>
+                        <featureFinishIncrementVersionMessage>chore(feature): increment version to @{version}</featureFinishIncrementVersionMessage>
+                        <featureSquashMessage>chore(feature): squash @{featureName}</featureSquashMessage>
+                        <updateFeatureBackMessage>chore(feature): update feature branch with development changes</updateFeatureBackMessage>
+                        <supportStartMessage>chore(support): set support version @{version}</supportStartMessage>
+                        <updateDevToAvoidConflictsMessage>chore(release): align development to release version @{version}</updateDevToAvoidConflictsMessage>
+                        <updateDevBackPreMergeStateMessage>chore(release): restore development pre-merge state</updateDevBackPreMergeStateMessage>
+                        <versionUpdateMessage>chore(version): update version to @{version}</versionUpdateMessage>
+                        <tagVersionUpdateMessage>chore(version): tag v@{version}</tagVersionUpdateMessage>
                         <!-- @formatter:on -->
                     </commitMessages>
                 </configuration>
