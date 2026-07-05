@@ -195,6 +195,9 @@
                     <argLine>-DprocessAllModules</argLine>
                     <!-- Tests are orchestrated by the GitHub workflows, not by the release tooling. -->
                     <skipTestProject>true</skipTestProject>
+                    <!-- Features are closed via GitHub PRs (not feature-finish): keep the plain
+                         SNAPSHOT version on feature branches so PR diffs stay clean. -->
+                    <skipFeatureVersion>true</skipFeatureVersion>
                     <commitMessages>
                         <!-- @formatter:off -->
                         <releaseStartMessage>chore(release): set release version @{version}</releaseStartMessage>

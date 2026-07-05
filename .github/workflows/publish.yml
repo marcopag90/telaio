@@ -1,0 +1,40 @@
+# STUB — publishing to Maven Central is not wired yet.
+# TODO: replace the "package and archive" step with a real deployment
+# (central-publishing-maven-plugin + GPG signing + javadoc jars) once the
+# publishing infrastructure and the Central Portal credentials are in place.
+# The trigger (v* tags, created by gitflow:release-finish) is already final.
+name: Publish
+
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      # Tests are owned by the CI workflow (they already ran on the release branch);
+      # the release pipeline only packages.
+      - name: Package
+        run: mvn -B clean install -DskipTests
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: telaio-${{ github.ref_name }}
+          path: |
+            telaio-*/target/*.jar
+            !telaio-showcase/target/*.jar
+            telaio-bom/pom.xml
+          retention-days: 30
