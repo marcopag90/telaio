@@ -379,12 +379,13 @@ public abstract class AbstractDal<E, I>
 
     @Override
     public void delete(I id) {
-        executeReadOne(id).orElseThrow(() -> new DalEntityNotFoundException(this.getEntityClass(), id));
         final var transaction = finalizeTransaction(transactionManager, transactionPolicy.forDelete());
         transaction.executeWithoutResult(ex -> {
-            finalizeBeforeDelete(id);
-            executeDelete(id);
-            finalizeAfterDelete(id);
+            E entity = executeReadOne(id)
+                .orElseThrow(() -> new DalEntityNotFoundException(this.getEntityClass(), id));
+            finalizeBeforeDelete(entity);
+            executeDelete(entity);
+            finalizeAfterDelete(entity);
         });
     }
 
@@ -457,21 +458,21 @@ public abstract class AbstractDal<E, I>
     }
 
     /**
-     * Hook to execute logic after the entity has been deleted.
+     * Hook to execute logic before the entity is deleted.
      * Executed within the transactional context.
      *
-     * @param id the ID of the deleted entity
+     * @param entity the entity being deleted, loaded through the filtered by-id lookup
      */
-    protected void finalizeBeforeDelete(I id) {
+    protected void finalizeBeforeDelete(E entity) {
     }
 
     /**
      * Hook to execute logic after the entity has been deleted.
      * Executed within the transactional context.
      *
-     * @param id the ID of the deleted entity
+     * @param entity the deleted entity (no longer persistent)
      */
-    protected void finalizeAfterDelete(I id) {
+    protected void finalizeAfterDelete(E entity) {
     }
 
     /**
@@ -495,9 +496,9 @@ public abstract class AbstractDal<E, I>
 
     /**
      * Reads an entity by its ID.
-     * Executed within the transactional context when invoked via {@link #readOne(Object)};
-     * {@link #update(Object, Map)} and {@link #delete(Object)} also invoke it directly,
-     * outside a transaction, as their visibility pre-check.
+     * Executed within the transactional context when invoked via {@link #readOne(Object)} or as
+     * {@link #delete(Object)}'s visibility pre-check (same transaction as the removal);
+     * {@link #update(Object, Map)} invokes it directly, outside a transaction, before merging.
      *
      * <p><strong>Contract:</strong> implementations MUST honor {@link #defaultFilter()} — the
      * by-id lookup has to be combined with the default filter so that a hidden entity resolves
@@ -520,10 +521,18 @@ public abstract class AbstractDal<E, I>
     protected abstract E executeUpdate(E entity);
 
     /**
-     * Deletes an entity by its ID.
+     * Deletes the given entity.
      * Executed within the transactional context.
      *
-     * @param id the ID of the entity to delete
+     * <p>The entity is the instance just loaded through {@link #executeReadOne(Object)} within
+     * the same transaction — the filtered visibility check and the removal share one transactional
+     * snapshot. Implementations must delete <em>that instance</em> (for ORM-style backends: remove
+     * the managed instance rather than issuing a by-id delete), so that an optimistic version
+     * attribute — when the entity declares one — is honored and a concurrent modification fails
+     * instead of deleting stale state. For backends without instance-identity deletes, the
+     * residual race window for unversioned entities is backend- and isolation-dependent.</p>
+     *
+     * @param entity the entity to delete, previously loaded through the filtered by-id lookup
      */
-    protected abstract void executeDelete(I id);
+    protected abstract void executeDelete(E entity);
 }

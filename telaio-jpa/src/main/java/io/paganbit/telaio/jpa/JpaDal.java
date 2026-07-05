@@ -177,8 +177,8 @@ public class JpaDal<E, I> extends AbstractDal<E, I> implements JpaDalMetadata<E,
     }
 
     @Override
-    protected void executeDelete(I id) {
-        getRepository().deleteById(id);
+    protected void executeDelete(E entity) {
+        getRepository().delete(entity);
     }
 
     /**

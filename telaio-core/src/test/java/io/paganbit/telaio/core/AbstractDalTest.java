@@ -403,22 +403,29 @@ class AbstractDalTest {
 
             verify(spiedTransactionTemplate, times(1)).execute(any());
             verify(spiedService, times(1)).executeReadOne(id);
-            verify(spiedService, times(1)).finalizeBeforeDelete(id);
-            verify(spiedService, times(1)).executeDelete(id);
-            verify(spiedService, times(1)).finalizeAfterDelete(any());
+            verify(spiedService, times(1)).finalizeBeforeDelete(any(TestEntity.class));
+            verify(spiedService, times(1)).executeDelete(any(TestEntity.class));
+            verify(spiedService, times(1)).finalizeAfterDelete(any(TestEntity.class));
         }
 
         @Test
         void testDelete_shouldThrowNotFoundWhenEntityIsMissingOrHidden() {
             // executeReadOne is the single defaultFilter enforcement point for by-id operations:
             // an entity hidden by the filter resolves to empty, exactly like a missing one
-            // (simulateEmptyResult is true by default).
+            // (simulateEmptyResult is true by default). The visibility pre-check runs INSIDE the
+            // delete transaction, so the transaction template is exercised even on the miss.
+            doReturn(spiedTransactionTemplate).when(spiedService).finalizeTransaction(
+                any(PlatformTransactionManager.class),
+                any(DefaultTransactionDefinition.class)
+            );
+            when(mockTransactionPolicy.forDelete()).thenReturn(new DefaultTransactionDefinition());
+
             assertThrows(DalEntityNotFoundException.class, () -> spiedService.delete(1L));
 
+            verify(spiedService, times(1)).executeReadOne(1L);
             verify(spiedService, never()).finalizeBeforeDelete(any());
-            verify(spiedService, never()).executeDelete(any());
+            verify(spiedService, never()).executeDelete(any(TestEntity.class));
             verify(spiedService, never()).finalizeAfterDelete(any());
-            verify(mockTransactionPolicy, never()).forDelete();
         }
     }
 
@@ -477,7 +484,7 @@ class AbstractDalTest {
         }
 
         @Override
-        protected void executeDelete(Long id) {
+        protected void executeDelete(TestEntity entity) {
             //noop
         }
     }
