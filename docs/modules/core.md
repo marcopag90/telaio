@@ -135,7 +135,9 @@ Available hooks:
 - `finalizeAfterCreate/Update/Read/ReadOne` — Side-effects after the operation
 - `finalizeBeforeDelete/AfterDelete` — Hooks around deletion (receive the entity id)
 - `defaultSort()` — Default sort order when none is requested
-- `defaultFilter()` — Implicit filter AND-combined with the request's `q` parameter
+- `defaultFilter()` — Implicit filter AND-combined with the request's `q` parameter and enforced on
+  every operation addressing existing rows (list and by-id reads, updates, deletes — a hidden entity
+  behaves like a missing one; create payloads are not scoped by it)
 
 ### 5. Validate Input Automatically
 
