@@ -7,6 +7,7 @@ import io.paganbit.telaio.core.exception.DalNotFoundException;
 import io.paganbit.telaio.core.exception.DalRegistryException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.HttpMethod;
@@ -39,6 +40,7 @@ class TelaioWebExceptionHandlerTest {
     private static final String DAL_NOT_FOUND_EXCEPTION = "/dal-not-found-exception";
     private static final String RESOURCE_NOT_FOUND_EXCEPTION = "/resource-not-found-exception";
     private static final String REGISTRY_EXCEPTION = "/registry-exception";
+    private static final String OPTIMISTIC_LOCK_EXCEPTION = "/optimistic-lock-exception";
 
     @Autowired
     private MockMvc mockMvc;
@@ -103,6 +105,16 @@ class TelaioWebExceptionHandlerTest {
     }
 
     @Test
+    void handleOptimisticLockingFailure_shouldReturn409ProblemDetailWithGenericDetail() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders.get(OPTIMISTIC_LOCK_EXCEPTION))
+            .andExpect(MockMvcResultMatchers.status().isConflict())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.title").value("Conflict"))
+            .andExpect(jsonPath("$.status").value(409))
+            .andExpect(jsonPath("$.detail").value("The resource was modified concurrently; re-read and retry"));
+    }
+
+    @Test
     void handleRegistryException_shouldReturn500ProblemDetailWithoutLeakingInternals() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.get(REGISTRY_EXCEPTION))
             .andExpect(MockMvcResultMatchers.status().isInternalServerError())
@@ -152,6 +164,14 @@ class TelaioWebExceptionHandlerTest {
         @GetMapping(REGISTRY_EXCEPTION)
         public void throwDalRegistryException() {
             throw new DalRegistryException("boom");
+        }
+
+        @GetMapping(OPTIMISTIC_LOCK_EXCEPTION)
+        public void throwOptimisticLockingFailureException() {
+            // Parent of Spring's ObjectOptimisticLockingFailureException (the translation of a
+            // JPA OptimisticLockException on a versioned entity) — the type the handler maps.
+            throw new OptimisticLockingFailureException(
+                "Row was updated or deleted by another transaction");
         }
     }
 }

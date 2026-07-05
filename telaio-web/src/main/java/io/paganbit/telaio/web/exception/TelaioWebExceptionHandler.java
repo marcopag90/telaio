@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.Hidden;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -62,6 +63,19 @@ public class TelaioWebExceptionHandler {
     ProblemDetail handleNotFound(RuntimeException ex) {
         log.debug("Resource not found: {}", ex.getMessage());
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    /**
+     * Maps an optimistic-locking failure to {@code 409 Conflict}. Raised when a versioned entity
+     * (JPA {@code @Version}) is modified concurrently between its load and the write or remove operation
+     * that follows — the client should re-read the resource and retry. The body stays generic;
+     * the conflicting state is never exposed.
+     */
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    ProblemDetail handleOptimisticLockingFailure(OptimisticLockingFailureException ex) {
+        log.debug("Concurrent modification detected: {}", ex.getMessage());
+        return ProblemDetail.forStatusAndDetail(
+            HttpStatus.CONFLICT, "The resource was modified concurrently; re-read and retry");
     }
 
     /**

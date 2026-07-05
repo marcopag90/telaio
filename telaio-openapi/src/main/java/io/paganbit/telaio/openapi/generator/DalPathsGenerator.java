@@ -45,6 +45,8 @@ public class DalPathsGenerator {
 
     private static final String DEFAULT_TAG = "DAL";
     private static final String ACCESS_DENIED_MESSAGE = "Access denied";
+    private static final String CONCURRENT_MODIFICATION_MESSAGE =
+        "Concurrent modification of a versioned entity — re-read and retry";
     private static final String DAL_SERVICE_OR_ENTITY_NOT_FOUND_MESSAGE = "DAL service or entity not found";
     private static final String UNEXPECTED_ERROR_MESSAGE = "Unexpected error";
 
@@ -167,6 +169,7 @@ public class DalPathsGenerator {
                 .addApiResponse("400", problemResponse("Validation failed", problemDetailRef))
                 .addApiResponse("403", problemResponse(ACCESS_DENIED_MESSAGE, problemDetailRef))
                 .addApiResponse("404", problemResponse(DAL_SERVICE_OR_ENTITY_NOT_FOUND_MESSAGE, problemDetailRef))
+                .addApiResponse("409", problemResponse(CONCURRENT_MODIFICATION_MESSAGE, problemDetailRef))
                 .addApiResponse("500", problemResponse(UNEXPECTED_ERROR_MESSAGE, problemDetailRef)));
     }
 
@@ -177,6 +180,7 @@ public class DalPathsGenerator {
                 .addApiResponse("204", emptyResponse("Entity deleted"))
                 .addApiResponse("403", problemResponse(ACCESS_DENIED_MESSAGE, problemDetailRef))
                 .addApiResponse("404", problemResponse(DAL_SERVICE_OR_ENTITY_NOT_FOUND_MESSAGE, problemDetailRef))
+                .addApiResponse("409", problemResponse(CONCURRENT_MODIFICATION_MESSAGE, problemDetailRef))
                 .addApiResponse("500", problemResponse(UNEXPECTED_ERROR_MESSAGE, problemDetailRef)));
     }
 
