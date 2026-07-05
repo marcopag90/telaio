@@ -172,6 +172,34 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>com.amashchenko.maven.plugin</groupId>
+                <artifactId>gitflow-maven-plugin</artifactId>
+                <version>1.21.0</version>
+                <configuration>
+                    <gitFlowConfig>
+                        <productionBranch>main</productionBranch>
+                        <developmentBranch>development</developmentBranch>
+                        <versionTagPrefix>v</versionTagPrefix>
+                    </gitFlowConfig>
+                    <!-- telaio-bom is parentless: versions:set skips it unless processAllModules. -->
+                    <argLine>-DprocessAllModules</argLine>
+                    <!-- Tests are orchestrated by the GitHub workflows, not by the release tooling. -->
+                    <skipTestProject>true</skipTestProject>
+                    <commitMessages>
+                        <releaseStartMessage>chore(release): set release version @{version}</releaseStartMessage>
+                        <releaseFinishMessage>chore(release): set next development version @{version}</releaseFinishMessage>
+                        <releaseVersionUpdateMessage>chore(release): update version to @{version}</releaseVersionUpdateMessage>
+                        <releaseFinishMergeMessage>chore(release): merge release @{version} into main</releaseFinishMergeMessage>
+                        <releaseFinishDevMergeMessage>chore(release): merge release @{version} into development</releaseFinishDevMergeMessage>
+                        <tagReleaseMessage>chore(release): tag v@{version}</tagReleaseMessage>
+                        <hotfixStartMessage>chore(hotfix): set hotfix version @{version}</hotfixStartMessage>
+                        <hotfixFinishMessage>chore(hotfix): set next development version @{version}</hotfixFinishMessage>
+                        <hotfixVersionUpdateMessage>chore(hotfix): update version to @{version}</hotfixVersionUpdateMessage>
+                        <tagHotfixMessage>chore(hotfix): tag v@{version}</tagHotfixMessage>
+                    </commitMessages>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>
