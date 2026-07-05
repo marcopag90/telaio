@@ -225,6 +225,8 @@ No response body is returned on successful deletion.
 - **204 No Content** — Entity deleted successfully.
 - **403 Forbidden** — Principal not authorized to delete.
 - **404 Not Found** — DAL service not found, the URI exposes no operation at all, or the entity doesn't exist.
+  An entity hidden by the DAL's `defaultFilter()` counts as non-existent: it cannot be deleted, exactly as it
+  cannot be read or updated.
 - **405 Method Not Allowed** — DELETE is not exposed but the URI still exposes another method (`Allow` header lists
   them).
 

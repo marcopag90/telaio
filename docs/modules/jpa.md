@@ -144,7 +144,7 @@ Available hooks (from `AbstractDal`):
 - `finalizeAfterCreate/Update/Read/ReadOne(E)` — Side-effects after the operation
 - `finalizeBeforeDelete/AfterDelete(I)` — Hooks around deletion (receive the entity id)
 - `defaultSort()` → `Sort` — Default sort order
-- `defaultFilter()` → `FilterNode?` — Implicit baseline filter
+- `defaultFilter()` → `FilterNode?` — Implicit baseline filter (enforced on reads, updates and deletes)
 
 ### 5. Use Filtering
 
