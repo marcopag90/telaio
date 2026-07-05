@@ -397,12 +397,28 @@ class AbstractDalTest {
             );
             when(mockTransactionPolicy.forDelete()).thenReturn(new DefaultTransactionDefinition());
 
+            spiedService.simulateEmptyResult = false;
             spiedService.delete(id);
+            spiedService.simulateEmptyResult = true;
 
             verify(spiedTransactionTemplate, times(1)).execute(any());
+            verify(spiedService, times(1)).executeReadOne(id);
             verify(spiedService, times(1)).finalizeBeforeDelete(id);
             verify(spiedService, times(1)).executeDelete(id);
             verify(spiedService, times(1)).finalizeAfterDelete(any());
+        }
+
+        @Test
+        void testDelete_shouldThrowNotFoundWhenEntityIsMissingOrHidden() {
+            // executeReadOne is the single defaultFilter enforcement point for by-id operations:
+            // an entity hidden by the filter resolves to empty, exactly like a missing one
+            // (simulateEmptyResult is true by default).
+            assertThrows(DalEntityNotFoundException.class, () -> spiedService.delete(1L));
+
+            verify(spiedService, never()).finalizeBeforeDelete(any());
+            verify(spiedService, never()).executeDelete(any());
+            verify(spiedService, never()).finalizeAfterDelete(any());
+            verify(mockTransactionPolicy, never()).forDelete();
         }
     }
 

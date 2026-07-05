@@ -271,6 +271,12 @@ public abstract class AbstractDal<E, I>
      * The default implementation returns {@code null}, meaning no additional filtering is applied.
      * </p>
      *
+     * <p>The default filter constrains <strong>every operation</strong>: list reads (AND-combined
+     * with the caller's own filter, see {@link #combineWithDefaultFilter(FilterNode)}), by-id
+     * reads (via {@link #executeReadOne(Object)}), and therefore also {@link #update(Object, Map)}
+     * and {@link #delete(Object)}, which load the entity through the filtered by-id lookup — a
+     * hidden entity behaves exactly like a missing one.</p>
+     *
      * @return a {@link FilterNode} representing the filter condition,
      * or {@code null} if no default filter applies.
      */
@@ -373,6 +379,7 @@ public abstract class AbstractDal<E, I>
 
     @Override
     public void delete(I id) {
+        executeReadOne(id).orElseThrow(() -> new DalEntityNotFoundException(this.getEntityClass(), id));
         final var transaction = finalizeTransaction(transactionManager, transactionPolicy.forDelete());
         transaction.executeWithoutResult(ex -> {
             finalizeBeforeDelete(id);
@@ -488,10 +495,19 @@ public abstract class AbstractDal<E, I>
 
     /**
      * Reads an entity by its ID.
-     * Executed within the transactional context.
+     * Executed within the transactional context when invoked via {@link #readOne(Object)};
+     * {@link #update(Object, Map)} and {@link #delete(Object)} also invoke it directly,
+     * outside a transaction, as their visibility pre-check.
+     *
+     * <p><strong>Contract:</strong> implementations MUST honor {@link #defaultFilter()} — the
+     * by-id lookup has to be combined with the default filter so that a hidden entity resolves
+     * to an empty {@link Optional}. Both {@link #update(Object, Map)} and {@link #delete(Object)}
+     * rely on this method as the single enforcement point of the default filter for by-id
+     * operations.</p>
      *
      * @param id the ID of the entity to read
-     * @return the entity with the given ID
+     * @return the entity with the given ID, or empty if it does not exist or is hidden by the
+     * default filter
      */
     protected abstract Optional<E> executeReadOne(I id);
 
