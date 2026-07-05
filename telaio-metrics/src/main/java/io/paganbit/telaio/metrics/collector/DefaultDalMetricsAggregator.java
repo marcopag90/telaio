@@ -46,12 +46,14 @@ public class DefaultDalMetricsAggregator implements DalMetricsAggregator {
     }
 
     @Override
-    public void doRecord(String dalName, DalOperationType operation, long durationNanos, boolean error) {
+    public void doRecord(String dalName, DalOperationType operation, long durationNanos, DalMetricsOutcome outcome) {
         CellKey key = new CellKey(currentEpoch(), dalName, operation);
         LiveCell cell = cells.computeIfAbsent(key, k -> new LiveCell(scale.bucketCount()));
         cell.count.increment();
-        if (error) {
+        if (outcome == DalMetricsOutcome.ERROR) {
             cell.errorCount.increment();
+        } else if (outcome == DalMetricsOutcome.CLIENT_ERROR) {
+            cell.clientErrorCount.increment();
         }
         cell.sumNanos.add(durationNanos);
         cell.minNanos.accumulateAndGet(durationNanos, Math::min);
@@ -98,6 +100,7 @@ public class DefaultDalMetricsAggregator implements DalMetricsAggregator {
             key.operation(),
             cell.count.sum(),
             cell.errorCount.sum(),
+            cell.clientErrorCount.sum(),
             cell.sumNanos.sum(),
             cell.minNanos.get(),
             cell.maxNanos.get(),
@@ -112,6 +115,7 @@ public class DefaultDalMetricsAggregator implements DalMetricsAggregator {
 
         final LongAdder count = new LongAdder();
         final LongAdder errorCount = new LongAdder();
+        final LongAdder clientErrorCount = new LongAdder();
         final LongAdder sumNanos = new LongAdder();
         final AtomicLong minNanos = new AtomicLong(Long.MAX_VALUE);
         final AtomicLong maxNanos = new AtomicLong(Long.MIN_VALUE);

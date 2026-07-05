@@ -2,6 +2,7 @@ package io.paganbit.telaio.metrics.collector;
 
 import io.paganbit.telaio.core.adapter.DalOperation;
 import io.paganbit.telaio.core.adapter.DalOperationType;
+import io.paganbit.telaio.core.exception.DalFailureKind;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
 import org.jspecify.annotations.Nullable;
@@ -53,18 +54,21 @@ public class DalMetricsInterceptor implements MethodInterceptor {
         long start = System.nanoTime();
         try {
             Object result = invocation.proceed();
-            safeRecord(op.value(), System.nanoTime() - start, false);
+            safeRecord(op.value(), System.nanoTime() - start, DalMetricsOutcome.SUCCESS);
             return result;
         } catch (Throwable failure) {
-            safeRecord(op.value(), System.nanoTime() - start, true);
+            DalMetricsOutcome outcome = DalFailureKind.of(failure).isClientFault()
+                ? DalMetricsOutcome.CLIENT_ERROR
+                : DalMetricsOutcome.ERROR;
+            safeRecord(op.value(), System.nanoTime() - start, outcome);
             throw failure;
         }
     }
 
-    private void safeRecord(DalOperationType operation, long durationNanos, boolean error) {
+    private void safeRecord(DalOperationType operation, long durationNanos, DalMetricsOutcome outcome) {
         for (DalMetricsRecorder recorder : recorders) {
             try {
-                recorder.doRecord(dalName, operation, durationNanos, error);
+                recorder.doRecord(dalName, operation, durationNanos, outcome);
             } catch (Exception e) {
                 log.error("Failed to record metrics for DAL [{}] with recorder [{}]",
                     dalName, recorder.getClass().getSimpleName(), e);

@@ -42,49 +42,56 @@ class DalMetricsBucketTest {
 
     @Test
     void add_shouldSumCountsAndErrors() {
-        DalMetricsBucket result = bucketWith(10, 1, 0, 0, 0, new long[]{5, 5, 0, 0})
-            .add(bucketWith(20, 3, 0, 0, 0, new long[]{10, 5, 5, 0}));
+        DalMetricsBucket result = bucketWith(10, 1, 2, 0, 0, 0, new long[]{5, 5, 0, 0})
+            .add(bucketWith(20, 3, 1, 0, 0, 0, new long[]{10, 5, 5, 0}));
 
         assertThat(result.count()).isEqualTo(30);
         assertThat(result.errorCount()).isEqualTo(4);
+        assertThat(result.clientErrorCount()).isEqualTo(3);
+    }
+
+    @Test
+    void equals_shouldConsiderClientErrorCount() {
+        assertThat(bucketWith(10, 1, 2, 0, 0, 0, new long[]{5, 5, 0, 0}))
+            .isNotEqualTo(bucketWith(10, 1, 3, 0, 0, 0, new long[]{5, 5, 0, 0}));
     }
 
     @Test
     void add_shouldSumTotalDuration() {
-        DalMetricsBucket result = bucketWith(1, 0, 1_000_000, 0, 0, new long[]{1, 0, 0, 0})
-            .add(bucketWith(1, 0, 2_000_000, 0, 0, new long[]{0, 1, 0, 0}));
+        DalMetricsBucket result = bucketWith(1, 0, 0, 1_000_000, 0, 0, new long[]{1, 0, 0, 0})
+            .add(bucketWith(1, 0, 0, 2_000_000, 0, 0, new long[]{0, 1, 0, 0}));
 
         assertThat(result.totalDurationNanos()).isEqualTo(3_000_000);
     }
 
     @Test
     void add_shouldTakeMinOfMinDurations() {
-        DalMetricsBucket result = bucketWith(1, 0, 0, 5_000_000, 0, new long[]{1, 0, 0, 0})
-            .add(bucketWith(1, 0, 0, 2_000_000, 0, new long[]{1, 0, 0, 0}));
+        DalMetricsBucket result = bucketWith(1, 0, 0, 0, 5_000_000, 0, new long[]{1, 0, 0, 0})
+            .add(bucketWith(1, 0, 0, 0, 2_000_000, 0, new long[]{1, 0, 0, 0}));
 
         assertThat(result.minDurationNanos()).isEqualTo(2_000_000);
     }
 
     @Test
     void add_shouldTakeMaxOfMaxDurations() {
-        DalMetricsBucket result = bucketWith(1, 0, 0, 0, 5_000_000, new long[]{0, 0, 1, 0})
-            .add(bucketWith(1, 0, 0, 0, 9_000_000, new long[]{0, 0, 0, 1}));
+        DalMetricsBucket result = bucketWith(1, 0, 0, 0, 0, 5_000_000, new long[]{0, 0, 1, 0})
+            .add(bucketWith(1, 0, 0, 0, 0, 9_000_000, new long[]{0, 0, 0, 1}));
 
         assertThat(result.maxDurationNanos()).isEqualTo(9_000_000);
     }
 
     @Test
     void add_shouldAddHistogramElementWise() {
-        DalMetricsBucket result = bucketWith(5, 0, 0, 0, 0, new long[]{1, 2, 2, 0})
-            .add(bucketWith(5, 0, 0, 0, 0, new long[]{3, 1, 0, 1}));
+        DalMetricsBucket result = bucketWith(5, 0, 0, 0, 0, 0, new long[]{1, 2, 2, 0})
+            .add(bucketWith(5, 0, 0, 0, 0, 0, new long[]{3, 1, 0, 1}));
 
         assertThat(result.histogramCounts()).containsExactly(4, 3, 2, 1);
     }
 
     @Test
     void add_shouldKeepThisHistogramOnLengthMismatch() {
-        DalMetricsBucket result = bucketWith(5, 0, 0, 0, 0, new long[]{1, 2, 2, 0})
-            .add(bucketWith(5, 0, 0, 0, 0, new long[]{3, 2}));
+        DalMetricsBucket result = bucketWith(5, 0, 0, 0, 0, 0, new long[]{1, 2, 2, 0})
+            .add(bucketWith(5, 0, 0, 0, 0, 0, new long[]{3, 2}));
 
         assertThat(result.histogramCounts()).containsExactly(1, 2, 2, 0);
         assertThat(result.count()).isEqualTo(10);
@@ -102,13 +109,14 @@ class DalMetricsBucketTest {
     }
 
     private static DalMetricsBucket bucket(long[] histogram) {
-        return bucketWith(10, 0, 10_000_000, 1_000_000, 5_000_000, histogram);
+        return bucketWith(10, 0, 0, 10_000_000, 1_000_000, 5_000_000, histogram);
     }
 
     private static DalMetricsBucket bucketWith(
-        long count, long errors, long totalNanos, long minNanos, long maxNanos, long[] histogram
+        long count, long errors, long clientErrors, long totalNanos, long minNanos, long maxNanos,
+        long[] histogram
     ) {
         return new DalMetricsBucket(START, WINDOW, "products", DalOperationType.READ,
-            count, errors, totalNanos, minNanos, maxNanos, histogram);
+            count, errors, clientErrors, totalNanos, minNanos, maxNanos, histogram);
     }
 }

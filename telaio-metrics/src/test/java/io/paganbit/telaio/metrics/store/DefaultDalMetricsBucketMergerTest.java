@@ -32,6 +32,7 @@ class DefaultDalMetricsBucketMergerTest {
 
         assertThat(stats.count()).isEqualTo(30);
         assertThat(stats.errorCount()).isEqualTo(5);
+        assertThat(stats.clientErrorCount()).isEqualTo(10);
         assertThat(stats.totalDuration()).isEqualTo(Duration.ofNanos(80_000_000));
         assertThat(stats.min()).isEqualTo(Duration.ofNanos(500_000));
         assertThat(stats.max()).isEqualTo(Duration.ofNanos(12_000_000));
@@ -97,7 +98,8 @@ class DefaultDalMetricsBucketMergerTest {
     private static DalMetricsBucket bucket(
         long count, long errors, long totalNanos, long minNanos, long maxNanos, long[] histogram
     ) {
+        // clientErrorCount = errors * 2: distinct from errorCount, so a counter swap fails merges.
         return new DalMetricsBucket(FROM, Duration.ofMinutes(1), "products", DalOperationType.READ,
-            count, errors, totalNanos, minNanos, maxNanos, histogram);
+            count, errors, errors * 2, totalNanos, minNanos, maxNanos, histogram);
     }
 }

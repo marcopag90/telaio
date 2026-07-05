@@ -22,7 +22,7 @@ public interface DalMetricsRecorder {
      * @param dalName       registration name of the DAL
      * @param operation     the invoked operation
      * @param durationNanos elapsed time in nanoseconds
-     * @param error         whether the invocation threw
+     * @param outcome       how the invocation ended (success, client fault, service error)
      */
-    void doRecord(String dalName, DalOperationType operation, long durationNanos, boolean error);
+    void doRecord(String dalName, DalOperationType operation, long durationNanos, DalMetricsOutcome outcome);
 }

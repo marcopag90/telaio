@@ -60,9 +60,10 @@ class DefaultDalMetricsAggregatorTest {
         MutableClock clock = new MutableClock(Instant.parse("2026-06-12T10:00:00Z"));
         DalMetricsAggregator aggregator = new DefaultDalMetricsAggregator(scale, Duration.ofMinutes(1), clock);
 
-        aggregator.doRecord("products", DalOperationType.READ, 1_500_000, false);  // bucket 1
-        aggregator.doRecord("products", DalOperationType.READ, 500_000, false);    // bucket 0
-        aggregator.doRecord("products", DalOperationType.READ, 3_000_000, true);   // bucket 2, error
+        // Two client errors vs one error: distinct values, so a counter swap cannot pass unnoticed.
+        aggregator.doRecord("products", DalOperationType.READ, 1_500_000, DalMetricsOutcome.CLIENT_ERROR); // bucket 1
+        aggregator.doRecord("products", DalOperationType.READ, 500_000, DalMetricsOutcome.CLIENT_ERROR);   // bucket 0
+        aggregator.doRecord("products", DalOperationType.READ, 3_000_000, DalMetricsOutcome.ERROR);        // bucket 2
 
         clock.advance(Duration.ofMinutes(1));
         List<DalMetricsBucket> buckets = aggregator.drainCompleted();
@@ -73,6 +74,7 @@ class DefaultDalMetricsAggregatorTest {
         assertThat(bucket.operation()).isEqualTo(DalOperationType.READ);
         assertThat(bucket.count()).isEqualTo(3);
         assertThat(bucket.errorCount()).isEqualTo(1);
+        assertThat(bucket.clientErrorCount()).isEqualTo(2);
         assertThat(bucket.totalDurationNanos()).isEqualTo(5_000_000);
         assertThat(bucket.minDurationNanos()).isEqualTo(500_000);
         assertThat(bucket.maxDurationNanos()).isEqualTo(3_000_000);
@@ -84,7 +86,7 @@ class DefaultDalMetricsAggregatorTest {
         MutableClock clock = new MutableClock(Instant.parse("2026-06-12T10:00:00Z"));
         DalMetricsAggregator aggregator = new DefaultDalMetricsAggregator(scale, Duration.ofMinutes(1), clock);
 
-        aggregator.doRecord("products", DalOperationType.READ, 1_000_000, false);
+        aggregator.doRecord("products", DalOperationType.READ, 1_000_000, DalMetricsOutcome.SUCCESS);
 
         // Same window: nothing completed yet
         assertThat(aggregator.drainCompleted()).isEmpty();
@@ -100,9 +102,9 @@ class DefaultDalMetricsAggregatorTest {
         MutableClock clock = new MutableClock(Instant.parse("2026-06-12T10:00:00Z"));
         DalMetricsAggregator aggregator = new DefaultDalMetricsAggregator(scale, Duration.ofMinutes(1), clock);
 
-        aggregator.doRecord("products", DalOperationType.READ, 1_000_000, false);
+        aggregator.doRecord("products", DalOperationType.READ, 1_000_000, DalMetricsOutcome.SUCCESS);
         clock.advance(Duration.ofMinutes(1));
-        aggregator.doRecord("products", DalOperationType.READ, 1_000_000, false);
+        aggregator.doRecord("products", DalOperationType.READ, 1_000_000, DalMetricsOutcome.SUCCESS);
 
         // First window completed; second window still current
         assertThat(aggregator.drainCompleted()).hasSize(1);
@@ -115,7 +117,7 @@ class DefaultDalMetricsAggregatorTest {
         MutableClock clock = new MutableClock(Instant.parse("2026-06-12T10:00:00Z"));
         DalMetricsAggregator aggregator = new DefaultDalMetricsAggregator(scale, Duration.ofMinutes(1), clock);
 
-        aggregator.doRecord("products", DalOperationType.READ, 1_000_000, false);
+        aggregator.doRecord("products", DalOperationType.READ, 1_000_000, DalMetricsOutcome.SUCCESS);
 
         // No rotation, but drainAll takes the partial bucket anyway
         assertThat(aggregator.drainAll()).hasSize(1);
@@ -127,9 +129,9 @@ class DefaultDalMetricsAggregatorTest {
         MutableClock clock = new MutableClock(Instant.parse("2026-06-12T10:00:00Z"));
         DalMetricsAggregator aggregator = new DefaultDalMetricsAggregator(scale, Duration.ofMinutes(1), clock);
 
-        aggregator.doRecord("products", DalOperationType.READ, 1_000_000, false);
-        aggregator.doRecord("products", DalOperationType.CREATE, 1_000_000, false);
-        aggregator.doRecord("orders", DalOperationType.READ, 1_000_000, false);
+        aggregator.doRecord("products", DalOperationType.READ, 1_000_000, DalMetricsOutcome.SUCCESS);
+        aggregator.doRecord("products", DalOperationType.CREATE, 1_000_000, DalMetricsOutcome.SUCCESS);
+        aggregator.doRecord("orders", DalOperationType.READ, 1_000_000, DalMetricsOutcome.SUCCESS);
 
         assertThat(aggregator.drainAll()).hasSize(3);
     }
@@ -147,7 +149,7 @@ class DefaultDalMetricsAggregatorTest {
                 pool.submit(() -> {
                     await(start);
                     for (int i = 0; i < perThread; i++) {
-                        aggregator.doRecord("products", DalOperationType.READ, 1_500_000, false);
+                        aggregator.doRecord("products", DalOperationType.READ, 1_500_000, DalMetricsOutcome.SUCCESS);
                     }
                 });
             }

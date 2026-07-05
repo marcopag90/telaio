@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>Each invocation feeds a {@link Timer} named {@code metricName} (default
  * {@code telaio.dal.operation}) tagged with {@code dal}, {@code operation}, and {@code outcome}
- * ({@code success}/{@code error}). The application's configured Micrometer registry then exports
+ * ({@code success}/{@code client_error}/{@code error}). The application's configured Micrometer registry then exports
  * the timings to whatever monitoring backend it is bound to — Telaio stays agnostic of it.</p>
  *
  * <p>Percentiles are published as a histogram ({@link Timer.Builder#publishPercentileHistogram()})
@@ -35,11 +35,11 @@ public class MicrometerDalMetricsRecorder implements DalMetricsRecorder {
     }
 
     @Override
-    public void doRecord(String dalName, DalOperationType operation, long durationNanos, boolean error) {
+    public void doRecord(String dalName, DalOperationType operation, long durationNanos, DalMetricsOutcome outcome) {
         Timer.builder(metricName)
             .tag("dal", dalName)
             .tag("operation", operation.name().toLowerCase(Locale.ROOT))
-            .tag("outcome", error ? "error" : "success")
+            .tag("outcome", outcome.name().toLowerCase(Locale.ROOT))
             .publishPercentileHistogram()
             .register(registry)
             .record(durationNanos, TimeUnit.NANOSECONDS);
