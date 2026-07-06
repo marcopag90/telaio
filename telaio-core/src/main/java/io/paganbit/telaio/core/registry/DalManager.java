@@ -12,7 +12,6 @@ import io.paganbit.telaio.core.Dal;
  *   <li>{@link DalDefinitionRegistry} – for accessing {@link DalDefinitionEntry} metadata</li>
  *   <li>{@link DalRegistryWriter} – for registration of DAL services</li>
  * </ul>
- * </p>
  *
  * <p>
  * This contract is intended for internal use by the Telaio infrastructure.
