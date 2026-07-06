@@ -1,1 +1,1 @@
-io.paganbit.telaio.core.autoconfigure.TelaioCoreAutoConfiguration
+com.paganbit.telaio.core.autoconfigure.TelaioCoreAutoConfiguration

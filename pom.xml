@@ -10,9 +10,9 @@
         <version>4.1.0</version>
     </parent>
 
-    <groupId>io.paganbit</groupId>
+    <groupId>com.paganbit</groupId>
     <artifactId>telaio</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>1.0.0</version>
     <packaging>pom</packaging>
 
     <name>Telaio</name>
@@ -50,6 +50,8 @@
         <maven.compiler.release>21</maven.compiler.release>
         <!-- plugins -->
         <gitflow-maven-plugin.version>1.21.0</gitflow-maven-plugin.version>
+        <central-publishing-maven-plugin.version>0.11.0</central-publishing-maven-plugin.version>
+        <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
         <!-- testcontainers -->
         <testcontainers.image.postgresql>postgres:17</testcontainers.image.postgresql>
         <testcontainers.image.mysql>mysql:8.4</testcontainers.image.mysql>
@@ -74,7 +76,7 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>io.paganbit</groupId>
+                <groupId>com.paganbit</groupId>
                 <artifactId>telaio-bom</artifactId>
                 <version>${project.version}</version>
                 <type>pom</type>
@@ -195,6 +197,9 @@
                     <argLine>-DprocessAllModules</argLine>
                     <!-- Tests are orchestrated by the GitHub workflows, not by the release tooling. -->
                     <skipTestProject>true</skipTestProject>
+                    <!-- Features are closed via GitHub PRs (not feature-finish): keep the plain
+                         SNAPSHOT version on feature branches so PR diffs stay clean. -->
+                    <skipFeatureVersion>true</skipFeatureVersion>
                     <commitMessages>
                         <!-- @formatter:off -->
                         <releaseStartMessage>chore(release): set release version @{version}</releaseStartMessage>
@@ -230,4 +235,57 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <doclint>all,-missing</doclint>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>${maven-gpg-plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <bestPractices>true</bestPractices>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>${central-publishing-maven-plugin.version}</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                            <autoPublish>false</autoPublish>
+                            <waitUntil>validated</waitUntil>
+                            <deploymentName>telaio-${project.version}</deploymentName>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

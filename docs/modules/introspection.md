@@ -34,7 +34,7 @@ filterBuilder.field("status").equal("PUBLISHED")
 Use method references:
 
 ```java
-import static io.paganbit.telaio.introspection.PropertyNameResolver.propertyName;
+import static com.paganbit.telaio.introspection.PropertyNameResolver.propertyName;
 
 filterBuilder.field(propertyName(Article::getStatus))
     .equal(filterBuilder.input(ArticleStatus.PUBLISHED))

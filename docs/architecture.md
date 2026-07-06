@@ -137,6 +137,7 @@ graph TD
 - **403** (Security): `DalAuthAdapter` denied the principal. Body is generic (no detail leaks per OWASP).
 - **400** (Validation): Entity validation failed. Body includes field-level `errors` extension.
 - **404** (Not Found): Entity with the given ID doesn't exist.
+- **409** (Conflict): A `@Version`-ed entity was modified concurrently between load and save/removal. Generic body.
 - **500** (Server Error): Unexpected exception. Logged but never leaked to the client.
 
 **Success path**:
@@ -156,7 +157,7 @@ graph TD
     D -->|2. METRICS_PRECEDENCE<br/>= AUDIT + 1000| E["DalMetricsInterceptor"]
     E -->|Time the op| F["Invoke next"]
     F -->|Call the actual| G["Dal Method<br/>create/read/update/etc"]
-    G -->|Success or error| H["Audit records<br/>SUCCESS/ERROR"]
+    G -->|Outcome| H["Audit records<br/>SUCCESS / client faults<br/>(VALIDATION, NOT_FOUND, CONFLICT) / ERROR"]
     H -->|Metrics recorded| I["Result returned<br/>to caller"]
 ```
 
@@ -277,6 +278,8 @@ graph TD
     G -->|Response| H["ProblemDetail<br/>status: 403<br/>title: Forbidden<br/>detail: (omitted)"]
     C -->|404<br/>Not Found| I["DalEntityNotFoundException<br/>DalResourceNotFoundException"]
     I -->|Response| J["ProblemDetail<br/>status: 404"]
+    C -->|409<br/>Conflict| P["OptimisticLockingFailureException<br/>(@Version race)"]
+    P -->|Response| Q["ProblemDetail<br/>status: 409<br/>detail: generic"]
     C -->|500<br/>Server Error| K["DalRegistryException"]
     K -->|Log at WARN| L["ProblemDetail<br/>status: 500<br/>detail: (omitted)<br/>logged internally"]
     M["Logging Policy"] -->|4xx, 403| N["DEBUG<br/>(client errors,<br/>don't flood logs)"]

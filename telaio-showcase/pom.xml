@@ -4,9 +4,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.paganbit</groupId>
+        <groupId>com.paganbit</groupId>
         <artifactId>telaio</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
+        <version>1.0.0</version>
     </parent>
 
     <artifactId>telaio-showcase</artifactId>
@@ -18,6 +18,9 @@
         <maven.compiler.release>25</maven.compiler.release>
         <maven.source.skip>true</maven.source.skip>
         <maven.deploy.skip>true</maven.deploy.skip>
+        <maven.javadoc.skip>true</maven.javadoc.skip>
+        <gpg.skip>true</gpg.skip>
+        <skipPublishing>true</skipPublishing>
     </properties>
 
     <dependencies>
@@ -27,27 +30,27 @@
             <optional>true</optional>
         </dependency>
         <dependency>
-            <groupId>io.paganbit</groupId>
+            <groupId>com.paganbit</groupId>
             <artifactId>telaio-web</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.paganbit</groupId>
+            <groupId>com.paganbit</groupId>
             <artifactId>telaio-openapi</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.paganbit</groupId>
+            <groupId>com.paganbit</groupId>
             <artifactId>telaio-security</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.paganbit</groupId>
+            <groupId>com.paganbit</groupId>
             <artifactId>telaio-audit</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.paganbit</groupId>
+            <groupId>com.paganbit</groupId>
             <artifactId>telaio-metrics</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.paganbit</groupId>
+            <groupId>com.paganbit</groupId>
             <artifactId>telaio-jpa</artifactId>
         </dependency>
         <dependency>

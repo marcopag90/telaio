@@ -192,6 +192,8 @@ patch object, validated, and saved.
 - **404 Not Found** — DAL service not found, the URI exposes no operation at all, or the entity doesn't exist.
 - **405 Method Not Allowed** — UPDATE is not exposed but the URI still exposes another method (`Allow` header lists
   them).
+- **409 Conflict** — The entity declares a JPA `@Version` attribute and was modified concurrently between load and
+  save. Re-read and retry.
 - **500 Internal Server Error** — Unexpected error during merge or save.
 
 **Examples:**
@@ -225,8 +227,12 @@ No response body is returned on successful deletion.
 - **204 No Content** — Entity deleted successfully.
 - **403 Forbidden** — Principal not authorized to delete.
 - **404 Not Found** — DAL service not found, the URI exposes no operation at all, or the entity doesn't exist.
+  An entity hidden by the DAL's `defaultFilter()` counts as non-existent: it cannot be deleted, exactly as it
+  cannot be read or updated.
 - **405 Method Not Allowed** — DELETE is not exposed but the URI still exposes another method (`Allow` header lists
   them).
+- **409 Conflict** — The entity declares a JPA `@Version` attribute and was modified concurrently between the
+  visibility check and the removal. Re-read and retry.
 
 **Example:**
 
@@ -477,6 +483,23 @@ This happens when `@DalService(operations = {READ, READ_ONE})` excludes UPDATE a
 `/dal/v1/articles/{id}` is rejected with `Allow: GET`, because READ_ONE (GET) is the only operation exposed on the
 item URI.
 
+### 409 Conflict
+
+Returned when the target entity declares a JPA `@Version` attribute and another writer modified it between the load
+and the save/removal (optimistic locking). The body is deliberately generic — re-read the resource and retry:
+
+```json
+{
+  "type": "about:blank",
+  "title": "Conflict",
+  "status": 409,
+  "detail": "The resource was modified concurrently; re-read and retry",
+  "instance": "/dal/v1/products/1"
+}
+```
+
+Entities without `@Version` never produce a 409 — last write wins, as in plain JPA.
+
 ### 500 Internal Server Error
 
 ```json
@@ -541,6 +564,7 @@ error.
 | **403** | Access denied by `DalAuthAdapter` or RBAC                 | Principal not authorized                                  |
 | **404** | DAL not found, operation not exposed, or entity not found | Unknown {dalName}, non-exposed operation, or invalid {id} |
 | **405** | Operation not exposed, other methods available            | DELETE on a read-only DAL                                 |
+| **409** | Concurrent modification of a versioned entity             | PATCH/DELETE racing another writer (`@Version`)           |
 | **500** | Server error                                              | Database down, application exception                      |
 
 ## OpenAPI Documentation

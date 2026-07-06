@@ -51,13 +51,13 @@ Each audit event captures:
 - **dal**: The DAL name (e.g., `"products"`)
 - **operation**: The CRUD operation (`CREATE`, `READ`, `READ_ONE`, `UPDATE`, `DELETE`)
 - **principal**: Username or principal name (from Spring Security)
-- **outcome**: `SUCCESS`, `ERROR`, or `DENIED`
+- **outcome**: `SUCCESS`, `VALIDATION`, `NOT_FOUND`, `CONFLICT`, `ERROR`, or `DENIED`
 - **durationMs**: Latency in milliseconds
 - **args**: Per-operation argument snapshot, keyed by parameter role (`input`, `id`, `patch`, `filter`, `pageable`);
   every value is stringified with `String.valueOf(...)`. TEXT flattens the roles to `arg.<role>` fields; JSON nests them
   under `args` with string values.
-- **errorType**: Exception class name (if outcome is ERROR)
-- **errorMessage**: Exception message (if outcome is ERROR)
+- **errorType**: Exception class name (present whenever the outcome is not SUCCESS)
+- **errorMessage**: Exception message (present whenever the outcome is not SUCCESS)
 - **mdc** (optional): Current MDC values if `telaio.audit.logging.include-mdc=true`
 
 ### Serialization Formats
@@ -110,13 +110,13 @@ telaio:
   audit:
     logging:
       format: TEXT                      # or JSON
-      category: io.paganbit.telaio.audit.AUDIT
+      category: com.paganbit.telaio.audit.AUDIT
       include-mdc: true                 # Include traceId, spanId, etc.
 ```
 
 ### Logback Setup
 
-By default, audit events are sent to the logger `io.paganbit.telaio.audit.AUDIT`. Configure Logback to route them to a
+By default, audit events are sent to the logger `com.paganbit.telaio.audit.AUDIT`. Configure Logback to route them to a
 dedicated appender:
 
 **`logback-spring.xml`** (example for JSON format):
@@ -146,7 +146,7 @@ dedicated appender:
     </appender>
 
     <!-- Route audit events to the audit appender, do NOT propagate to root -->
-    <logger name="io.paganbit.telaio.audit.AUDIT" level="INFO" additivity="false">
+    <logger name="com.paganbit.telaio.audit.AUDIT" level="INFO" additivity="false">
         <appender-ref ref="AUDIT_FILE"/>
     </logger>
 
@@ -168,7 +168,8 @@ dedicated appender:
 
 ### Outcomes
 
-Audit events record three outcomes:
+Audit events record six outcomes. Client faults (`VALIDATION`, `NOT_FOUND`, `CONFLICT`) are kept
+distinct from `ERROR`, so the trail separates misbehaving callers from genuine service faults:
 
 **SUCCESS**: Operation completed without exception.
 
@@ -179,7 +180,41 @@ Audit events record three outcomes:
 }
 ```
 
-**ERROR**: Operation threw an exception (validation failure, database error, etc.).
+**VALIDATION**: The request payload failed validation (client fault, HTTP 400).
+
+```json
+{
+  "outcome": "VALIDATION",
+  "durationMs": 8,
+  "errorType": "com.paganbit.telaio.core.exception.DalEntityValidationException",
+  "errorMessage": "Validation failed for entity Product"
+}
+```
+
+**NOT_FOUND**: The target entity does not exist — or is hidden by the DAL's `defaultFilter()`,
+which is indistinguishable by design (client fault, HTTP 404). Useful to spot id probing.
+
+```json
+{
+  "outcome": "NOT_FOUND",
+  "durationMs": 5,
+  "errorType": "com.paganbit.telaio.core.exception.DalEntityNotFoundException",
+  "errorMessage": "Product was not found for id: [999]"
+}
+```
+
+**CONFLICT**: A versioned entity was modified concurrently (client-retryable fault, HTTP 409).
+
+```json
+{
+  "outcome": "CONFLICT",
+  "durationMs": 11,
+  "errorType": "org.springframework.orm.ObjectOptimisticLockingFailureException",
+  "errorMessage": "Row was updated or deleted by another transaction"
+}
+```
+
+**ERROR**: Operation failed because of the service (database down, unexpected exception).
 
 ```json
 {
@@ -196,11 +231,18 @@ Audit events record three outcomes:
 {
   "outcome": "DENIED",
   "principal": "user",
-  "durationMs": 2
+  "durationMs": 2,
+  "errorType": "com.paganbit.telaio.security.exception.DalAccessDeniedException",
+  "errorMessage": "Access denied"
 }
 ```
 
-The DENIED outcome is useful for security auditing — it shows denied access attempts and who tried them.
+The DENIED outcome is useful for security auditing — it shows denied access attempts and who tried
+them. `errorType`/`errorMessage` are present whenever the outcome is not `SUCCESS`.
+
+> **Compatibility note for dashboard owners:** the `outcome` value space is extensible — new
+> values may be introduced in future versions without changing the field schema (name and string
+> type stay stable). Consumers of the trail should tolerate unknown outcome strings.
 
 ### MDC Correlation
 
@@ -303,7 +345,7 @@ telaio:
 The `DalMetricsInterceptor` records each operation's:
 
 - **Duration** (latency in milliseconds)
-- **Outcome** (SUCCESS or ERROR)
+- **Outcome** (SUCCESS, CLIENT_ERROR or ERROR)
 - **Bucket** (time window the operation falls into)
 
 A **histogram** buckets latencies into configurable ranges (e.g., 1ms, 2ms, 4ms, 8ms, …). Statistics are computed per
@@ -359,7 +401,7 @@ When `initialize-schema: always`, Telaio creates the `telaio_metrics_bucket` tab
 `initialize-schema: never` and manage schema externally:
 
 The DDL is shipped per-vendor under
-`telaio-metrics/src/main/resources/io/paganbit/telaio/metrics/store/jdbc/schema-<platform>.sql`. The
+`telaio-metrics/src/main/resources/com/paganbit/telaio/metrics/store/jdbc/schema-<platform>.sql`. The
 `@@table_name@@` placeholder is replaced with `telaio.metrics.jdbc.table-name` (default:
 `telaio_metrics_bucket`):
 
@@ -373,6 +415,7 @@ CREATE TABLE IF NOT EXISTS @@table_name@@ (
     instance_id          VARCHAR(36)   NOT NULL,
     invocation_count     BIGINT        NOT NULL,
     error_count          BIGINT        NOT NULL,
+    client_error_count   BIGINT        NOT NULL,
     total_duration_nanos BIGINT        NOT NULL,
     min_duration_nanos   BIGINT        NOT NULL,
     max_duration_nanos   BIGINT        NOT NULL,
@@ -387,8 +430,22 @@ CREATE INDEX IF NOT EXISTS @@table_name@@_ix1
 
 Each row is one completed time bucket per `(bucket_start, dal_name, operation, instance_id)`. Durations
 are stored in **nanoseconds** (`total_duration_nanos`, `min_duration_nanos`, `max_duration_nanos`);
-there is no outcome column — errors are counted in `error_count` alongside the overall
-`invocation_count`, and the latency histogram is serialized into `histogram_counts`.
+there is no outcome column — service errors are counted in `error_count` and client faults
+(validation, not-found, optimistic-lock conflicts) in `client_error_count`, alongside the overall
+`invocation_count`; the latency histogram is serialized into `histogram_counts`.
+
+> **Schema migration note:** the shipped DDL uses `CREATE TABLE IF NOT EXISTS` and never alters an
+> existing table. If you created the metrics table before `client_error_count` existed, add the
+> column manually (or drop the table and let the initializer recreate it):
+>
+> ```sql
+> -- PostgreSQL / H2 / MySQL / MariaDB
+> ALTER TABLE telaio_metrics_bucket ADD COLUMN client_error_count BIGINT NOT NULL DEFAULT 0;
+> -- SQL Server
+> ALTER TABLE telaio_metrics_bucket ADD client_error_count BIGINT NOT NULL DEFAULT 0;
+> -- Oracle
+> ALTER TABLE telaio_metrics_bucket ADD client_error_count NUMBER(19) DEFAULT 0 NOT NULL;
+> ```
 
 #### Micrometer Integration (Optional)
 
@@ -426,7 +483,10 @@ Then query:
 histogram_quantile(0.95, rate(telaio_dal_operation_seconds_bucket[5m]))
 
 # Success rate per DAL
-rate(telaio_dal_operation_seconds_count{outcome="SUCCESS"}[5m]) / rate(telaio_dal_operation_seconds_count[5m])
+rate(telaio_dal_operation_seconds_count{outcome="success"}[5m]) / rate(telaio_dal_operation_seconds_count[5m])
+
+# Client-fault rate (validation, not-found, conflicts) — misbehaving callers, not service health
+rate(telaio_dal_operation_seconds_count{outcome="client_error"}[5m])
 ```
 
 ### Actuator Endpoint
@@ -459,6 +519,7 @@ curl http://localhost:8080/actuator/telaiometrics
       "stats": {
         "count": 42,
         "errorCount": 1,
+        "clientErrorCount": 3,
         "meanMs": 145.2,
         "minMs": 3.4,
         "maxMs": 380.5,
@@ -479,6 +540,7 @@ curl http://localhost:8080/actuator/telaiometrics
       "stats": {
         "count": 42,
         "errorCount": 1,
+        "clientErrorCount": 3,
         "meanMs": 145.2,
         "minMs": 3.4,
         "maxMs": 380.5,
@@ -562,7 +624,7 @@ telaio:
   audit:
     logging:
       format: JSON
-      category: io.paganbit.telaio.audit.AUDIT
+      category: com.paganbit.telaio.audit.AUDIT
   metrics:
     enabled: true
     bucket-duration: 10s
@@ -604,10 +666,10 @@ ORDER BY time DESC, avg_latency_ms DESC
 ```
 
 ```sql
--- Success rate per DAL (successes = invocation_count - error_count)
+-- Success rate per DAL (successes = invocation_count - error_count - client_error_count)
 SELECT dal_name,
        operation,
-       SUM(invocation_count - error_count)::FLOAT / NULLIF(SUM(invocation_count), 0) * 100 as success_rate
+       SUM(invocation_count - error_count - client_error_count)::FLOAT / NULLIF(SUM(invocation_count), 0) * 100 as success_rate
 FROM telaio_metrics_bucket
 WHERE bucket_start > NOW() - INTERVAL '1 day'
 GROUP BY dal_name, operation
@@ -619,7 +681,7 @@ ORDER BY success_rate ASC
 **Audit events not appearing**:
 
 - Ensure `@DalAudit` is present on the DAL service.
-- Check that the logger category matches your Logback configuration (default: `io.paganbit.telaio.audit.AUDIT`).
+- Check that the logger category matches your Logback configuration (default: `com.paganbit.telaio.audit.AUDIT`).
 - Verify the Logback configuration routes the category to the correct appender.
 
 **Metrics not persisting**:

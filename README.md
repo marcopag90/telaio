@@ -11,9 +11,10 @@
 </p>
 
 <p align="center">
+  <img src="https://github.com/marcopag90/telaio/actions/workflows/ci.yml/badge.svg?branch=development" alt="CI">
   <img src="https://img.shields.io/badge/Java-21-orange" alt="Java 21">
   <img src="https://img.shields.io/badge/Powered%20by-Spring%20Boot%204.1.0-6DB33F" alt="Powered by Spring Boot 4.1.0">
-  <img src="https://img.shields.io/badge/License-Apache%202.0-blue" alt="License Apache 2.0">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue" alt="License Apache 2.0"></a>
   <img src="https://img.shields.io/badge/status-pre--release%20(0.0.1--SNAPSHOT)-lightgrey" alt="Status pre-release (0.0.1-SNAPSHOT)">
 </p>
 
@@ -54,6 +55,10 @@ service, a repository. Telaio collapses that into one abstraction:
   (`JsonViewDalRbacAdapter`).
 - **Operation-level authorization.** A `DalAuthAdapter` decides, per principal and per operation,
   whether create/read/update/delete is allowed — independent of RBAC's field filtering.
+- **Implicit baseline filtering.** Override `defaultFilter()` and a filter is silently AND-combined
+  with every client query — per-principal if you like — and enforced on reads, updates, and deletes
+  alike: hidden rows behave like missing ones. See
+  [Filtering built in](#filtering-built-in--powered-by-turkraft-spring-filter).
 - **Exposure control without extra code.** `@DalService(internal = true)` keeps a DAL fully
   functional in-process while hiding it from REST and OpenAPI entirely; `@DalService(operations =
   {...})` exposes only a CRUD subset (e.g. read-only) and answers everything else with `404`/`405`.
@@ -102,6 +107,40 @@ audience:
 Both strategies are covered in depth in the [security guide](docs/security-guide.md); filter-side
 renaming is in the [REST API reference](docs/rest-api.md).
 
+## Filtering built-in — powered by Turkraft Spring Filter
+
+Every list endpoint accepts a `q` parameter in
+[**Turkraft Spring Filter**](https://github.com/turkraft/springfilter) syntax — a compact,
+SQL-like expression language the client composes freely:
+
+```bash
+curl "http://localhost:8080/dal/v1/products?q=category:'electronics'%20and%20price>500"
+curl "http://localhost:8080/dal/v1/products?q=category:'electronics'&sort=price,desc&page=0&size=5"
+```
+
+The same language also works **server-side**: override `defaultFilter()` in a DAL and you get an
+implicit **baseline filter**, AND-combined with whatever the client sends and enforced on **every
+operation** — list reads, by-id reads, updates, and deletes. The client cannot bypass it: an entity
+hidden by the filter behaves exactly like one that does not exist. And since it is evaluated per
+request, it can depend on the authenticated principal. (It is a *visibility* filter over existing
+rows — it does not constrain the payload of creates; pair it with field-level RBAC to control what
+can be written.) From the showcase's `ArticleDalService` (abridged):
+
+```java
+@Override
+protected @Nullable FilterNode defaultFilter() {
+    if (isPowerUser()) {        // role check via DalSecurityContextHelper — full code in the showcase
+        return null;            // DEVELOPER/ADMIN see everything: drafts, archived, published
+    }
+    return filterBuilder.field(propertyName(Article::getStatus))   // type-safe property reference
+        .equal(filterBuilder.input(ArticleStatus.PUBLISHED))
+        .get();                 // everyone else is silently scoped to PUBLISHED articles
+}
+```
+
+The full query grammar is in the [REST API reference](docs/rest-api.md#filtering-query-language);
+the `defaultFilter()` hook is covered in the [core module docs](docs/modules/core.md).
+
 ## Quick start
 
 ### 1. Add the dependencies
@@ -112,7 +151,7 @@ There is no single "starter" artifact — depend on the modules your project nee
 
 ```xml
 <dependency>
-    <groupId>io.paganbit</groupId>
+    <groupId>com.paganbit</groupId>
     <artifactId>telaio-core</artifactId>
     <version>0.0.1-SNAPSHOT</version>
 </dependency>
@@ -127,7 +166,7 @@ abstraction, built on Spring Data JPA), plus a JDBC driver:
 <dependencyManagement>
     <dependencies>
         <dependency>
-            <groupId>io.paganbit</groupId>
+            <groupId>com.paganbit</groupId>
             <artifactId>telaio-bom</artifactId>
             <version>0.0.1-SNAPSHOT</version>
             <type>pom</type>
@@ -140,11 +179,11 @@ abstraction, built on Spring Data JPA), plus a JDBC driver:
 ```xml
 <dependencies>
     <dependency>
-        <groupId>io.paganbit</groupId>
+        <groupId>com.paganbit</groupId>
         <artifactId>telaio-web</artifactId>
     </dependency>
     <dependency>
-        <groupId>io.paganbit</groupId>
+        <groupId>com.paganbit</groupId>
         <artifactId>telaio-jpa</artifactId>
     </dependency>
     <!-- JDBC driver (PostgreSQL shown; use MySQL, MariaDB, etc. as needed) -->
@@ -155,19 +194,19 @@ abstraction, built on Spring Data JPA), plus a JDBC driver:
     </dependency>
     <!-- Optional cross-cutting modules -->
     <dependency>
-        <groupId>io.paganbit</groupId>
+        <groupId>com.paganbit</groupId>
         <artifactId>telaio-security</artifactId>
     </dependency>
     <dependency>
-        <groupId>io.paganbit</groupId>
+        <groupId>com.paganbit</groupId>
         <artifactId>telaio-audit</artifactId>
     </dependency>
     <dependency>
-        <groupId>io.paganbit</groupId>
+        <groupId>com.paganbit</groupId>
         <artifactId>telaio-metrics</artifactId>
     </dependency>
     <dependency>
-        <groupId>io.paganbit</groupId>
+        <groupId>com.paganbit</groupId>
         <artifactId>telaio-openapi</artifactId>
     </dependency>
 </dependencies>
@@ -409,8 +448,8 @@ For commercial support, contact: [marcopag90@gmail.com](mailto:marcopag90@gmail.
 
 ## Support the Project
 
-If Telaio saves you time or is used in your company, consider sponsoring its development:
-[**PayPal**](https://www.paypal.me/MarcoPag90).
+If Telaio saves you time or is used in your company, consider sponsoring its development through
+[**GitHub Sponsors**](https://github.com/sponsors/marcopag90).
 Sponsorship helps fund maintenance, documentation, examples, bug fixing, and new features.
 
 ## License

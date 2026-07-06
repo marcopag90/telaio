@@ -39,8 +39,8 @@ outcome was. Auditing is **opt-in** via `@DalAudit`.
 
 | Type                          | Purpose                                                                                                                                                                                                                                    |
 |-------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `DalAuditOutcome`             | Enum: `SUCCESS`, `ERROR`, `DENIED`                                                                                                                                                                                                         |
-| `DalAuditOutcomeClassifier`   | SPI: maps exceptions to outcomes. With Spring Security on the classpath, `SecurityDalAuditOutcomeClassifier` maps `AccessDeniedException` → DENIED, others → ERROR; without it, `DefaultDalAuditOutcomeClassifier` maps everything → ERROR |
+| `DalAuditOutcome`             | Enum: `SUCCESS`, `VALIDATION`, `NOT_FOUND`, `CONFLICT`, `ERROR`, `DENIED`                                                                                                                                                                                                         |
+| `DalAuditOutcomeClassifier`   | SPI: maps exceptions to outcomes. With Spring Security on the classpath, `SecurityDalAuditOutcomeClassifier` maps `AccessDeniedException` → DENIED and everything else via the shared `DalFailureKind` taxonomy (VALIDATION / NOT_FOUND / CONFLICT / ERROR); without it, `DefaultDalAuditOutcomeClassifier` applies the same taxonomy minus DENIED |
 | `DalAuditPrincipalResolver`   | SPI: `resolvePrincipal()` — resolves the current principal name from context (no arguments)                                                                                                                                                |
 | `DalAuditArgumentSnapshotter` | Internal: safely copies operation arguments without triggering lazy loading                                                                                                                                                                |
 
@@ -106,7 +106,7 @@ timestamp=2026-07-02T10:15:30.123Z dal=articles operation=CREATE outcome=SUCCESS
 | Property              | Type       | Default                          | Purpose                                                                                                                       |
 |-----------------------|------------|----------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
 | `logging.format`      | TEXT, JSON | TEXT                             | Serialization format: `TEXT` (logfmt, human) or `JSON` (JSON Lines, machine)                                                  |
-| `logging.category`    | String     | `io.paganbit.telaio.audit.AUDIT` | Logger category for events. Configure a dedicated appender in `logback-spring.xml` to route auditing to a separate file/index |
+| `logging.category`    | String     | `com.paganbit.telaio.audit.AUDIT` | Logger category for events. Configure a dedicated appender in `logback-spring.xml` to route auditing to a separate file/index |
 | `logging.include-mdc` | Boolean    | `true`                           | Whether to copy the current MDC (trace ID, span ID) onto each event                                                           |
 
 ### Example logback-spring.xml
@@ -126,7 +126,7 @@ Route audit events to a separate file:
     </rollingPolicy>
 </appender>
 
-<logger name="io.paganbit.telaio.audit.AUDIT" level="INFO" additivity="false">
+<logger name="com.paganbit.telaio.audit.AUDIT" level="INFO" additivity="false">
 <appender-ref ref="AUDIT_FILE"/>
 </logger>
 ```

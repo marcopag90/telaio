@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ development ]
+  push:
+    branches:
+      - development
+      - 'release/**'
+      - 'hotfix/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The job id/name "build" is the required status check context referenced by the
+  # development ruleset — keep it stable.
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      # Full reactor: unit tests (surefire), showcase integration tests (failsafe) and the
+      # Testcontainers vendor matrix run against the Docker daemon preinstalled on the runner.
+      - name: Build and test
+        run: mvn -B clean verify
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports
+          path: |
+            **/target/surefire-reports/**
+            **/target/failsafe-reports/**
+          retention-days: 7

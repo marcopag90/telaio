@@ -1,1 +1,1 @@
-io.paganbit.telaio.web.autoconfigure.TelaioWebAutoConfiguration
+com.paganbit.telaio.web.autoconfigure.TelaioWebAutoConfiguration

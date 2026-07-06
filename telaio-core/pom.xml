@@ -5,9 +5,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.paganbit</groupId>
+        <groupId>com.paganbit</groupId>
         <artifactId>telaio</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
+        <version>1.0.0</version>
     </parent>
 
     <artifactId>telaio-core</artifactId>
@@ -19,7 +19,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>io.paganbit</groupId>
+            <groupId>com.paganbit</groupId>
             <artifactId>telaio-introspection</artifactId>
             <version>${project.version}</version>
         </dependency>
@@ -70,14 +70,14 @@
                 <directory>src/main/resources</directory>
                 <filtering>true</filtering>
                 <includes>
-                    <include>io/paganbit/telaio/core/telaio-version.properties</include>
+                    <include>com/paganbit/telaio/core/telaio-version.properties</include>
                 </includes>
             </resource>
             <resource>
                 <directory>src/main/resources</directory>
                 <filtering>false</filtering>
                 <excludes>
-                    <exclude>io/paganbit/telaio/core/telaio-version.properties</exclude>
+                    <exclude>com/paganbit/telaio/core/telaio-version.properties</exclude>
                 </excludes>
             </resource>
         </resources>
