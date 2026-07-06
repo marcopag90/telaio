@@ -116,7 +116,6 @@ public class InMemoryDalManager implements DalManager {
      *   <li>Direct lookup by class using {@code beanFactory.getBean(adapterClass)}</li>
      *   <li>If that fails, it gets all beans of the adapter type and filters for an exact class match</li>
      * </ol>
-     * </p>
      *
      * @param adapterClass the class of the adapter to retrieve
      * @param <T>          the type of the adapter
