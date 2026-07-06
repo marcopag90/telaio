@@ -325,3 +325,5 @@ Ensure your repository extends `JpaDalRepository<E, I>` with the correct generic
 - **GitHub**: [github.com/marcopag90/telaio](https://github.com/marcopag90/telaio)
 - **Source**: Clone and explore `telaio-showcase` for complete examples
 - **Tests**: Browse `telaio-web/src/test/…` for request/response examples
+
+<!-- CI docs-only skip validation: temporary PR, close without merging -->
