@@ -1,1 +1,1 @@
-io.paganbit.telaio.jpa.autoconfigure.TelaioJpaAutoConfiguration
+com.paganbit.telaio.jpa.autoconfigure.TelaioJpaAutoConfiguration

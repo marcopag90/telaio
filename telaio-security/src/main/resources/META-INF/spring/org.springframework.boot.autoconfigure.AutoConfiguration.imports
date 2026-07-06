@@ -1,1 +1,1 @@
-io.paganbit.telaio.security.autoconfigure.TelaioSecurityAutoConfiguration
+com.paganbit.telaio.security.autoconfigure.TelaioSecurityAutoConfiguration

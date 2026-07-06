@@ -106,7 +106,7 @@ timestamp=2026-07-02T10:15:30.123Z dal=articles operation=CREATE outcome=SUCCESS
 | Property              | Type       | Default                          | Purpose                                                                                                                       |
 |-----------------------|------------|----------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
 | `logging.format`      | TEXT, JSON | TEXT                             | Serialization format: `TEXT` (logfmt, human) or `JSON` (JSON Lines, machine)                                                  |
-| `logging.category`    | String     | `io.paganbit.telaio.audit.AUDIT` | Logger category for events. Configure a dedicated appender in `logback-spring.xml` to route auditing to a separate file/index |
+| `logging.category`    | String     | `com.paganbit.telaio.audit.AUDIT` | Logger category for events. Configure a dedicated appender in `logback-spring.xml` to route auditing to a separate file/index |
 | `logging.include-mdc` | Boolean    | `true`                           | Whether to copy the current MDC (trace ID, span ID) onto each event                                                           |
 
 ### Example logback-spring.xml
@@ -126,7 +126,7 @@ Route audit events to a separate file:
     </rollingPolicy>
 </appender>
 
-<logger name="io.paganbit.telaio.audit.AUDIT" level="INFO" additivity="false">
+<logger name="com.paganbit.telaio.audit.AUDIT" level="INFO" additivity="false">
 <appender-ref ref="AUDIT_FILE"/>
 </logger>
 ```

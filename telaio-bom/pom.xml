@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>io.paganbit</groupId>
+    <groupId>com.paganbit</groupId>
     <artifactId>telaio-bom</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
@@ -48,42 +48,42 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>io.paganbit</groupId>
+                <groupId>com.paganbit</groupId>
                 <artifactId>telaio-introspection</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.paganbit</groupId>
+                <groupId>com.paganbit</groupId>
                 <artifactId>telaio-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.paganbit</groupId>
+                <groupId>com.paganbit</groupId>
                 <artifactId>telaio-security</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.paganbit</groupId>
+                <groupId>com.paganbit</groupId>
                 <artifactId>telaio-audit</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.paganbit</groupId>
+                <groupId>com.paganbit</groupId>
                 <artifactId>telaio-metrics</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.paganbit</groupId>
+                <groupId>com.paganbit</groupId>
                 <artifactId>telaio-web</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.paganbit</groupId>
+                <groupId>com.paganbit</groupId>
                 <artifactId>telaio-openapi</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>io.paganbit</groupId>
+                <groupId>com.paganbit</groupId>
                 <artifactId>telaio-jpa</artifactId>
                 <version>${project.version}</version>
             </dependency>
