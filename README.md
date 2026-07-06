@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Java-21-orange" alt="Java 21">
   <img src="https://img.shields.io/badge/Powered%20by-Spring%20Boot%204.1.0-6DB33F" alt="Powered by Spring Boot 4.1.0">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue" alt="License Apache 2.0"></a>
-  <img src="https://img.shields.io/badge/status-pre--release%20(0.0.1--SNAPSHOT)-lightgrey" alt="Status pre-release (0.0.1-SNAPSHOT)">
+  <a href="https://central.sonatype.com/namespace/com.paganbit"><img src="https://img.shields.io/maven-central/v/com.paganbit/telaio-bom" alt="Maven Central"></a>
 </p>
 
 Telaio provides a unified **Data Access Layer (DAL)** abstraction for CRUD operations across
@@ -153,7 +153,7 @@ There is no single "starter" artifact — depend on the modules your project nee
 <dependency>
     <groupId>com.paganbit</groupId>
     <artifactId>telaio-core</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>1.0.0</version>
 </dependency>
 ```
 
@@ -168,7 +168,7 @@ abstraction, built on Spring Data JPA), plus a JDBC driver:
         <dependency>
             <groupId>com.paganbit</groupId>
             <artifactId>telaio-bom</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
+            <version>1.0.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
