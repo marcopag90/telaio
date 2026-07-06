@@ -1,1 +1,1 @@
-io.paganbit.telaio.openapi.autoconfigure.TelaioOpenApiAutoConfiguration
+com.paganbit.telaio.openapi.autoconfigure.TelaioOpenApiAutoConfiguration

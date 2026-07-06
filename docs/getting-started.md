@@ -24,7 +24,7 @@ each one. For a minimal setup:
 <dependencyManagement>
     <dependencies>
         <dependency>
-            <groupId>io.paganbit</groupId>
+            <groupId>com.paganbit</groupId>
             <artifactId>telaio-bom</artifactId>
             <version>${telaio.version}</version>
             <type>pom</type>
@@ -36,12 +36,12 @@ each one. For a minimal setup:
 <dependencies>
     <!-- Web API exposure -->
     <dependency>
-        <groupId>io.paganbit</groupId>
+        <groupId>com.paganbit</groupId>
         <artifactId>telaio-web</artifactId>
     </dependency>
     <!-- JPA/Hibernate implementation -->
     <dependency>
-        <groupId>io.paganbit</groupId>
+        <groupId>com.paganbit</groupId>
         <artifactId>telaio-jpa</artifactId>
     </dependency>
     <!-- Database driver (PostgreSQL shown; use MySQL, MariaDB, etc. as needed) -->
@@ -67,22 +67,22 @@ Add these if you need the features (versions still come from the BOM):
 ```xml
 <!-- Field-level access control -->
 <dependency>
-    <groupId>io.paganbit</groupId>
+    <groupId>com.paganbit</groupId>
     <artifactId>telaio-security</artifactId>
 </dependency>
 <!-- Operation auditing -->
 <dependency>
-    <groupId>io.paganbit</groupId>
+    <groupId>com.paganbit</groupId>
     <artifactId>telaio-audit</artifactId>
 </dependency>
 <!-- Performance monitoring -->
 <dependency>
-    <groupId>io.paganbit</groupId>
+    <groupId>com.paganbit</groupId>
     <artifactId>telaio-metrics</artifactId>
 </dependency>
 <!-- Auto-generated OpenAPI docs -->
 <dependency>
-    <groupId>io.paganbit</groupId>
+    <groupId>com.paganbit</groupId>
     <artifactId>telaio-openapi</artifactId>
 </dependency>
 <!-- Swagger UI for OpenAPI (optional but recommended). Version-less on purpose: the BOM also
@@ -162,7 +162,7 @@ public class Product {
 Create a Spring Data JPA repository extending `JpaDalRepository`:
 
 ```java
-import io.paganbit.telaio.jpa.JpaDalRepository;
+import com.paganbit.telaio.jpa.JpaDalRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -177,8 +177,8 @@ That's it — no custom methods needed.
 Create the service that exposes your entity as a REST API:
 
 ```java
-import io.paganbit.telaio.core.annotation.DalService;
-import io.paganbit.telaio.jpa.JpaDal;
+import com.paganbit.telaio.core.annotation.DalService;
+import com.paganbit.telaio.jpa.JpaDal;
 
 @DalService(name = "products")
 public class ProductDalService extends JpaDal<Product, Long> {

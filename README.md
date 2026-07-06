@@ -151,7 +151,7 @@ There is no single "starter" artifact — depend on the modules your project nee
 
 ```xml
 <dependency>
-    <groupId>io.paganbit</groupId>
+    <groupId>com.paganbit</groupId>
     <artifactId>telaio-core</artifactId>
     <version>0.0.1-SNAPSHOT</version>
 </dependency>
@@ -166,7 +166,7 @@ abstraction, built on Spring Data JPA), plus a JDBC driver:
 <dependencyManagement>
     <dependencies>
         <dependency>
-            <groupId>io.paganbit</groupId>
+            <groupId>com.paganbit</groupId>
             <artifactId>telaio-bom</artifactId>
             <version>0.0.1-SNAPSHOT</version>
             <type>pom</type>
@@ -179,11 +179,11 @@ abstraction, built on Spring Data JPA), plus a JDBC driver:
 ```xml
 <dependencies>
     <dependency>
-        <groupId>io.paganbit</groupId>
+        <groupId>com.paganbit</groupId>
         <artifactId>telaio-web</artifactId>
     </dependency>
     <dependency>
-        <groupId>io.paganbit</groupId>
+        <groupId>com.paganbit</groupId>
         <artifactId>telaio-jpa</artifactId>
     </dependency>
     <!-- JDBC driver (PostgreSQL shown; use MySQL, MariaDB, etc. as needed) -->
@@ -194,19 +194,19 @@ abstraction, built on Spring Data JPA), plus a JDBC driver:
     </dependency>
     <!-- Optional cross-cutting modules -->
     <dependency>
-        <groupId>io.paganbit</groupId>
+        <groupId>com.paganbit</groupId>
         <artifactId>telaio-security</artifactId>
     </dependency>
     <dependency>
-        <groupId>io.paganbit</groupId>
+        <groupId>com.paganbit</groupId>
         <artifactId>telaio-audit</artifactId>
     </dependency>
     <dependency>
-        <groupId>io.paganbit</groupId>
+        <groupId>com.paganbit</groupId>
         <artifactId>telaio-metrics</artifactId>
     </dependency>
     <dependency>
-        <groupId>io.paganbit</groupId>
+        <groupId>com.paganbit</groupId>
         <artifactId>telaio-openapi</artifactId>
     </dependency>
 </dependencies>

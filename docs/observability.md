@@ -110,13 +110,13 @@ telaio:
   audit:
     logging:
       format: TEXT                      # or JSON
-      category: io.paganbit.telaio.audit.AUDIT
+      category: com.paganbit.telaio.audit.AUDIT
       include-mdc: true                 # Include traceId, spanId, etc.
 ```
 
 ### Logback Setup
 
-By default, audit events are sent to the logger `io.paganbit.telaio.audit.AUDIT`. Configure Logback to route them to a
+By default, audit events are sent to the logger `com.paganbit.telaio.audit.AUDIT`. Configure Logback to route them to a
 dedicated appender:
 
 **`logback-spring.xml`** (example for JSON format):
@@ -146,7 +146,7 @@ dedicated appender:
     </appender>
 
     <!-- Route audit events to the audit appender, do NOT propagate to root -->
-    <logger name="io.paganbit.telaio.audit.AUDIT" level="INFO" additivity="false">
+    <logger name="com.paganbit.telaio.audit.AUDIT" level="INFO" additivity="false">
         <appender-ref ref="AUDIT_FILE"/>
     </logger>
 
@@ -186,7 +186,7 @@ distinct from `ERROR`, so the trail separates misbehaving callers from genuine s
 {
   "outcome": "VALIDATION",
   "durationMs": 8,
-  "errorType": "io.paganbit.telaio.core.exception.DalEntityValidationException",
+  "errorType": "com.paganbit.telaio.core.exception.DalEntityValidationException",
   "errorMessage": "Validation failed for entity Product"
 }
 ```
@@ -198,7 +198,7 @@ which is indistinguishable by design (client fault, HTTP 404). Useful to spot id
 {
   "outcome": "NOT_FOUND",
   "durationMs": 5,
-  "errorType": "io.paganbit.telaio.core.exception.DalEntityNotFoundException",
+  "errorType": "com.paganbit.telaio.core.exception.DalEntityNotFoundException",
   "errorMessage": "Product was not found for id: [999]"
 }
 ```
@@ -232,7 +232,7 @@ which is indistinguishable by design (client fault, HTTP 404). Useful to spot id
   "outcome": "DENIED",
   "principal": "user",
   "durationMs": 2,
-  "errorType": "io.paganbit.telaio.security.exception.DalAccessDeniedException",
+  "errorType": "com.paganbit.telaio.security.exception.DalAccessDeniedException",
   "errorMessage": "Access denied"
 }
 ```
@@ -401,7 +401,7 @@ When `initialize-schema: always`, Telaio creates the `telaio_metrics_bucket` tab
 `initialize-schema: never` and manage schema externally:
 
 The DDL is shipped per-vendor under
-`telaio-metrics/src/main/resources/io/paganbit/telaio/metrics/store/jdbc/schema-<platform>.sql`. The
+`telaio-metrics/src/main/resources/com/paganbit/telaio/metrics/store/jdbc/schema-<platform>.sql`. The
 `@@table_name@@` placeholder is replaced with `telaio.metrics.jdbc.table-name` (default:
 `telaio_metrics_bucket`):
 
@@ -624,7 +624,7 @@ telaio:
   audit:
     logging:
       format: JSON
-      category: io.paganbit.telaio.audit.AUDIT
+      category: com.paganbit.telaio.audit.AUDIT
   metrics:
     enabled: true
     bucket-duration: 10s
@@ -681,7 +681,7 @@ ORDER BY success_rate ASC
 **Audit events not appearing**:
 
 - Ensure `@DalAudit` is present on the DAL service.
-- Check that the logger category matches your Logback configuration (default: `io.paganbit.telaio.audit.AUDIT`).
+- Check that the logger category matches your Logback configuration (default: `com.paganbit.telaio.audit.AUDIT`).
 - Verify the Logback configuration routes the category to the correct appender.
 
 **Metrics not persisting**:

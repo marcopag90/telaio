@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.paganbit</groupId>
+        <groupId>com.paganbit</groupId>
         <artifactId>telaio</artifactId>
         <version>0.0.1-SNAPSHOT</version>
     </parent>
@@ -30,27 +30,27 @@
             <optional>true</optional>
         </dependency>
         <dependency>
-            <groupId>io.paganbit</groupId>
+            <groupId>com.paganbit</groupId>
             <artifactId>telaio-web</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.paganbit</groupId>
+            <groupId>com.paganbit</groupId>
             <artifactId>telaio-openapi</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.paganbit</groupId>
+            <groupId>com.paganbit</groupId>
             <artifactId>telaio-security</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.paganbit</groupId>
+            <groupId>com.paganbit</groupId>
             <artifactId>telaio-audit</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.paganbit</groupId>
+            <groupId>com.paganbit</groupId>
             <artifactId>telaio-metrics</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.paganbit</groupId>
+            <groupId>com.paganbit</groupId>
             <artifactId>telaio-jpa</artifactId>
         </dependency>
         <dependency>

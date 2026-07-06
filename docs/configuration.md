@@ -51,7 +51,7 @@ telaio:
 | Property              | Type                    | Default                          | Description                                                                                                                                                                       |
 |-----------------------|-------------------------|----------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `logging.format`      | enum (`TEXT` or `JSON`) | `TEXT`                           | Serialization format for audit events. `TEXT` emits human-readable logfmt `key=value` lines; `JSON` emits one JSON object per line (JSON Lines) for ingestion by log aggregators. |
-| `logging.category`    | string                  | `io.paganbit.telaio.audit.AUDIT` | Logger category under which audit events are emitted. Use a dedicated category to route audit logs to a separate appender/file/index.                                             |
+| `logging.category`    | string                  | `com.paganbit.telaio.audit.AUDIT` | Logger category under which audit events are emitted. Use a dedicated category to route audit logs to a separate appender/file/index.                                             |
 | `logging.include-mdc` | boolean                 | `true`                           | Whether to copy the current MDC (e.g., `traceId`, `spanId` from Micrometer Tracing) onto each audit event for correlation.                                                        |
 
 **Example**:
@@ -61,7 +61,7 @@ telaio:
   audit:
     logging:
       format: JSON           # or TEXT
-      category: io.paganbit.telaio.audit.AUDIT
+      category: com.paganbit.telaio.audit.AUDIT
       include-mdc: true
 ```
 
@@ -77,7 +77,7 @@ If using JSON audit format, configure Logback to write clean JSON Lines without 
     </encoder>
 </appender>
 
-<logger name="io.paganbit.telaio.audit.AUDIT" level="INFO" additivity="false">
+<logger name="com.paganbit.telaio.audit.AUDIT" level="INFO" additivity="false">
 <appender-ref ref="AUDIT_FILE"/>
 </logger>
 ```
@@ -254,7 +254,7 @@ telaio:
   audit:
     logging:
       format: JSON          # For log aggregation
-      category: io.paganbit.telaio.audit.AUDIT
+      category: com.paganbit.telaio.audit.AUDIT
   metrics:
     enabled: true
     bucket-duration: 1m

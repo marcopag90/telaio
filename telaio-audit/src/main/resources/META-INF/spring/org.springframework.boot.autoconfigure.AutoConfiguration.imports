@@ -1,1 +1,1 @@
-io.paganbit.telaio.audit.autoconfigure.TelaioAuditAutoConfiguration
+com.paganbit.telaio.audit.autoconfigure.TelaioAuditAutoConfiguration

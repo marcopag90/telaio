@@ -227,7 +227,7 @@ telaio:
 ```
 telaio-showcase/
 ├── compose.yaml
-├── src/main/java/io/paganbit/telaio/showcase/
+├── src/main/java/com/paganbit/telaio/showcase/
 │   ├── TelaioShowcaseApplication.java
 │   ├── DataInitializer.java
 │   ├── config/
@@ -250,7 +250,7 @@ telaio-showcase/
 ├── src/main/resources/
 │   └── application.yaml
 ├── src/test/java/
-│   ├── io/paganbit/telaio/showcase/
+│   ├── com/paganbit/telaio/showcase/
 │   │   ├── TelaioShowcaseApplicationTests.java
 │   │   ├── TestcontainersConfiguration.java
 │   │   └── it/

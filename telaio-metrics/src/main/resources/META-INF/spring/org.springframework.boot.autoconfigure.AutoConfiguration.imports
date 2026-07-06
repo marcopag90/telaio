@@ -1,2 +1,2 @@
-io.paganbit.telaio.metrics.autoconfigure.TelaioMetricsAutoConfiguration
-io.paganbit.telaio.metrics.autoconfigure.TelaioMetricsEndpointAutoConfiguration
+com.paganbit.telaio.metrics.autoconfigure.TelaioMetricsAutoConfiguration
+com.paganbit.telaio.metrics.autoconfigure.TelaioMetricsEndpointAutoConfiguration
