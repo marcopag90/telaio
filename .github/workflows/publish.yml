@@ -1,8 +1,3 @@
-# STUB — publishing to Maven Central is not wired yet.
-# TODO: replace the "package and archive" step with a real deployment
-# (central-publishing-maven-plugin + GPG signing + javadoc jars) once the
-# publishing infrastructure and the Central Portal credentials are in place.
-# The trigger (v* tags, created by gitflow:release-finish) is already final.
 name: Publish
 
 on:
@@ -12,6 +7,9 @@ on:
 
 jobs:
   publish:
+    # workflow_dispatch can be started from any ref; only v* tags may deploy
+    # (also keeps SNAPSHOT versions away from Central).
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -23,18 +21,26 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: maven
+          server-id: central
+          server-username: CENTRAL_USERNAME
+          server-password: CENTRAL_PASSWORD
 
       # Tests are owned by the CI workflow (they already ran on the release branch);
-      # the release pipeline only packages.
-      - name: Package
-        run: mvn -B clean install -DskipTests
+      # the release pipeline builds, signs and uploads the bundle to the Central Portal
+      # (autoPublish=false: the final publication is a manual step in the Portal UI).
+      - name: Deploy to Maven Central
+        run: mvn -B -Prelease clean deploy -DskipTests -Dgpg.signer=bc
+        env:
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+          MAVEN_GPG_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
-      - name: Archive artifacts
+      - name: Archive central bundle
+        if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: telaio-${{ github.ref_name }}
-          path: |
-            telaio-*/target/*.jar
-            !telaio-showcase/target/*.jar
-            telaio-bom/pom.xml
+          name: central-bundle-${{ github.ref_name }}
+          path: target/central-publishing/central-bundle.zip
           retention-days: 30
+          if-no-files-found: warn
