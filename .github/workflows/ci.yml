@@ -3,11 +3,30 @@ name: CI
 on:
   pull_request:
     branches: [ development ]
+    # NO paths filter here: "build" is the required status check on the development
+    # ruleset. A workflow-level filter would leave docs-only PRs with the check stuck
+    # on "Expected" (unmergeable). Docs-only PRs are handled by the "changes" job
+    # below instead — a job skipped via `if:` reports "skipped", which GitHub counts
+    # as a successful required check. For the same reason, never use [skip ci] in
+    # commits that flow into a PR: it suppresses the whole workflow and wedges the
+    # required check in "Pending".
   push:
     branches:
       - development
       - 'release/**'
       - 'hotfix/**'
+    # Docs-only pushes must not create a run AT ALL: a run that merely skipped
+    # internally would still enter the concurrency group and cancel the in-progress
+    # useful run (observed: the changelog commit pushed to release/X.Y.Z cancelling
+    # the version-bump build that is the release gate).
+    # KEEP IN SYNC with IGNORE_REGEX in the "changes" job below.
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.github/FUNDING.yml'
+      - '.claude/**'
   workflow_dispatch:
 
 concurrency:
@@ -15,10 +34,72 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Decides whether the change set contains anything beyond documentation.
+  # Fail-open by design: any doubt (non-PR event, checkout/diff failure, missing
+  # output) yields "run the build". This job is NOT a required check and its name
+  # is free to change — do not add it to the ruleset.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v7
+        if: github.event_name == 'pull_request'
+        # Fail open: if checkout fails, the filter step's git diff fails and
+        # falls through to code=true instead of failing the job.
+        continue-on-error: true
+        with:
+          # Head SHA rather than the default merge ref (robust even when the merge
+          # ref is unavailable, e.g. conflicted PRs). fetch-depth: 0 fetches full
+          # history for all branches, so base.sha and the merge base are present
+          # for the three-dot diff below.
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Detect non-docs changes
+        id: filter
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # push events were already filtered by the workflow-level paths-ignore
+          # (this run existing implies source changes); workflow_dispatch always builds.
+          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # KEEP IN SYNC with the push paths-ignore list at the top of this file.
+          IGNORE_REGEX='^(docs/.*|\.claude/.*|LICENSE|\.gitignore|\.github/FUNDING\.yml|.*\.md)$'
+          # Three-dot diff (merge-base..head): the same semantics GitHub itself
+          # applies to pull_request path filters. Fail open on any git error.
+          if ! files=$(git diff --name-only "${BASE_SHA}...${HEAD_SHA}"); then
+            echo "::warning::changes: diff failed, falling back to a full build"
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # grep without -q: it must consume all input — with -q an early exit can
+          # SIGPIPE printf, and under the runner's pipefail that would turn a code
+          # PR into code=false (wrong skip).
+          if [ -n "$files" ] && [ -n "$(printf '%s\n' "$files" | grep -vE "$IGNORE_REGEX")" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
   # The job id/name "build" is the required status check context referenced by the
   # development ruleset — keep it stable.
   build:
     name: build
+    needs: changes
+    # Skip ONLY on an explicit code=false (docs-only PR): the skipped job reports
+    # "skipped", which satisfies the required check, so docs-only PRs merge without
+    # the Maven build. Any other state — changes failed, output missing — runs the
+    # build (fail open; note a job skipped because its dependency FAILED would also
+    # count as a passing check, which this condition deliberately prevents).
+    # !cancelled() keeps cancel-in-progress working and suppresses the implicit
+    # success() so the comparison alone decides.
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
