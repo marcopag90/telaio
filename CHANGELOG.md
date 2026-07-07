@@ -2,8 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
@@ -11,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 First public release, available on Maven Central under the `com.paganbit` group id.
 
-### Added
+### ⭐ New Features
 
 - Unified, persistence-agnostic Data Access Layer (`Dal` / `AbstractDal`) with dynamic
   property-map CRUD, validation, property merging, transactional hooks and a
@@ -42,7 +41,7 @@ First public release, available on Maven Central under the `com.paganbit` group 
 - GitFlow release tooling and Maven Central publishing: signed artifacts with sources and
   javadoc jars, uploaded to the Central Portal from CI on release tags.
 
-### Fixed
+### 🐞 Bug Fixes
 
 - `DELETE` enforces the DAL's `defaultFilter` and runs its visibility check inside the
   delete transaction (TOCTOU hardening); deleting an entity outside the filter now
