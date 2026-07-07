@@ -5,6 +5,9 @@ on:
     tags: [ 'v*' ]
   workflow_dispatch:
 
+permissions:
+  contents: write   # gh release create needs write; checkout needs read (implied)
+
 jobs:
   publish:
     # workflow_dispatch can be started from any ref; only v* tags may deploy
@@ -14,6 +17,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # full history + tags: needed to compute the previous release tag
 
       - name: Set up JDK 25
         uses: actions/setup-java@v5
@@ -44,3 +49,40 @@ jobs:
           path: target/central-publishing/central-bundle.zip
           retention-days: 30
           if-no-files-found: warn
+
+      # Publish release notes from the tag's CHANGELOG.md section. Idempotent so
+      # a retry via workflow_dispatch doesn't fail when the release already exists.
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; skipping."
+            exit 0
+          fi
+
+          VERSION="${TAG#v}"
+          NOTES="$RUNNER_TEMP/release-notes.md"
+
+          # Section body: after the "## [X.Y.Z]" header, up to the next "## ["
+          # header or the link-definition block (both exclusive). index() does a
+          # literal match, so version dots need no regex escaping.
+          sed 's/\r$//' CHANGELOG.md | awk -v ver="$VERSION" '
+            insec && (/^## \[/ || /^\[[^]]+\]:/) { exit }
+            insec { print }
+            index($0, "## [" ver "]") == 1 { insec = 1 }
+          ' > "$NOTES"
+
+          if ! grep -q '[^[:space:]]' "$NOTES"; then
+            echo "::warning::No CHANGELOG.md section found for $VERSION; falling back to generated notes."
+            gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes
+            exit 0
+          fi
+
+          if PREV=$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null); then
+            printf '\n**Full Changelog**: https://github.com/%s/compare/%s...%s\n' \
+              "$GITHUB_REPOSITORY" "$PREV" "$TAG" >> "$NOTES"
+          fi
+
+          gh release create "$TAG" --verify-tag --title "$TAG" --notes-file "$NOTES"
