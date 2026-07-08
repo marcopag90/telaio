@@ -1,10 +1,10 @@
 package com.paganbit.telaio.jpa;
 
-import com.turkraft.springfilter.converter.FilterSpecificationConverter;
-import com.turkraft.springfilter.parser.node.FilterNode;
 import com.paganbit.telaio.core.AbstractDal;
 import com.paganbit.telaio.jpa.sort.EntityDefaultSortResolver;
 import com.paganbit.telaio.jpa.specification.ByIdSpecification;
+import com.turkraft.springfilter.converter.FilterSpecificationConverter;
+import com.turkraft.springfilter.parser.node.FilterNode;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.metamodel.EntityType;
 import org.jspecify.annotations.Nullable;

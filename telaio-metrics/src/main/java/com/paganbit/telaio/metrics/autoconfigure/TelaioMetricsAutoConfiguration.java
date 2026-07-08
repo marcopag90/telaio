@@ -1,6 +1,5 @@
 package com.paganbit.telaio.metrics.autoconfigure;
 
-import io.micrometer.core.instrument.MeterRegistry;
 import com.paganbit.telaio.core.autoconfigure.TelaioCoreAutoConfiguration;
 import com.paganbit.telaio.metrics.collector.*;
 import com.paganbit.telaio.metrics.model.LatencyHistogramScale;
@@ -10,6 +9,7 @@ import com.paganbit.telaio.metrics.store.DefaultDalMetricsBucketMerger;
 import com.paganbit.telaio.metrics.store.InMemoryDalMetricsStore;
 import com.paganbit.telaio.metrics.store.jdbc.JdbcDalMetricsSchemaInitializer;
 import com.paganbit.telaio.metrics.store.jdbc.JdbcDalMetricsStore;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

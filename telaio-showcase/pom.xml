@@ -6,12 +6,12 @@
     <parent>
         <groupId>com.paganbit</groupId>
         <artifactId>telaio</artifactId>
-        <version>1.0.0</version>
+        <version>1.0.1</version>
     </parent>
 
     <artifactId>telaio-showcase</artifactId>
-    <name>Telaio :: Showcase</name>
-    <description>Telaio Showcase Web Application</description>
+    <name>Telaio Showcase</name>
+    <description>Showcase application for Telaio.</description>
     <url>https://github.com/marcopag90/telaio</url>
 
     <properties>

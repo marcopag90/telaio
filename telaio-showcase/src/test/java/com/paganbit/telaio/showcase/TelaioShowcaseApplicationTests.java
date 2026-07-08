@@ -1,11 +1,11 @@
 package com.paganbit.telaio.showcase;
 
-import com.turkraft.springfilter.parser.node.FilterNode;
 import com.paganbit.telaio.core.Dal;
 import com.paganbit.telaio.core.adapter.DalOperationAdapter;
 import com.paganbit.telaio.core.annotation.DalService;
 import com.paganbit.telaio.core.registry.DalManager;
 import com.paganbit.telaio.web.registry.WebDalOperationAdapterRegistry;
+import com.turkraft.springfilter.parser.node.FilterNode;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

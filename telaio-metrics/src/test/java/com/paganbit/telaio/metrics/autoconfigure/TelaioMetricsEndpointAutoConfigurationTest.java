@@ -1,10 +1,10 @@
 package com.paganbit.telaio.metrics.autoconfigure;
 
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import com.paganbit.telaio.core.autoconfigure.TelaioCoreAutoConfiguration;
 import com.paganbit.telaio.metrics.endpoint.TelaioMetricsEndpoint;
 import com.paganbit.telaio.metrics.store.DalMetricsQueryService;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
 import org.springframework.boot.autoconfigure.AutoConfigurations;

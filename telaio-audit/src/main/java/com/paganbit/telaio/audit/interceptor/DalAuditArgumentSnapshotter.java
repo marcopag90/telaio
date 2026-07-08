@@ -1,8 +1,8 @@
 package com.paganbit.telaio.audit.interceptor;
 
+import com.paganbit.telaio.core.adapter.DalOperationType;
 import com.turkraft.springfilter.converter.FilterStringConverter;
 import com.turkraft.springfilter.parser.node.FilterNode;
-import com.paganbit.telaio.core.adapter.DalOperationType;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

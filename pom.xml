@@ -12,15 +12,14 @@
 
     <groupId>com.paganbit</groupId>
     <artifactId>telaio</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <packaging>pom</packaging>
 
     <name>Telaio</name>
     <inceptionYear>2025</inceptionYear>
     <description>
-        Spring Boot framework providing a unified Data Access Layer (DAL) abstraction for CRUD
-        operations across persistence backends, with dynamic REST API generation, security,
-        filtering and entity transformation.
+        Spring Boot framework providing a unified Data Access Layer (DAL) abstraction
+        with dynamic REST API generation, security and filtering.
     </description>
 
     <url>https://github.com/marcopag90/telaio</url>

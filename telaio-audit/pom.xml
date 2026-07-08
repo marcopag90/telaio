@@ -7,14 +7,12 @@
     <parent>
         <groupId>com.paganbit</groupId>
         <artifactId>telaio</artifactId>
-        <version>1.0.0</version>
+        <version>1.0.1</version>
     </parent>
 
     <artifactId>telaio-audit</artifactId>
-    <name>Telaio :: Audit</name>
-    <description>
-        Opt-in auditing of Telaio DAL operations (operation, arguments, principal, outcome, duration).
-    </description>
+    <name>Telaio Audit</name>
+    <description>Opt-in auditing of DAL operations for Telaio.</description>
     <url>https://github.com/marcopag90/telaio</url>
 
     <dependencies>

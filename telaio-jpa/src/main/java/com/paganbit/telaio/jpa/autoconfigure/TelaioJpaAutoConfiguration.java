@@ -1,9 +1,9 @@
 package com.paganbit.telaio.jpa.autoconfigure;
 
-import com.turkraft.springfilter.converter.FilterSpecificationConverter;
-import com.turkraft.springfilter.converter.FilterSpecificationConverterImpl;
 import com.paganbit.telaio.core.autoconfigure.TelaioCoreAutoConfiguration;
 import com.paganbit.telaio.jpa.filter.JsonAwareFilterSpecificationConverter;
+import com.turkraft.springfilter.converter.FilterSpecificationConverter;
+import com.turkraft.springfilter.converter.FilterSpecificationConverterImpl;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;

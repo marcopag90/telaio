@@ -1,9 +1,9 @@
 package com.paganbit.telaio.openapi.itstub;
 
-import com.turkraft.springfilter.parser.node.FilterNode;
 import com.paganbit.telaio.core.Dal;
 import com.paganbit.telaio.core.annotation.DalService;
 import com.paganbit.telaio.openapi.fixture.Order;
+import com.turkraft.springfilter.parser.node.FilterNode;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

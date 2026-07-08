@@ -1,12 +1,12 @@
 package com.paganbit.telaio.showcase.dal.article;
 
-import com.turkraft.springfilter.parser.node.FilterNode;
 import com.paganbit.telaio.audit.annotation.DalAudit;
 import com.paganbit.telaio.core.adapter.DalOperationType;
 import com.paganbit.telaio.core.annotation.DalService;
 import com.paganbit.telaio.jpa.JpaDal;
 import com.paganbit.telaio.security.DalSecurityContextHelper;
 import com.paganbit.telaio.showcase.role.UserRole;
+import com.turkraft.springfilter.parser.node.FilterNode;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.Authentication;
 

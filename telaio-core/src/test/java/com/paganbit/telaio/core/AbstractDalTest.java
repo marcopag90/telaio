@@ -1,14 +1,14 @@
 package com.paganbit.telaio.core;
 
-import com.turkraft.springfilter.builder.FilterBuilder;
-import com.turkraft.springfilter.builder.StepWithResult;
-import com.turkraft.springfilter.converter.FilterStringConverter;
-import com.turkraft.springfilter.parser.node.FilterNode;
 import com.paganbit.telaio.core.beans.DalPropertyMerger;
 import com.paganbit.telaio.core.exception.DalEntityNotFoundException;
 import com.paganbit.telaio.core.exception.DalEntityValidationException;
 import com.paganbit.telaio.core.transaction.DalTransactionPolicy;
 import com.paganbit.telaio.core.transaction.FakeTransactionTemplate;
+import com.turkraft.springfilter.builder.FilterBuilder;
+import com.turkraft.springfilter.builder.StepWithResult;
+import com.turkraft.springfilter.converter.FilterStringConverter;
+import com.turkraft.springfilter.parser.node.FilterNode;
 import jakarta.validation.Validator;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;

@@ -7,12 +7,12 @@
     <parent>
         <groupId>com.paganbit</groupId>
         <artifactId>telaio</artifactId>
-        <version>1.0.0</version>
+        <version>1.0.1</version>
     </parent>
 
     <artifactId>telaio-metrics</artifactId>
-    <name>Telaio :: Metrics</name>
-    <description>Usage statistics and performance monitoring per DAL and per DAL operation for Telaio.</description>
+    <name>Telaio Metrics</name>
+    <description>Usage and performance metrics per DAL operation for Telaio.</description>
     <url>https://github.com/marcopag90/telaio</url>
 
     <dependencies>
