@@ -11,10 +11,8 @@
     </parent>
 
     <artifactId>telaio-core</artifactId>
-    <name>Telaio :: Core</name>
-    <description>
-        Core DAL abstraction, contracts, bean registration and Spring Boot integration for Telaio.
-    </description>
+    <name>Telaio Core</name>
+    <description>Core DAL abstraction, contracts and Spring Boot integration for Telaio.</description>
     <url>https://github.com/marcopag90/telaio</url>
 
     <dependencies>

@@ -11,8 +11,8 @@
     </parent>
 
     <artifactId>telaio-introspection</artifactId>
-    <name>Telaio :: Introspection</name>
-    <description>Reflection and type-introspection utilities used by the other Telaio modules.</description>
+    <name>Telaio Introspection</name>
+    <description>Reflection and type-introspection utilities for Telaio.</description>
     <url>https://github.com/marcopag90/telaio</url>
 
     <dependencies>

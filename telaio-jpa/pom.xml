@@ -10,8 +10,8 @@
     </parent>
 
     <artifactId>telaio-jpa</artifactId>
-    <name>Telaio :: JPA</name>
-    <description>JPA/Hibernate-based DAL implementation for Telaio.</description>
+    <name>Telaio JPA</name>
+    <description>JPA/Hibernate DAL implementation for Telaio.</description>
     <url>https://github.com/marcopag90/telaio</url>
 
     <dependencies>

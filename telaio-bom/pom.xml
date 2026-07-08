@@ -9,12 +9,8 @@
     <version>1.0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
 
-    <name>Telaio :: BOM</name>
-    <description>
-        Bill of Materials for Telaio. Import it with type=pom and scope=import in dependencyManagement
-        to align the versions of all Telaio library modules — and of the third-party libraries Telaio
-        integrates — without declaring a version on each dependency.
-    </description>
+    <name>Telaio BOM</name>
+    <description>Bill of Materials for Telaio.</description>
 
     <url>https://github.com/marcopag90/telaio</url>
     <scm>

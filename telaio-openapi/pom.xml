@@ -11,8 +11,8 @@
     </parent>
 
     <artifactId>telaio-openapi</artifactId>
-    <name>Telaio :: OpenAPI</name>
-    <description>Auto-generated, per-DAL OpenAPI documentation for the dynamic Telaio REST endpoints.</description>
+    <name>Telaio OpenAPI</name>
+    <description>Per-DAL OpenAPI documentation for Telaio.</description>
     <url>https://github.com/marcopag90/telaio</url>
 
     <dependencies>

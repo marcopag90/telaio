@@ -11,8 +11,8 @@
     </parent>
 
     <artifactId>telaio-security</artifactId>
-    <name>Telaio :: Security</name>
-    <description>Security adapters, RBAC and Spring Security integration for Telaio DALs.</description>
+    <name>Telaio Security</name>
+    <description>Security adapters, RBAC and Spring Security integration for Telaio.</description>
     <url>https://github.com/marcopag90/telaio</url>
 
     <dependencies>
