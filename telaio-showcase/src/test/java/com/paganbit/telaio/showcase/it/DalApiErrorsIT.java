@@ -24,13 +24,13 @@ class DalApiErrorsIT extends AbstractShowcaseIT {
     }
 
     @Test
-    void malformedFilterIsRejectedNotSilentlyIgnored() {
+    void malformedFilterIsRejectedWithBadRequest() {
         // Passed raw (TestRestTemplate encodes once); unbalanced parens are a Turkraft syntax error.
         ResponseEntity<String> response = list(USER, "products", "q=(((");
 
-        assertThat(response.getStatusCode().is2xxSuccessful())
+        assertThat(response.getStatusCode())
             .as("a malformed filter must never be treated as 'no filter' and return rows")
-            .isFalse();
-        assertThat(response.getStatusCode().isError()).isTrue();
+            .isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(tree(response).path("detail").asString()).isEqualTo("Malformed filter expression");
     }
 }

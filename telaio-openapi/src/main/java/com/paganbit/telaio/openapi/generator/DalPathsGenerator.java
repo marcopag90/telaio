@@ -48,6 +48,7 @@ public class DalPathsGenerator {
     private static final String CONCURRENT_MODIFICATION_MESSAGE =
         "Concurrent modification of a versioned entity — re-read and retry";
     private static final String DAL_SERVICE_OR_ENTITY_NOT_FOUND_MESSAGE = "DAL service or entity not found";
+    private static final String MALFORMED_READ_REQUEST_MESSAGE = "Malformed filter or pagination parameters";
     private static final String UNEXPECTED_ERROR_MESSAGE = "Unexpected error";
 
     public DalPathsGenerator(
@@ -139,6 +140,7 @@ public class DalPathsGenerator {
         pageableParameters().forEach(operation::addParametersItem);
         return operation.responses(new ApiResponses()
             .addApiResponse("200", jsonResponse("Page of entities", pageSchema(entityRef)))
+            .addApiResponse("400", problemResponse(MALFORMED_READ_REQUEST_MESSAGE, problemDetailRef))
             .addApiResponse("403", problemResponse(ACCESS_DENIED_MESSAGE, problemDetailRef))
             .addApiResponse("404", problemResponse("DAL service not found", problemDetailRef))
             .addApiResponse("500", problemResponse(UNEXPECTED_ERROR_MESSAGE, problemDetailRef)));

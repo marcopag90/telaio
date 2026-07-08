@@ -5,6 +5,7 @@ import com.paganbit.telaio.core.exception.DalEntityValidationException;
 import com.paganbit.telaio.core.exception.DalNotFoundException;
 import com.paganbit.telaio.core.exception.DalRegistryException;
 import com.paganbit.telaio.web.validation.ValidationError;
+import com.turkraft.springfilter.parser.InvalidSyntaxException;
 import io.swagger.v3.oas.annotations.Hidden;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +44,19 @@ public class TelaioWebExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Validation failed");
         problem.setProperty("errors", toValidationErrors(ex.getErrors()));
         return problem;
+    }
+
+    /**
+     * Maps a malformed {@code q} filter expression to {@code 400 Bad Request}. Raised by the filter
+     * parser before the operation reaches the {@code Dal}, so a syntactically invalid filter is rejected
+     * rather than silently ignored (which would otherwise leak every row). The body carries a stable,
+     * generic detail; the parser's own message (which echoes fragments of the client's input) stays in
+     * the on-demand debug log only.
+     */
+    @ExceptionHandler(InvalidSyntaxException.class)
+    ProblemDetail handleInvalidFilterSyntax(InvalidSyntaxException ex) {
+        log.debug("Malformed filter expression rejected: {}", ex.getMessage());
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Malformed filter expression");
     }
 
     /**
