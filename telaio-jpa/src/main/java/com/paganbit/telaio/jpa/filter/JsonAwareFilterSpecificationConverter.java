@@ -1,10 +1,10 @@
 package com.paganbit.telaio.jpa.filter;
 
+import com.paganbit.telaio.core.json.JsonFieldNameFilterRewriter;
+import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import com.turkraft.springfilter.converter.FilterSpecification;
 import com.turkraft.springfilter.converter.FilterSpecificationConverter;
 import com.turkraft.springfilter.parser.node.FilterNode;
-import com.paganbit.telaio.core.json.JsonFieldNameFilterRewriter;
-import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;

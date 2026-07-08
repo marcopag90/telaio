@@ -1,8 +1,5 @@
 package com.paganbit.telaio.metrics.autoconfigure;
 
-import com.turkraft.springfilter.parser.node.FilterNode;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import com.paganbit.telaio.core.Dal;
 import com.paganbit.telaio.core.adapter.DalOperationType;
 import com.paganbit.telaio.core.annotation.DalService;
@@ -15,6 +12,9 @@ import com.paganbit.telaio.metrics.store.DalMetricsQueryService;
 import com.paganbit.telaio.metrics.store.DalMetricsStore;
 import com.paganbit.telaio.metrics.store.InMemoryDalMetricsStore;
 import com.paganbit.telaio.metrics.store.jdbc.JdbcDalMetricsStore;
+import com.turkraft.springfilter.parser.node.FilterNode;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.springframework.aop.support.AopUtils;

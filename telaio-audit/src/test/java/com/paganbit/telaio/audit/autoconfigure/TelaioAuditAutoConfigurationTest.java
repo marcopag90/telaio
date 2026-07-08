@@ -1,6 +1,5 @@
 package com.paganbit.telaio.audit.autoconfigure;
 
-import com.turkraft.springfilter.parser.node.FilterNode;
 import com.paganbit.telaio.audit.annotation.DalAudit;
 import com.paganbit.telaio.audit.event.DalAuditEvent;
 import com.paganbit.telaio.audit.event.DalAuditEventStore;
@@ -15,6 +14,7 @@ import com.paganbit.telaio.core.Dal;
 import com.paganbit.telaio.core.adapter.DalOperationType;
 import com.paganbit.telaio.core.annotation.DalService;
 import com.paganbit.telaio.core.autoconfigure.TelaioCoreAutoConfiguration;
+import com.turkraft.springfilter.parser.node.FilterNode;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.springframework.aop.support.AopUtils;

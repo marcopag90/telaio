@@ -1,6 +1,5 @@
 package com.paganbit.telaio.audit.autoconfigure;
 
-import com.turkraft.springfilter.converter.FilterStringConverter;
 import com.paganbit.telaio.audit.event.*;
 import com.paganbit.telaio.audit.event.format.DalAuditEventFormatter;
 import com.paganbit.telaio.audit.event.format.JsonDalAuditEventFormatter;
@@ -11,6 +10,7 @@ import com.paganbit.telaio.audit.principal.DalAuditPrincipalResolver;
 import com.paganbit.telaio.audit.principal.NoopDalAuditPrincipalResolver;
 import com.paganbit.telaio.audit.principal.SecurityContextDalAuditPrincipalResolver;
 import com.paganbit.telaio.core.autoconfigure.TelaioCoreAutoConfiguration;
+import com.turkraft.springfilter.converter.FilterStringConverter;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;

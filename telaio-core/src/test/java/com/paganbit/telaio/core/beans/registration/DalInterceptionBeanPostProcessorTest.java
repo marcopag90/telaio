@@ -1,10 +1,10 @@
 package com.paganbit.telaio.core.beans.registration;
 
-import com.turkraft.springfilter.parser.node.FilterNode;
 import com.paganbit.telaio.core.Dal;
 import com.paganbit.telaio.core.annotation.DalService;
 import com.paganbit.telaio.core.interceptor.DalInterceptionContext;
 import com.paganbit.telaio.core.interceptor.DalInterceptorProvider;
+import com.turkraft.springfilter.parser.node.FilterNode;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;

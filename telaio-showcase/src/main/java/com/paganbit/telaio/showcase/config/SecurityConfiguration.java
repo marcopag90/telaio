@@ -30,11 +30,13 @@ public class SecurityConfiguration {
     }
 
     @Bean
+    @SuppressWarnings("squid:S4502")
     SecurityFilterChain securityFilterChain(HttpSecurity http) {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .httpBasic(Customizer.withDefaults())
             .authorizeHttpRequests(auth -> {
+                auth.requestMatchers("/").permitAll();
                 auth.requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll();
                 auth.requestMatchers("/actuator/**").permitAll();
                 auth.anyRequest().authenticated();

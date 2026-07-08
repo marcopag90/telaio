@@ -105,14 +105,14 @@ class DalSecurityInterceptorProviderTest {
     }
 
     private MethodInvocation createInvocation() throws NoSuchMethodException {
-        MethodInvocation invocation = org.mockito.Mockito.mock(MethodInvocation.class);
+        MethodInvocation invocation = mock(MethodInvocation.class);
         when(invocation.getMethod()).thenReturn(DalOperationAdapter.class.getMethod("create", Map.class));
         when(invocation.getArguments()).thenReturn(new Object[]{Map.of("a", 1)});
         return invocation;
     }
 
     private CustomAuthAdapter denyingAuthAdapter() {
-        CustomAuthAdapter authAdapter = org.mockito.Mockito.mock(CustomAuthAdapter.class);
+        CustomAuthAdapter authAdapter = mock(CustomAuthAdapter.class);
         when(authAdapter.authorizeCreate(any())).thenReturn(false);
         return authAdapter;
     }

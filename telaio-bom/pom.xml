@@ -35,7 +35,7 @@
     </licenses>
 
     <properties>
-        <turkraft-springfilter.version>3.2.5</turkraft-springfilter.version>
+        <turkraft-springfilter.version>4.0.1</turkraft-springfilter.version>
         <springdoc-openapi-starter-webmvc-ui.version>3.0.3</springdoc-openapi-starter-webmvc-ui.version>
         <central-publishing-maven-plugin.version>0.11.0</central-publishing-maven-plugin.version>
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>

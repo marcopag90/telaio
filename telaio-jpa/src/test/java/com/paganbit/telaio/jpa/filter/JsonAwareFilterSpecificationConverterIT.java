@@ -1,11 +1,11 @@
 package com.paganbit.telaio.jpa.filter;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.paganbit.telaio.jpa.JpaDalRepository;
 import com.turkraft.springfilter.converter.FilterSpecificationConverter;
 import com.turkraft.springfilter.converter.FilterSpecificationConverterImpl;
 import com.turkraft.springfilter.converter.FilterStringConverter;
 import com.turkraft.springfilter.parser.node.FilterNode;
-import com.paganbit.telaio.jpa.JpaDalRepository;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;

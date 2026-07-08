@@ -1,6 +1,5 @@
 package com.paganbit.telaio.audit.interceptor;
 
-import com.turkraft.springfilter.converter.FilterStringConverter;
 import com.paganbit.telaio.audit.annotation.DalAudit;
 import com.paganbit.telaio.audit.event.DalAuditEventStore;
 import com.paganbit.telaio.audit.event.DalAuditOutcomeClassifier;
@@ -8,6 +7,7 @@ import com.paganbit.telaio.audit.principal.DalAuditPrincipalResolver;
 import com.paganbit.telaio.core.adapter.DalOperationType;
 import com.paganbit.telaio.core.interceptor.DalInterceptionContext;
 import com.paganbit.telaio.core.interceptor.DalInterceptorProvider;
+import com.turkraft.springfilter.converter.FilterStringConverter;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.core.annotation.AnnotationUtils;
