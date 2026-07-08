@@ -6,6 +6,24 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-07-09
+
+### ⭐ New Features
+
+- A syntactically malformed `q` filter expression is now rejected with `400 Bad Request`
+  (RFC 9457 `ProblemDetail`, detail `"Malformed filter expression"`) instead of surfacing
+  as a `500`; the `400` response is documented on the read operation in the generated
+  per-DAL OpenAPI (`telaio-web`, `telaio-openapi`).
+
+### 🔨 Dependency Upgrades
+
+- Upgrade to Turkraft Spring Filter 4.0.1 — the Spring Boot 4-compatible line of the
+  filter library (previously 3.2.5, built against Spring Boot 3.5).
+
+### 📔 Documentation
+
+- README: Maven Central badge and 1.0.0 dependency coordinates.
+
 ## [1.0.0] - 2026-07-06
 
 First public release, available on Maven Central under the `com.paganbit` group id.
@@ -47,5 +65,6 @@ First public release, available on Maven Central under the `com.paganbit` group 
   delete transaction (TOCTOU hardening); deleting an entity outside the filter now
   returns `404` (previously `204`).
 
-[unreleased]: https://github.com/marcopag90/telaio/compare/v1.0.0...HEAD
+[unreleased]: https://github.com/marcopag90/telaio/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/marcopag90/telaio/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/marcopag90/telaio/releases/tag/v1.0.0
