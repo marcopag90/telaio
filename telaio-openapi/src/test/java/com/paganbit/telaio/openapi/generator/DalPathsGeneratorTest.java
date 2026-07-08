@@ -72,7 +72,8 @@ class DalPathsGeneratorTest {
 
         Operation read = collection.getGet();
         assertThat(read.getParameters()).extracting(Parameter::getName).contains("q", "page", "size", "sort");
-        assertThat(read.getResponses()).containsKeys("200", "403", "404", "500");
+        assertThat(read.getResponses()).containsKeys("200", "400", "403", "404", "500");
+        assertErrorBody(read, "400");
         assertErrorBody(read, "403");
         assertErrorBody(read, "404");
         assertErrorBody(read, "500");

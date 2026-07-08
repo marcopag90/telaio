@@ -1,12 +1,13 @@
 package com.paganbit.telaio.web;
 
-import com.turkraft.springfilter.converter.FilterStringConverter;
 import com.paganbit.telaio.core.adapter.DalOperationAdapter;
 import com.paganbit.telaio.core.exception.DalNotFoundException;
 import com.paganbit.telaio.core.registry.DalManager;
 import com.paganbit.telaio.web.adapter.WebDalOperationAdapter;
 import com.paganbit.telaio.web.exception.TelaioWebExceptionHandler;
 import com.paganbit.telaio.web.registry.WebDalOperationAdapterRegistry;
+import com.turkraft.springfilter.converter.FilterStringConverter;
+import com.turkraft.springfilter.parser.InvalidSyntaxException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -117,6 +118,20 @@ class DalRestApiV1ControllerTest {
     void deleteCompany_shouldReturnNoContent() throws Exception {
         mockMvc.perform(delete("/dal/v1/company/1"))
             .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void readCompanies_malformedFilter_shouldReturnBadRequest() throws Exception {
+        doThrow(new InvalidSyntaxException("mismatched input '(' expecting {...}"))
+            .when(filterStringConverter).convert("(((");
+
+        mockMvc.perform(get("/dal/v1/company")
+                .param("q", "(((")
+                .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.detail").value("Malformed filter expression"));
     }
 
     @Test

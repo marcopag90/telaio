@@ -67,6 +67,10 @@ public interface DalRestApiV1 {
     @Operation(summary = "Read a page of objects from the specified DAL")
     @ApiResponse(responseCode = "200", description = "Page of entities")
     @ApiResponse(
+        responseCode = "400",
+        description = "Malformed filter or pagination parameters",
+        content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+    @ApiResponse(
         responseCode = "403",
         description = "Access denied",
         content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
