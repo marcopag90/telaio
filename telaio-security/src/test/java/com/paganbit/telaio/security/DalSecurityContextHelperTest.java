@@ -3,7 +3,6 @@ package com.paganbit.telaio.security;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mockito;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -13,6 +12,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.Mockito.mock;
 
 @ExtendWith(SpringExtension.class)
 class DalSecurityContextHelperTest {
@@ -38,7 +38,7 @@ class DalSecurityContextHelperTest {
 
     @Test
     void getCurrentRequestAttributes_shouldReturnAttributes_whenPresentInContext() {
-        RequestAttributes mockAttributes = Mockito.mock(RequestAttributes.class);
+        RequestAttributes mockAttributes = mock(RequestAttributes.class);
         RequestContextHolder.setRequestAttributes(mockAttributes);
 
         assertEquals(mockAttributes, DalSecurityContextHelper.getCurrentRequestAttributes());

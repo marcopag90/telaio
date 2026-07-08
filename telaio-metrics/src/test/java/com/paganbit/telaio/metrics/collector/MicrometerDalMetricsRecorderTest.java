@@ -1,8 +1,8 @@
 package com.paganbit.telaio.metrics.collector;
 
+import com.paganbit.telaio.core.adapter.DalOperationType;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import com.paganbit.telaio.core.adapter.DalOperationType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

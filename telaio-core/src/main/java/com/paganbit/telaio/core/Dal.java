@@ -1,8 +1,8 @@
 package com.paganbit.telaio.core;
 
-import com.turkraft.springfilter.parser.node.FilterNode;
 import com.paganbit.telaio.core.adapter.DalOperation;
 import com.paganbit.telaio.core.adapter.DalOperationType;
+import com.turkraft.springfilter.parser.node.FilterNode;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

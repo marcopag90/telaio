@@ -1,8 +1,8 @@
 package com.paganbit.telaio.metrics.collector;
 
+import com.paganbit.telaio.core.adapter.DalOperationType;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
-import com.paganbit.telaio.core.adapter.DalOperationType;
 
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;

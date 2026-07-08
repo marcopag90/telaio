@@ -6,17 +6,16 @@ import com.paganbit.telaio.core.interceptor.DalInterceptionContext;
 import com.paganbit.telaio.core.interceptor.DalInterceptorProvider;
 import com.paganbit.telaio.metrics.annotation.DalMetrics;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 import java.util.EnumSet;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 class DalMetricsInterceptorProviderTest {
 
-    private final DalMetricsRecorder recorder =
-        Mockito.mock(DalMetricsRecorder.class);
+    private final DalMetricsRecorder recorder = mock(DalMetricsRecorder.class);
     private final DalMetricsInterceptorProvider provider =
         new DalMetricsInterceptorProvider(List.of(recorder));
 

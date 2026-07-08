@@ -1,7 +1,6 @@
 package com.paganbit.telaio.openapi.customizer;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.turkraft.springfilter.parser.node.FilterNode;
 import com.paganbit.telaio.core.Dal;
 import com.paganbit.telaio.core.adapter.DalOperationType;
 import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
@@ -10,6 +9,7 @@ import com.paganbit.telaio.core.registry.DalManager;
 import com.paganbit.telaio.openapi.generator.DalPathsGenerator;
 import com.paganbit.telaio.openapi.generator.FilterParameterDescriber;
 import com.paganbit.telaio.openapi.introspection.DalEntitySchemaResolver;
+import com.turkraft.springfilter.parser.node.FilterNode;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.PathItem;
