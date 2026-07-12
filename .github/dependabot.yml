@@ -1,0 +1,45 @@
+# Dependabot version updates (https://docs.github.com/en/code-security/dependabot)
+#
+# Gitflow note: version-update PRs target `development` (target-branch below);
+# security-update PRs ALWAYS target the default branch (`main`) — close those and
+# handle the bump via development (or a gitflow hotfix if urgent).
+# Dependabot reads this file from the default branch only: changes here must be
+# cherry-picked to `main` to take effect.
+version: 2
+updates:
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "Europe/Rome"
+    target-branch: "development"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "build"
+      include: "scope" # -> "build(deps): bump ..." (conventional commit)
+    groups:
+      maven-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/" # Dependabot convention: "/" means .github/workflows
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "Europe/Rome"
+    target-branch: "development"
+    commit-message:
+      prefix: "ci"
+      include: "scope" # -> "ci(deps): bump ..."
+    groups:
+      actions-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
