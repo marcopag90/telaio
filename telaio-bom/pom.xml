@@ -37,6 +37,7 @@
     <properties>
         <turkraft-springfilter.version>4.0.1</turkraft-springfilter.version>
         <springdoc-openapi-starter-webmvc-ui.version>3.0.3</springdoc-openapi-starter-webmvc-ui.version>
+        <swagger-bom.version>2.2.52</swagger-bom.version>
         <central-publishing-maven-plugin.version>0.11.0</central-publishing-maven-plugin.version>
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
     </properties>
@@ -46,6 +47,11 @@
             <dependency>
                 <groupId>com.paganbit</groupId>
                 <artifactId>telaio-introspection</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.paganbit</groupId>
+                <artifactId>telaio-rest-contract</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -84,6 +90,11 @@
                 <version>${project.version}</version>
             </dependency>
             <dependency>
+                <groupId>com.paganbit</groupId>
+                <artifactId>telaio-client</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
                 <groupId>com.turkraft.springfilter</groupId>
                 <artifactId>core</artifactId>
                 <version>${turkraft-springfilter.version}</version>
@@ -97,6 +108,13 @@
                 <groupId>org.springdoc</groupId>
                 <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
                 <version>${springdoc-openapi-starter-webmvc-ui.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.swagger.core.v3</groupId>
+                <artifactId>swagger-bom</artifactId>
+                <version>${swagger-bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
