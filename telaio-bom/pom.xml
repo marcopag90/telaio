@@ -91,7 +91,7 @@
             </dependency>
             <dependency>
                 <groupId>com.paganbit</groupId>
-                <artifactId>telaio-client</artifactId>
+                <artifactId>telaio-rest-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

@@ -4,7 +4,9 @@ import com.paganbit.telaio.core.exception.DalEntityNotFoundException;
 import com.paganbit.telaio.core.exception.DalEntityValidationException;
 import com.paganbit.telaio.core.exception.DalNotFoundException;
 import com.paganbit.telaio.core.exception.DalRegistryException;
-import com.paganbit.telaio.web.validation.ValidationError;
+import com.paganbit.telaio.rest.contract.DalIdCodecException;
+import com.paganbit.telaio.rest.contract.v1.DalApiV1;
+import com.paganbit.telaio.rest.contract.v1.ValidationError;
 import com.turkraft.springfilter.parser.InvalidSyntaxException;
 import io.swagger.v3.oas.annotations.Hidden;
 import org.slf4j.Logger;
@@ -42,7 +44,7 @@ public class TelaioWebExceptionHandler {
         log.debug("Request validation failed ({} field error(s): {})",
             ex.getErrors().size(), ex.getErrors().stream().map(FieldError::getField).toList());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Validation failed");
-        problem.setProperty("errors", toValidationErrors(ex.getErrors()));
+        problem.setProperty(DalApiV1.PROBLEM_PROPERTY_ERRORS, toValidationErrors(ex.getErrors()));
         return problem;
     }
 
@@ -57,6 +59,19 @@ public class TelaioWebExceptionHandler {
     ProblemDetail handleInvalidFilterSyntax(InvalidSyntaxException ex) {
         log.debug("Malformed filter expression rejected: {}", ex.getMessage());
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Malformed filter expression");
+    }
+
+    /**
+     * Maps a malformed {@code {id}} path segment (invalid Base64 for a composite key, or a value
+     * that cannot be converted into the DAL's ID type) to {@code 400 Bad Request}. Raised by the
+     * shared wire-contract codec while resolving the {@code @DalId} argument — malformed client
+     * input. The body carries a stable, generic detail; the codec's reason
+     * stays in the on-demand debug log only.
+     */
+    @ExceptionHandler(DalIdCodecException.class)
+    ProblemDetail handleMalformedId(DalIdCodecException ex) {
+        log.debug("Malformed resource identifier rejected: {}", ex.getMessage());
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Malformed resource identifier");
     }
 
     /**

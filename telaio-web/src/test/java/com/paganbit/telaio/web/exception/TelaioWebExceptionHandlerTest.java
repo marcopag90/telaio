@@ -5,6 +5,7 @@ import com.paganbit.telaio.core.exception.DalEntityNotFoundException;
 import com.paganbit.telaio.core.exception.DalEntityValidationException;
 import com.paganbit.telaio.core.exception.DalNotFoundException;
 import com.paganbit.telaio.core.exception.DalRegistryException;
+import com.paganbit.telaio.rest.contract.DalIdCodecException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -41,6 +42,7 @@ class TelaioWebExceptionHandlerTest {
     private static final String RESOURCE_NOT_FOUND_EXCEPTION = "/resource-not-found-exception";
     private static final String REGISTRY_EXCEPTION = "/registry-exception";
     private static final String OPTIMISTIC_LOCK_EXCEPTION = "/optimistic-lock-exception";
+    private static final String MALFORMED_ID_EXCEPTION = "/malformed-id-exception";
 
     @Autowired
     private MockMvc mockMvc;
@@ -115,6 +117,16 @@ class TelaioWebExceptionHandlerTest {
     }
 
     @Test
+    void handleMalformedId_shouldReturn400ProblemDetailWithGenericDetail() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders.get(MALFORMED_ID_EXCEPTION))
+            .andExpect(MockMvcResultMatchers.status().isBadRequest())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.title").value("Bad Request"))
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.detail").value("Malformed resource identifier"));
+    }
+
+    @Test
     void handleRegistryException_shouldReturn500ProblemDetailWithoutLeakingInternals() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.get(REGISTRY_EXCEPTION))
             .andExpect(MockMvcResultMatchers.status().isInternalServerError())
@@ -164,6 +176,12 @@ class TelaioWebExceptionHandlerTest {
         @GetMapping(REGISTRY_EXCEPTION)
         public void throwDalRegistryException() {
             throw new DalRegistryException("boom");
+        }
+
+        @GetMapping(MALFORMED_ID_EXCEPTION)
+        public void throwDalIdCodecException() {
+            throw new DalIdCodecException("Failed to decode composite ID from Base64 (length 10)",
+                new IllegalArgumentException("Illegal base64 character"));
         }
 
         @GetMapping(OPTIMISTIC_LOCK_EXCEPTION)

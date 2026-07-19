@@ -2,6 +2,7 @@ package com.paganbit.telaio.web.annotation;
 
 import com.paganbit.telaio.core.Dal;
 import com.paganbit.telaio.core.registry.DalManager;
+import com.paganbit.telaio.rest.contract.DalIdCodecException;
 import com.paganbit.telaio.web.DalRestApiV1;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -172,7 +173,8 @@ class DalIdArgumentResolverTest {
         doReturn(dalService).when(dalManager).getServiceByName(anyString());
         doReturn(ComplexId.class).when(dalService).getIdClass();
 
-        assertThrows(IllegalStateException.class, () ->
+        // Propagates as-is; TelaioWebExceptionHandler maps it to a generic 400.
+        assertThrows(DalIdCodecException.class, () ->
             resolver.resolveArgument(parameter, null, webRequest, binderFactory));
     }
 
@@ -195,7 +197,9 @@ class DalIdArgumentResolverTest {
         doThrow(new JacksonException("Test error") {
         }).when(objectMapper).readValue(anyString(), any(JavaType.class));
 
-        assertThrows(JacksonException.class, () ->
+        // The shared DalIdCodec wraps deserialization failures; the resolver lets them propagate
+        // so TelaioWebExceptionHandler maps them to a generic 400.
+        assertThrows(DalIdCodecException.class, () ->
             resolver.resolveArgument(parameter, null, webRequest, binderFactory));
     }
 

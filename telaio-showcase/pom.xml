@@ -99,6 +99,11 @@
             <artifactId>spring-boot-restclient</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.paganbit</groupId>
+            <artifactId>telaio-rest-client</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

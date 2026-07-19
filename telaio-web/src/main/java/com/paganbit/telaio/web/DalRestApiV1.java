@@ -24,7 +24,8 @@ import java.util.Map;
  *
  * <p>Defines HTTP endpoint signatures for create, read, readOne, update, and delete operations
  * on dynamic DAL services, identified by name.
- * Also serves as the single source of API path constants.</p>
+ * Path constants are aliases of the shared wire contract in
+ * {@link com.paganbit.telaio.rest.contract.v1.DalApiV1}.</p>
  *
  * <p>Integrates OpenAPI annotations for automatic documentation.</p>
  *
@@ -35,10 +36,10 @@ import java.util.Map;
 @Tag(name = "DAL API v1", description = "Restful endpoints for DAL services")
 public interface DalRestApiV1 {
 
-    String BASE_PATH = "/dal/v1";
-    String PATH_VARIABLE_DAL_NAME = "dalName";
-    String PATH_VARIABLE_ID = "id";
-    String REQUEST_PARAM_FILTER = "q";
+    String BASE_PATH = com.paganbit.telaio.rest.contract.v1.DalApiV1.BASE_PATH;
+    String PATH_VARIABLE_DAL_NAME = com.paganbit.telaio.rest.contract.v1.DalApiV1.PATH_VARIABLE_DAL_NAME;
+    String PATH_VARIABLE_ID = com.paganbit.telaio.rest.contract.v1.DalApiV1.PATH_VARIABLE_ID;
+    String REQUEST_PARAM_FILTER = com.paganbit.telaio.rest.contract.v1.DalApiV1.REQUEST_PARAM_FILTER;
 
     @PostMapping(
         value = "{" + PATH_VARIABLE_DAL_NAME + "}",

@@ -2,7 +2,7 @@ package com.paganbit.telaio.web.annotation;
 
 import com.paganbit.telaio.core.Dal;
 import com.paganbit.telaio.core.registry.DalManager;
-import com.paganbit.telaio.introspection.TypeUtil;
+import com.paganbit.telaio.rest.contract.v1.DalIdCodec;
 import com.paganbit.telaio.web.DalRestApiV1;
 import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.NonNull;
@@ -13,11 +13,9 @@ import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 import org.springframework.web.servlet.HandlerMapping;
-import tools.jackson.core.JacksonException;
+
 import tools.jackson.databind.ObjectMapper;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.Map;
 import java.util.Objects;
 
@@ -28,9 +26,7 @@ import java.util.Objects;
  * context. It supports both simple IDs (e.g. {@code Long}, {@code String}) and complex IDs
  * (composite keys), which are expected to be passed as Base64-encoded JSON objects.</p>
  *
- * <p>If the ID type is simple, the raw path variable is converted using Jackson's
- * {@code convertValue}. If the ID type is complex (a POJO or record), the path variable must be
- * Base64 URL-safe encoded JSON, which is decoded and deserialized into the proper class.</p>
+ * <p>The conversion itself is delegated to the {@link DalIdCodec}.</p>
  *
  * @author Marco Pagan
  * @see DalId
@@ -40,11 +36,11 @@ import java.util.Objects;
 public class DalIdArgumentResolver implements HandlerMethodArgumentResolver {
 
     private final DalManager dalManager;
-    private final ObjectMapper objectMapper;
+    private final DalIdCodec dalIdCodec;
 
     public DalIdArgumentResolver(DalManager dalManager, ObjectMapper objectMapper) {
         this.dalManager = dalManager;
-        this.objectMapper = objectMapper;
+        this.dalIdCodec = new DalIdCodec(objectMapper);
     }
 
     @Override
@@ -59,7 +55,7 @@ public class DalIdArgumentResolver implements HandlerMethodArgumentResolver {
         ModelAndViewContainer mavContainer,
         NativeWebRequest webRequest,
         WebDataBinderFactory binderFactory
-    ) throws JacksonException {
+    ) {
         final var pathVariables = (Map<String, String>) webRequest.getAttribute(
             HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE,
             RequestAttributes.SCOPE_REQUEST
@@ -79,20 +75,6 @@ public class DalIdArgumentResolver implements HandlerMethodArgumentResolver {
         }
 
         Dal<?, ?> dal = dalManager.getServiceByName(dalName);
-        Class<?> idType = dal.getIdClass();
-        if (TypeUtil.isComplexType(idType)) {
-            String decodedJson = decodeRawIdValueFromBase64(rawId);
-            return objectMapper.readValue(decodedJson, objectMapper.constructType(idType));
-        }
-        return objectMapper.convertValue(rawId, objectMapper.constructType(idType));
-    }
-
-    private static String decodeRawIdValueFromBase64(String rawId) {
-        try {
-            byte[] decodedBytes = Base64.getUrlDecoder().decode(rawId);
-            return new String(decodedBytes, StandardCharsets.UTF_8);
-        } catch (IllegalArgumentException e) {
-            throw new IllegalStateException("Failed to decode composite ID from Base64: " + rawId, e);
-        }
+        return dalIdCodec.decode(rawId, dal.getIdClass());
     }
 }
