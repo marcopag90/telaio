@@ -21,6 +21,7 @@
         <maven.javadoc.skip>true</maven.javadoc.skip>
         <gpg.skip>true</gpg.skip>
         <skipPublishing>true</skipPublishing>
+        <jacoco.skip>true</jacoco.skip>
     </properties>
 
     <dependencies>
