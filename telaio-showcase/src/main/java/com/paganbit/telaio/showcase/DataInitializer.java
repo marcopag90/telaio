@@ -16,10 +16,11 @@ import com.paganbit.telaio.showcase.dal.product.Product;
 import com.paganbit.telaio.showcase.dal.product.ProductRepository;
 import com.paganbit.telaio.showcase.dal.setting.AppSetting;
 import com.paganbit.telaio.showcase.dal.setting.AppSettingRepository;
+import com.paganbit.telaio.showcase.dal.ticket.SupportTicket;
+import com.paganbit.telaio.showcase.dal.ticket.SupportTicketRepository;
 import com.paganbit.telaio.showcase.dal.translation.Translation;
 import com.paganbit.telaio.showcase.dal.translation.TranslationId;
 import com.paganbit.telaio.showcase.dal.translation.TranslationRepository;
-import org.jspecify.annotations.NonNull;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
@@ -38,6 +39,7 @@ public class DataInitializer implements CommandLineRunner {
     private final TranslationRepository translationRepository;
     private final AppSettingRepository appSettingRepository;
     private final BulletinRepository bulletinRepository;
+    private final SupportTicketRepository supportTicketRepository;
 
     public DataInitializer(
         ArticleRepository articleRepository,
@@ -47,7 +49,8 @@ public class DataInitializer implements CommandLineRunner {
         DepartmentRepository departmentRepository,
         TranslationRepository translationRepository,
         AppSettingRepository appSettingRepository,
-        BulletinRepository bulletinRepository
+        BulletinRepository bulletinRepository,
+        SupportTicketRepository supportTicketRepository
     ) {
         this.articleRepository = articleRepository;
         this.productRepository = productRepository;
@@ -57,10 +60,11 @@ public class DataInitializer implements CommandLineRunner {
         this.translationRepository = translationRepository;
         this.appSettingRepository = appSettingRepository;
         this.bulletinRepository = bulletinRepository;
+        this.supportTicketRepository = supportTicketRepository;
     }
 
     @Override
-    public void run(String @NonNull ... args) {
+    public void run(String... args) {
         seedArticles();
         seedProducts();
         seedAnnouncements();
@@ -69,6 +73,17 @@ public class DataInitializer implements CommandLineRunner {
         seedTranslations();
         seedAppSettings();
         seedBulletins();
+        seedTickets();
+    }
+
+    private void seedTickets() {
+        if (supportTicketRepository.count() > 0) {
+            return;
+        }
+        SupportTicket ticket = new SupportTicket();
+        ticket.setSubject("Onboarding: request VPN access");
+        ticket.setStatus("OPEN");
+        supportTicketRepository.save(ticket);
     }
 
     private void seedBulletins() {

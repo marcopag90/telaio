@@ -54,6 +54,16 @@
             <groupId>com.paganbit</groupId>
             <artifactId>telaio-jpa</artifactId>
         </dependency>
+        <!-- The blocking REST client at compile scope: the app is a client of its own DAL API
+             (see SupportTicketDalService + telaio.rest-client.connections.self). -->
+        <dependency>
+            <groupId>com.paganbit</groupId>
+            <artifactId>telaio-rest-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-restclient</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
@@ -92,16 +102,6 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers-postgresql</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-restclient</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.paganbit</groupId>
-            <artifactId>telaio-rest-client</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

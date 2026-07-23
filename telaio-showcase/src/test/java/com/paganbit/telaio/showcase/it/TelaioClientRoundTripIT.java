@@ -1,7 +1,11 @@
 package com.paganbit.telaio.showcase.it;
 
-import com.paganbit.telaio.rest.client.*;
+import com.paganbit.telaio.rest.client.DalPage;
+import com.paganbit.telaio.rest.client.DalPageRequest;
+import com.paganbit.telaio.rest.client.DalSort;
+import com.paganbit.telaio.rest.client.blocking.TelaioClient;
 import com.paganbit.telaio.rest.client.blocking.TelaioRestClient;
+import com.paganbit.telaio.rest.client.blocking.v1.DalClient;
 import com.paganbit.telaio.rest.client.exception.DalClientNotFoundException;
 import com.paganbit.telaio.rest.client.exception.DalClientValidationException;
 import org.jspecify.annotations.Nullable;
