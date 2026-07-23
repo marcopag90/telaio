@@ -9,8 +9,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springdoc.core.annotations.ParameterObject;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PagedModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
@@ -76,7 +76,7 @@ public interface DalRestApiV1 {
         description = "Access denied",
         content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     @ApiResponse(responseCode = "404", description = "DAL service not found", content = @Content)
-    Page<Object> read(
+    PagedModel<Object> read(
         @PathVariable String dalName,
         @RequestParam(value = REQUEST_PARAM_FILTER, required = false) String filter,
         @ParameterObject Pageable pageable

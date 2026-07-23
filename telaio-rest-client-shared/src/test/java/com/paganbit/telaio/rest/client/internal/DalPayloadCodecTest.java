@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DalPayloadCodecTest {
 
     /**
-     * Literal snapshot of the server's PagedModel (VIA_DTO) wire shape.
+     * Literal snapshot of the server's {@code PagedModel} wire shape.
      */
     private static final String PAGED_MODEL = """
         {

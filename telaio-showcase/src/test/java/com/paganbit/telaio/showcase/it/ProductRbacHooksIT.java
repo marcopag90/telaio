@@ -189,7 +189,7 @@ class ProductRbacHooksIT extends AbstractShowcaseIT {
         JsonNode page = tree(list(DEVELOPER, DAL,
             filterQuery("category:'" + category + "'") + "&sort=price,desc&size=2&page=0"));
 
-        // Spring Data pages serialize VIA_DTO: pagination metadata is nested under "page".
+        // telaio-web returns a PagedModel: pagination metadata is nested under "page".
         JsonNode pageInfo = page.get("page");
         assertThat(pageInfo.get("totalElements").asLong()).as("filter matches exactly the 3 created rows").isEqualTo(3);
         assertThat(pageInfo.get("totalPages").asLong()).isEqualTo(2);

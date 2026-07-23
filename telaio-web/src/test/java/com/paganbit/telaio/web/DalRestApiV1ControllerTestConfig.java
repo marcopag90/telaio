@@ -5,6 +5,8 @@ import com.paganbit.telaio.web.annotation.DalIdArgumentResolver;
 import com.paganbit.telaio.web.autoconfigure.TelaioWebAutoConfiguration;
 import com.turkraft.springfilter.parser.node.FilterNode;
 import org.jspecify.annotations.Nullable;
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
+import org.springframework.boot.data.autoconfigure.web.DataWebAutoConfiguration;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
@@ -20,6 +22,7 @@ import java.util.Optional;
     DalIdArgumentResolver.class,
     TelaioWebAutoConfiguration.class
 })
+@ImportAutoConfiguration(DataWebAutoConfiguration.class)
 public class DalRestApiV1ControllerTestConfig {
 
     public static class MockDalService implements Dal<Object, Long> {
@@ -37,10 +40,13 @@ public class DalRestApiV1ControllerTestConfig {
 
         @Override
         public Page<Object> read(@Nullable FilterNode filter, Pageable pageable) {
-            return new PageImpl<>(List.of(
+            // Honor the resolved Pageable so the page metadata mirrors production (paged), not an
+            // unpaged page whose size would just echo the content length.
+            List<Object> content = List.of(
                 Map.of("id", 1L, "name", "Company One"),
                 Map.of("id", 2L, "name", "Company Two")
-            ));
+            );
+            return new PageImpl<>(content, pageable, content.size());
         }
 
         @Override

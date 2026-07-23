@@ -295,9 +295,9 @@ public class DalPathsGenerator {
     }
 
     /**
-     * Models the {@code PagedModel} DTO Spring Data emits under
-     * {@code EnableSpringDataWebSupport(VIA_DTO)}: a {@code content} array plus a {@code page} metadata
-     * object.
+     * Models the {@code PagedModel} DTO returned by the DAL read endpoint: a {@code content} array
+     * plus a {@code page} metadata object. The controller returns {@code PagedModel} explicitly, so
+     * this shape is fixed regardless of the host application's Spring Data page serialization mode.
      */
     private Schema<?> pageSchema(Schema<?> entityRef) {
         ObjectSchema pageMetadata = new ObjectSchema();
