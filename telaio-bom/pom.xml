@@ -91,6 +91,11 @@
             </dependency>
             <dependency>
                 <groupId>com.paganbit</groupId>
+                <artifactId>telaio-rest-client-shared</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.paganbit</groupId>
                 <artifactId>telaio-rest-client</artifactId>
                 <version>${project.version}</version>
             </dependency>

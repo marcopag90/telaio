@@ -1,4 +1,4 @@
-package com.paganbit.telaio.rest.client.autoconfigure;
+package com.paganbit.telaio.rest.client.config;
 
 import org.springframework.boot.autoconfigure.condition.ConditionMessage;
 import org.springframework.boot.autoconfigure.condition.ConditionOutcome;
@@ -21,7 +21,7 @@ import java.util.Set;
  * @author Marco Pagan
  * @since 1.1.0
  */
-class SingleConnectionCondition extends SpringBootCondition {
+public class SingleConnectionCondition extends SpringBootCondition {
 
     private static final String CONNECTIONS_PROPERTY = TelaioRestClientProperties.PREFIX + ".connections";
 

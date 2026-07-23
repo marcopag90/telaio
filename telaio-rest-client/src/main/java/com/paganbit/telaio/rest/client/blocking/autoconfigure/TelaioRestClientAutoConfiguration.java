@@ -1,8 +1,11 @@
-package com.paganbit.telaio.rest.client.autoconfigure;
+package com.paganbit.telaio.rest.client.blocking.autoconfigure;
 
-import com.paganbit.telaio.rest.client.TelaioClient;
-import com.paganbit.telaio.rest.client.TelaioClientRegistry;
-import com.paganbit.telaio.rest.client.TelaioRestClientCustomizer;
+import com.paganbit.telaio.rest.client.blocking.TelaioClient;
+import com.paganbit.telaio.rest.client.blocking.TelaioClientRegistry;
+import com.paganbit.telaio.rest.client.blocking.TelaioRestClientCustomizer;
+import com.paganbit.telaio.rest.client.config.SingleConnectionCondition;
+import com.paganbit.telaio.rest.client.config.TelaioRestClientProperties;
+import com.turkraft.springfilter.converter.FilterStringConverter;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -48,9 +51,11 @@ public class TelaioRestClientAutoConfiguration {
         TelaioRestClientProperties properties,
         ObjectProvider<RestClient.Builder> restClientBuilder,
         ObjectProvider<ObjectMapper> objectMapper,
+        ObjectProvider<FilterStringConverter> filterStringConverters,
         ObjectProvider<TelaioRestClientCustomizer> customizers
     ) {
-        return new DefaultTelaioClientRegistry(properties, restClientBuilder, objectMapper, customizers);
+        return new DefaultTelaioClientRegistry(
+            properties, restClientBuilder, objectMapper, filterStringConverters, customizers);
     }
 
     @Bean

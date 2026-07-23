@@ -1,4 +1,4 @@
-package com.paganbit.telaio.rest.client.autoconfigure;
+package com.paganbit.telaio.rest.client.config;
 
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.ConfigurationProperties;

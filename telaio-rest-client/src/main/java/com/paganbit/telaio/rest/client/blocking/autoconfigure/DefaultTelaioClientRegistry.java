@@ -1,9 +1,12 @@
-package com.paganbit.telaio.rest.client.autoconfigure;
+package com.paganbit.telaio.rest.client.blocking.autoconfigure;
 
-import com.paganbit.telaio.rest.client.TelaioClient;
-import com.paganbit.telaio.rest.client.TelaioClientRegistry;
-import com.paganbit.telaio.rest.client.TelaioRestClientCustomizer;
+import com.paganbit.telaio.rest.client.blocking.TelaioClient;
+import com.paganbit.telaio.rest.client.blocking.TelaioClientRegistry;
 import com.paganbit.telaio.rest.client.blocking.TelaioRestClient;
+import com.paganbit.telaio.rest.client.blocking.TelaioRestClientCustomizer;
+import com.paganbit.telaio.rest.client.config.TelaioRestClientProperties;
+import com.paganbit.telaio.rest.client.internal.DalFilterStringConverters;
+import com.turkraft.springfilter.converter.FilterStringConverter;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
@@ -32,6 +35,7 @@ class DefaultTelaioClientRegistry implements TelaioClientRegistry {
     private final TelaioRestClientProperties properties;
     private final ObjectProvider<RestClient.Builder> restClientBuilders;
     private final ObjectProvider<ObjectMapper> objectMapper;
+    private final ObjectProvider<FilterStringConverter> filterStringConverters;
     private final ObjectProvider<TelaioRestClientCustomizer> customizers;
     private final Map<String, TelaioClient> clients = new ConcurrentHashMap<>();
 
@@ -39,11 +43,13 @@ class DefaultTelaioClientRegistry implements TelaioClientRegistry {
         TelaioRestClientProperties properties,
         ObjectProvider<RestClient.Builder> restClientBuilders,
         ObjectProvider<ObjectMapper> objectMapper,
+        ObjectProvider<FilterStringConverter> filterStringConverters,
         ObjectProvider<TelaioRestClientCustomizer> customizers
     ) {
         this.properties = properties;
         this.restClientBuilders = restClientBuilders;
         this.objectMapper = objectMapper;
+        this.filterStringConverters = filterStringConverters;
         this.customizers = customizers;
     }
 
@@ -77,8 +83,12 @@ class DefaultTelaioClientRegistry implements TelaioClientRegistry {
 
         RestClient restClient = builder.build();
         ObjectMapper mapper = objectMapper.getIfAvailable();
+        // Turkraft's own autoconfiguration provides the converter in any Boot app; the fallback
+        // only fires in contexts assembled without it.
+        FilterStringConverter filterConverter =
+            filterStringConverters.getIfAvailable(DalFilterStringConverters::pinned);
         return mapper != null
-            ? TelaioRestClient.create(restClient, mapper)
-            : TelaioRestClient.create(restClient);
+            ? TelaioRestClient.create(restClient, mapper, filterConverter)
+            : TelaioRestClient.create(restClient, filterConverter);
     }
 }
