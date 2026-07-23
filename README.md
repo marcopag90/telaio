@@ -18,115 +18,111 @@
   <a href="https://central.sonatype.com/namespace/com.paganbit"><img src="https://img.shields.io/maven-central/v/com.paganbit/telaio-bom" alt="Maven Central"></a>
 </p>
 
-Telaio provides a unified **Data Access Layer (DAL)** abstraction for CRUD operations across
-persistence backends. The core contract is **persistence-agnostic** — it is built on Spring Data's
-abstractions (`Page`, `Pageable`, `Sort`) and knows nothing about any specific store;
-**JPA/Hibernate is the first shipped backend**, with more (MongoDB, QueryDSL) on the roadmap.
+Telaio provides a unified **Data Access Layer (DAL)** abstraction for CRUD operations across persistence backends. The
+core contract is **persistence-agnostic** — it is built on Spring Data's abstractions (`Page`, `Pageable`, `Sort`) and
+knows nothing about any specific store; **JPA/Hibernate is the first shipped backend**, with more (MongoDB, QueryDSL) on
+the roadmap.
 
-Declare an entity, a repository, and one small service class annotated `@DalService`, and Telaio
-generates a dynamic REST endpoint for it — with filtering, pagination, operation-level
-authorization, field-level RBAC, structured audit logging, and performance metrics, all wired in
-by auto-configuration.
+Declare an entity, a repository, and one small service class annotated `@DalService`, and Telaio generates a dynamic
+REST endpoint for it — with filtering, pagination, operation-level authorization, field-level RBAC, structured audit
+logging, and performance metrics, all wired in by auto-configuration.
 
 ```java
+
 @DalService(name = "products")
 public class ProductDalService extends JpaDal<Product, Long> {
 }
 ```
 
-`Product` is now a full CRUD REST resource at `/dal/v1/products` — no controller, no DTO, no
-mapper. See the [Quick start](#quick-start) for the complete three-file example.
+`Product` is now a full CRUD REST resource at `/dal/v1/products` — no controller, no DTO, no mapper. See
+the [Quick start](#quick-start) for the complete three-file example.
 
 ## Why Telaio
 
-Most CRUD backends repeat the same ceremony for every resource: a controller, a DTO, a mapper, a
-service, a repository. Telaio collapses that into one abstraction:
+Most CRUD backends repeat the same ceremony for every resource: a controller, a DTO, a mapper, a service, a repository.
+Telaio collapses that into one abstraction:
 
-- **The entity is the API.** There is no DTO layer — the entity is read, written, and returned
-  directly. What you model is what the client sees — though not necessarily under your field
-  names (see [No DTOs — and no lock-in to your field names](#no-dtos--and-no-lock-in-to-your-field-names)).
-- **Persistence-agnostic by design.** The `Dal` contract lives in `telaio-core` and depends only on
-  Spring Data's paging/sorting abstractions; a backend implements a small `execute*` SPI. JPA is
-  the first implementation — not a constraint of the architecture.
-- **No controllers.** A single dynamic REST controller (`/dal/v1/{dalName}`) routes every DAL by
-  name; you never write `@RestController` boilerplate for a resource.
-- **Pluggable field-level RBAC.** Hide or lock fields per role via a small adapter
-  (`PropertyBasedDalRbacAdapter`) or, for hierarchical roles, Jackson `@JsonView`
+- **The entity is the API.** There is no DTO layer — the entity is read, written, and returned directly. What you model
+  is what the client sees — though not necessarily under your field names
+  (see [No DTOs — and no lock-in to your field names](#no-dtos--and-no-lock-in-to-your-field-names)).
+- **Persistence-agnostic by design.** The `Dal` contract lives in `telaio-core` and depends only on Spring Data's
+  paging/sorting abstractions; a backend implements a small `execute*` SPI. JPA is the first implementation — not a
+  constraint of the architecture.
+- **No controllers.** A single dynamic REST controller (`/dal/v1/{dalName}`) routes every DAL by name; you never write
+  `@RestController` boilerplate for a resource.
+- **Pluggable field-level RBAC.** Hide or lock fields per role via a small adapter (`PropertyBasedDalRbacAdapter`) or,
+  for hierarchical roles, Jackson `@JsonView`
   (`JsonViewDalRbacAdapter`).
-- **Operation-level authorization.** A `DalAuthAdapter` decides, per principal and per operation,
-  whether create/read/update/delete is allowed — independent of RBAC's field filtering.
-- **Implicit baseline filtering.** Override `defaultFilter()` and a filter is silently AND-combined
-  with every client query — per-principal if you like — and enforced on reads, updates, and deletes
-  alike: hidden rows behave like missing ones. See
+- **Operation-level authorization.** A `DalAuthAdapter` decides, per principal and per operation, whether
+  create/read/update/delete is allowed — independent of RBAC's field filtering.
+- **Implicit baseline filtering.** Override `defaultFilter()` and a filter is silently AND-combined with every client
+  query — per-principal if you like — and enforced on reads, updates, and deletes alike: hidden rows behave like missing
+  ones. See
   [Filtering built in](#filtering-built-in--powered-by-turkraft-spring-filter).
-- **Exposure control without extra code.** `@DalService(internal = true)` keeps a DAL fully
-  functional in-process while hiding it from REST and OpenAPI entirely; `@DalService(operations =
+- **Exposure control without extra code.** `@DalService(internal = true)` keeps a DAL fully functional in-process while
+  hiding it from REST and OpenAPI entirely; `@DalService(operations =
   {...})` exposes only a CRUD subset (e.g. read-only) and answers everything else with `404`/`405`.
-- **Opt-in structured audit.** `@DalAudit` records every operation (principal, arguments, outcome,
-  duration) as logfmt or JSON Lines, under a dedicated logger category, ready for log
-  aggregation/SIEM ingestion.
-- **Metrics on by default.** Every DAL is timed per operation (counts, error rate, latency
-  percentiles) without any annotation; store it in memory, in a JDBC table, or forward it to
-  Micrometer.
-- **Auto-generated OpenAPI.** A concrete, per-DAL OpenAPI/Swagger document is synthesized from the
-  entity and its exposure rules — no handwritten schema.
+- **Opt-in structured audit.** `@DalAudit` records every operation (principal, arguments, outcome, duration) as logfmt
+  or JSON Lines, under a dedicated logger category, ready for log aggregation/SIEM ingestion.
+- **Metrics on by default.** Every DAL is timed per operation (counts, error rate, latency percentiles) without any
+  annotation; store it in memory, in a JDBC table, or forward it to Micrometer.
+- **Auto-generated OpenAPI.** A concrete, per-DAL OpenAPI/Swagger document is synthesized from the entity and its
+  exposure rules — no handwritten schema.
 
 ## No DTOs — and no lock-in to your field names
 
-Skipping the DTO layer is a deliberate choice, not a shortcut. The classic DTO/mapper pair
-duplicates every entity, and the copies drift: each new field must be declared twice and mapped
-once more, and every mapping is one more place to be wrong. The three jobs a DTO actually does —
-**rename** fields for the client, **hide** fields from the client, and **shape** a different
-payload per audience — Telaio covers declaratively, on the entity itself:
+Skipping the DTO layer is a deliberate choice, not a shortcut. The classic DTO/mapper pair duplicates every entity, and
+the copies drift: each new field must be declared twice and mapped once more, and every mapping is one more place to be
+wrong. The three jobs a DTO actually does — **rename** fields for the client, **hide** fields from the client, and
+**shape** a different payload per audience — Telaio covers declaratively, on the entity itself:
 
-**Rename with Jackson.** `@JsonProperty` (or a global `PropertyNamingStrategy`) decouples the wire
-name from the Java attribute, and Telaio honors it end-to-end, not just in payloads (from the
-showcase's `Product`):
+**Rename with Jackson.** `@JsonProperty` (or a global `PropertyNamingStrategy`) decouples the wire name from the Java
+attribute, and Telaio honors it end-to-end, not just in payloads (from the showcase's `Product`):
 
 ```java
+
 @JsonProperty("cost_price")
 private BigDecimal costPrice;   // the client reads and writes "cost_price"
 ```
 
-The renamed field works in filter queries (`q=cost_price>100`), is reported under its wire name in
-RFC 9457 validation errors, and is documented under its wire name in the generated OpenAPI schema —
-with `readOnly`/`writeOnly` derived from `@JsonProperty(access = ...)`, which also lets you add
-derived, wire-only fields (a `@Transient` read-only `profit`, say) with no DTO in sight.
+The renamed field works in filter queries (`q=cost_price>100`), is reported under its wire name in RFC 9457 validation
+errors, and is documented under its wire name in the generated OpenAPI schema — with `readOnly`/`writeOnly` derived from
+`@JsonProperty(access = ...)`, which also lets you add derived, wire-only fields (a `@Transient` read-only `profit`,
+say) with no DTO in sight.
 
-**Hide and shape with field-level RBAC.** Combine the renaming with a `DalRbacAdapter` and each
-role receives a different **projection** of the same entity — what elsewhere costs one DTO per
-audience:
+**Hide and shape with field-level RBAC.** Combine the renaming with a `DalRbacAdapter` and each role receives a
+different **projection** of the same entity — what elsewhere costs one DTO per audience:
 
-- `PropertyBasedDalRbacAdapter` — declare per-role readable/writable field sets using type-safe
-  Java property references (`propertyName(Product::getCostPrice)`); the translation to wire names
-  is automatic. See `ProductRbacAdapter` in the showcase.
-- `JsonViewDalRbacAdapter` — for hierarchical roles, tier the fields with Jackson `@JsonView` and
-  map each role to a view. See `EmployeeRbacAdapter` in the showcase, where `USER` ⊂ `ADMIN` ⊂
+- `PropertyBasedDalRbacAdapter` — declare per-role readable/writable field sets using type-safe Java property references
+  (`propertyName(Product::getCostPrice)`); the translation to wire names is automatic. See `ProductRbacAdapter` in the
+  showcase.
+- `JsonViewDalRbacAdapter` — for hierarchical roles, tier the fields with Jackson `@JsonView` and map each role to a
+  view. See `EmployeeRbacAdapter` in the showcase, where `USER` ⊂ `ADMIN` ⊂
   `DEVELOPER` see progressively wider projections (renamed fields like `employeeName` included).
 
-Both strategies are covered in depth in the [security guide](docs/security-guide.md); filter-side
-renaming is in the [REST API reference](docs/rest-api.md).
+Both strategies are covered in depth in the [security guide](docs/security-guide.md); filter-side renaming is in
+the [REST API reference](docs/rest-api.md).
 
 ## Filtering built-in — powered by Turkraft Spring Filter
 
 Every list endpoint accepts a `q` parameter in
-[**Turkraft Spring Filter**](https://github.com/turkraft/springfilter) syntax — a compact,
-SQL-like expression language the client composes freely:
+[**Turkraft Spring Filter**](https://github.com/turkraft/springfilter) syntax — a compact, SQL-like expression language
+the client composes freely:
 
 ```bash
 curl "http://localhost:8080/dal/v1/products?q=category:'electronics'%20and%20price>500"
 curl "http://localhost:8080/dal/v1/products?q=category:'electronics'&sort=price,desc&page=0&size=5"
 ```
 
-The same language also works **server-side**: override `defaultFilter()` in a DAL and you get an
-implicit **baseline filter**, AND-combined with whatever the client sends and enforced on **every
-operation** — list reads, by-id reads, updates, and deletes. The client cannot bypass it: an entity
-hidden by the filter behaves exactly like one that does not exist. And since it is evaluated per
-request, it can depend on the authenticated principal. (It is a *visibility* filter over existing
-rows — it does not constrain the payload of creates; pair it with field-level RBAC to control what
-can be written.) From the showcase's `ArticleDalService` (abridged):
+The same language also works **server-side**: override `defaultFilter()` in a DAL and you get an implicit **baseline
+filter**, AND-combined with whatever the client sends and enforced on **every operation** — list reads, by-id reads,
+updates, and deletes. The client cannot bypass it: an entity hidden by the filter behaves exactly like one that does not
+exist. And since it is evaluated per request, it can depend on the authenticated principal. (It is a *visibility* filter
+over existing rows — it does not constrain the payload of creates; pair it with field-level RBAC to control what can be
+written.) From the showcase's `ArticleDalService` (abridged):
 
 ```java
+
 @Override
 protected @Nullable FilterNode defaultFilter() {
     if (isPowerUser()) {        // role check via DalSecurityContextHelper — full code in the showcase
@@ -138,8 +134,8 @@ protected @Nullable FilterNode defaultFilter() {
 }
 ```
 
-The full query grammar is in the [REST API reference](docs/rest-api.md#filtering-query-language);
-the `defaultFilter()` hook is covered in the [core module docs](docs/modules/core.md).
+The full query grammar is in the [REST API reference](docs/rest-api.md#filtering-query-language); the `defaultFilter()`
+hook is covered in the [core module docs](docs/modules/core.md).
 
 ## Quick start
 
@@ -150,6 +146,7 @@ There is no single "starter" artifact — depend on the modules your project nee
 **Using a single module?** Declare it with an explicit version:
 
 ```xml
+
 <dependency>
     <groupId>com.paganbit</groupId>
     <artifactId>telaio-core</artifactId>
@@ -163,6 +160,7 @@ There is no single "starter" artifact — depend on the modules your project nee
 abstraction, built on Spring Data JPA), plus a JDBC driver:
 
 ```xml
+
 <dependencyManagement>
     <dependencies>
         <dependency>
@@ -177,6 +175,7 @@ abstraction, built on Spring Data JPA), plus a JDBC driver:
 ```
 
 ```xml
+
 <dependencies>
     <dependency>
         <groupId>com.paganbit</groupId>
@@ -212,10 +211,9 @@ abstraction, built on Spring Data JPA), plus a JDBC driver:
 </dependencies>
 ```
 
-The BOM manages every Telaio library module and also aligns the third-party libraries Telaio
-integrates (Turkraft Spring Filter, SpringDoc) to the versions Telaio is tested against — so if
-you declare those directly, they can stay version-less too. It does **not** touch Spring Boot's own
-dependency management.
+The BOM manages every Telaio library module and also aligns the third-party libraries Telaio integrates (Turkraft Spring
+Filter, SpringDoc) to the versions Telaio is tested against — so if you declare those directly, they can stay
+version-less too. It does **not** touch Spring Boot's own dependency management.
 
 Each module autoconfigures itself (`META-INF/spring/...AutoConfiguration.imports`) — no manual
 `@Import`, no `@ComponentScan` to add.
@@ -223,12 +221,13 @@ Each module autoconfigures itself (`META-INF/spring/...AutoConfiguration.imports
 ### 2. Write an entity, a repository, and a `@DalService`
 
 This is the full, real example shipped in `telaio-showcase`
-(`AnnouncementDalService`) — a complete CRUD REST resource in three small files, with no security,
-audit, or extra wiring:
+(`AnnouncementDalService`) — a complete CRUD REST resource in three small files, with no security, audit, or extra
+wiring:
 
 **`Announcement.java`** (JPA entity):
 
 ```java
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -271,16 +270,17 @@ public interface AnnouncementRepository extends JpaDalRepository<Announcement, L
 **`AnnouncementDalService.java`** (the DAL declaration):
 
 ```java
+
 @DalService(name = "announcements")
 @DalMetrics(enabled = false)
 public class AnnouncementDalService extends JpaDal<Announcement, Long> {
 }
 ```
 
-That's it — no controller, no DTO, no mapper. `@DalMetrics(enabled = false)` is only there because
-this particular example opts *out* of the metrics that are otherwise on by default. A DAL declared
-without `@DalSecurity` is open at the DAL level (`PermitAll` authorization, no RBAC filtering);
-authentication is still whatever your application's Spring Security configuration requires.
+That's it — no controller, no DTO, no mapper. `@DalMetrics(enabled = false)` is only there because this particular
+example opts *out* of the metrics that are otherwise on by default. A DAL declared without `@DalSecurity` is open at the
+DAL level (`PermitAll` authorization, no RBAC filtering); authentication is still whatever your application's Spring
+Security configuration requires.
 
 ### 3. Call the generated REST API
 
@@ -301,9 +301,48 @@ curl -u developer:developer http://localhost:8080/dal/v1/announcements/1
 ```
 
 `PATCH /dal/v1/announcements/{id}` applies a partial update, `DELETE /dal/v1/announcements/{id}`
-removes it. Errors follow RFC 9457 (`application/problem+json`). Entities with a composite key are
-addressed by passing the key's JSON as a Base64 URL-safe `{id}` segment — see
+removes it. Errors follow RFC 9457 (`application/problem+json`). Entities with a composite key are addressed by passing
+the key's JSON as a Base64 URL-safe `{id}` segment — see
 [Composite IDs](docs/rest-api.md#composite-ids).
+
+## Telaio-to-Telaio — the typed remote client
+
+When two Telaio applications need to exchange data, `telaio-rest-client` gives the caller a **typed Java client** over
+the other application's DAL REST API — no hand-rolled HTTP, and no server-side Telaio stack on the client's classpath
+(the module depends on the shared wire contract only). Configure the remote applications as named connections:
+
+```yaml
+telaio:
+  rest-client:
+    connections:
+      billing:
+        base-url: https://billing.example.com
+```
+
+and call a remote DAL through a DTO mirroring the remote entity's JSON shape:
+
+```java
+record Product(Long id, String name, BigDecimal price) {
+}
+
+DalClient<Product, Long> products =
+    telaioClientRegistry.get("billing").dal("products", Product.class, Long.class);
+
+Product created = products.create(new Product(null, "Keyboard", new BigDecimal("49.90")));
+DalPage<Product> page = products.read("price>10", DalPageRequest.of(0, 20));
+Optional<Product> one = products.readOne(created.id());
+```
+
+Composite keys, the `q` filter language, pagination/sorting, RFC 9457 error mapping and the merge-patch update semantics
+all work exactly as over raw REST — the client and `telaio-web`
+share the same `telaio-rest-contract` artifact, so their wire encoding cannot drift within a version. Authentication
+plugs in through Spring's `RestClient` customization (see
+[docs/modules/rest-client.md](docs/modules/rest-client.md)).
+
+> **Wire-compatibility policy:** the `/dal/v1` wire shape (paths, parameters, the `errors`
+> problem extension, the page JSON, and the ID-encoding scheme) is **frozen** — any change
+> requires a `/dal/v2`. Applications built on different Telaio 1.x versions interoperate over
+> HTTP.
 
 ## Architecture at a glance
 
@@ -311,6 +350,7 @@ addressed by passing the key's JSON as a Base64 URL-safe `{id}` segment — see
 graph TD
     subgraph Foundation
         INTRO[telaio-introspection]
+        CONTRACT[telaio-rest-contract]
     end
     subgraph Core
         CORE[telaio-core]
@@ -325,11 +365,19 @@ graph TD
     subgraph "Web extension"
         OPENAPI[telaio-openapi]
     end
+    subgraph "Remote client"
+        CLIENTSHARED[telaio-rest-client-shared]
+        CLIENT[telaio-rest-client]
+    end
     subgraph "Demo application"
         SHOWCASE[telaio-showcase]
     end
 
     INTRO --> CORE
+    INTRO --> CONTRACT
+    CONTRACT --> WEB
+    CONTRACT --> CLIENTSHARED
+    CLIENTSHARED --> CLIENT
     CORE --> SEC
     CORE --> AUDIT
     CORE --> METRICS
@@ -345,45 +393,54 @@ graph TD
 ```
 
 `telaio-introspection` is the reflection/type-utility foundation with no DAL dependency.
-`telaio-core` defines the `Dal` contract, bean registration, and the channel-agnostic interceptor
-SPI (`DalInterceptorProvider`) that audit and metrics build on — so both work with core alone, over
-any invocation channel, not just REST. `telaio-security`, `telaio-audit`, `telaio-metrics`,
+`telaio-core` defines the `Dal` contract, bean registration, and the channel-agnostic interceptor SPI
+(`DalInterceptorProvider`) that audit and metrics build on — so both work with core alone, over any invocation channel,
+not just REST. `telaio-security`, `telaio-audit`, `telaio-metrics`,
 `telaio-web`, and `telaio-jpa` each depend only on core and are otherwise independent of each other;
-`telaio-openapi` builds on `telaio-web` to generate per-DAL documentation. `telaio-jpa` is the
-first backend implementation of the persistence-agnostic `Dal` contract — additional backends plug
-into the same `execute*` SPI. `telaio-showcase` is a runnable demo application pulling in every
-module.
+`telaio-openapi` builds on `telaio-web` to generate per-DAL documentation. `telaio-jpa` is the first backend
+implementation of the persistence-agnostic `Dal` contract — additional backends plug into the same `execute*` SPI.
+`telaio-rest-contract` codifies the `/dal/v1` wire contract (path constants, the validation-error payload, and the
+composite-ID codec) as a tiny artifact shared by the server and the remote client, so the two cannot drift apart.
+`telaio-rest-client` is a lightweight, typed Java client for that API — it lets one Telaio application invoke another's
+DALs over REST without dragging in the server-side stack (it depends on the wire contract only, not on
+`telaio-core` or `telaio-web`). Its transport-neutral code — paging types, the exception tree, URI/payload/error mapping
+and connection properties — lives in `telaio-rest-client-shared` so the planned reactive sibling can reuse it without
+pulling in the blocking `RestClient` stack. `telaio-showcase` is a runnable demo application pulling in every module.
 
 ## Module map
 
-| Module                 | Purpose                                                              | Key type / annotation                                          | Docs                                                           |
-|------------------------|----------------------------------------------------------------------|----------------------------------------------------------------|----------------------------------------------------------------|
-| `telaio-introspection` | Reflection and type-introspection utilities shared by other modules. | `PropertyNameResolver`, `TypeUtil`                             | [docs/modules/introspection.md](docs/modules/introspection.md) |
-| `telaio-core`          | The DAL abstraction, bean registration, and Spring Boot integration. | `Dal<E,I>` / `AbstractDal<E,I>`, `@DalService`                 | [docs/modules/core.md](docs/modules/core.md)                   |
-| `telaio-security`      | Operation-level authorization and field-level RBAC.                  | `@DalSecurity`, `DalAuthAdapter`, `DalRbacAdapter`             | [docs/modules/security.md](docs/modules/security.md)           |
-| `telaio-audit`         | Opt-in structured audit logging of DAL operations.                   | `@DalAudit`, `DalAuditEvent`, `DalAuditEventStore`             | [docs/modules/audit.md](docs/modules/audit.md)                 |
-| `telaio-metrics`       | Per-DAL and per-operation usage/performance metrics, on by default.  | `@DalMetrics`, `DalMetricsAggregator`, `TelaioMetricsEndpoint` | [docs/modules/metrics.md](docs/modules/metrics.md)             |
-| `telaio-web`           | Dynamic REST exposure of every registered DAL.                       | `DalRestApiV1Controller`, `@DalId`                             | [docs/modules/web.md](docs/modules/web.md)                     |
-| `telaio-openapi`       | Generates concrete, per-DAL OpenAPI/Swagger documentation.           | `DalOpenApiCustomizer`, `DalPathsGenerator`                    | [docs/modules/openapi.md](docs/modules/openapi.md)             |
-| `telaio-jpa`           | JPA/Hibernate `Dal` backend — the first persistence implementation.  | `JpaDal<E,I>`, `JpaDalRepository<E,I>`                         | [docs/modules/jpa.md](docs/modules/jpa.md)                     |
-| `telaio-bom`           | Bill of Materials: import it to align all Telaio module versions.    | —                                                              | [Quick start](#quick-start)                                    |
-| `telaio-showcase`      | Runnable reference application exercising every module.              | `TelaioShowcaseApplication`                                    | [docs/modules/showcase.md](docs/modules/showcase.md)           |
+| Module                      | Purpose                                                                   | Key type / annotation                                          | Docs                                                                    |
+|-----------------------------|---------------------------------------------------------------------------|----------------------------------------------------------------|-------------------------------------------------------------------------|
+| `telaio-introspection`      | Reflection and type-introspection utilities shared by other modules.      | `PropertyNameResolver`, `TypeUtil`                             | [docs/modules/introspection.md](docs/modules/introspection.md)          |
+| `telaio-core`               | The DAL abstraction, bean registration, and Spring Boot integration.      | `Dal<E,I>` / `AbstractDal<E,I>`, `@DalService`                 | [docs/modules/core.md](docs/modules/core.md)                            |
+| `telaio-security`           | Operation-level authorization and field-level RBAC.                       | `@DalSecurity`, `DalAuthAdapter`, `DalRbacAdapter`             | [docs/modules/security.md](docs/modules/security.md)                    |
+| `telaio-audit`              | Opt-in structured audit logging of DAL operations.                        | `@DalAudit`, `DalAuditEvent`, `DalAuditEventStore`             | [docs/modules/audit.md](docs/modules/audit.md)                          |
+| `telaio-metrics`            | Per-DAL and per-operation usage/performance metrics, on by default.       | `@DalMetrics`, `DalMetricsAggregator`, `TelaioMetricsEndpoint` | [docs/modules/metrics.md](docs/modules/metrics.md)                      |
+| `telaio-rest-contract`      | The frozen `/dal/v1` wire contract shared by server and client.           | `DalApiV1`, `DalIdCodec`, `ValidationError`                    | [docs/modules/rest-contract.md](docs/modules/rest-contract.md)          |
+| `telaio-web`                | Dynamic REST exposure of every registered DAL.                            | `DalRestApiV1Controller`, `@DalId`                             | [docs/modules/web.md](docs/modules/web.md)                              |
+| `telaio-openapi`            | Generates concrete, per-DAL OpenAPI/Swagger documentation.                | `DalOpenApiCustomizer`, `DalPathsGenerator`                    | [docs/modules/openapi.md](docs/modules/openapi.md)                      |
+| `telaio-jpa`                | JPA/Hibernate `Dal` backend — the first persistence implementation.       | `JpaDal<E,I>`, `JpaDalRepository<E,I>`                         | [docs/modules/jpa.md](docs/modules/jpa.md)                              |
+| `telaio-rest-client-shared` | Transport-neutral code shared by the DAL REST clients.                    | `DalPage`, `DalClientException`, `TelaioRestClientProperties`  | [docs/modules/rest-client.md](docs/modules/rest-client.md#module-split) |
+| `telaio-rest-client`        | Typed (blocking) REST client to invoke another Telaio application's DALs. | `TelaioClientRegistry`, `TelaioClient`, `DalClient<E,I>`       | [docs/modules/rest-client.md](docs/modules/rest-client.md)              |
+| `telaio-bom`                | Bill of Materials: import it to align all Telaio module versions.         | —                                                              | [Quick start](#quick-start)                                             |
+| `telaio-showcase`           | Runnable reference application exercising every module.                   | `TelaioShowcaseApplication`                                    | [docs/modules/showcase.md](docs/modules/showcase.md)                    |
 
 ## Roadmap
 
-The DAL abstraction is persistence-agnostic by design, and cross-cutting features (audit, metrics,
-security) already attach to the `Dal` bean independently of the invocation channel. Planned work
-widens both sides of that contract:
+The DAL abstraction is persistence-agnostic by design, and cross-cutting features (audit, metrics, security) already
+attach to the `Dal` bean independently of the invocation channel. Planned work widens both sides of that contract:
 
 - additional persistence backends (e.g. **MongoDB**);
 - **QueryDSL** support as an alternative query technology;
 - a **reactive exposure** (Spring WebFlux) as an alternative to the servlet REST boundary;
+- a **reactive remote client** (`WebClient`-based sibling of `telaio-rest-client`, reusing the already-extracted
+  `telaio-rest-client-shared`);
 - further stores and query capabilities as the SPI matures.
 
 ## Requirements & build
 
-- **Java 21+** — the Telaio library modules are compiled to, and distributed as, Java **21** bytecode.
-  That is all you need to depend on Telaio.
+- **Java 21+** — the Telaio library modules are compiled to, and distributed as, Java **21** bytecode. That is all you
+  need to depend on Telaio.
 - **Spring Boot 4.1.0**, **Jackson 3** (`tools.jackson.*`).
 
 > **A note on Java 25:** `telaio-showcase` is a runnable demo (never published) and is the *only* module
@@ -405,9 +462,9 @@ mvn -pl telaio-showcase spring-boot:run # run the demo app (needs JDK 25)
 > JDK 25. To build only the library, target the library modules (e.g. `mvn -pl telaio-core clean install`)
 > or exclude the demo with `mvn clean install -pl '!telaio-showcase'`.
 
-The showcase starts on `http://localhost:8080` with Swagger UI at `/swagger-ui.html`. It
-auto-starts a persistent PostgreSQL 17 container via `spring-boot-docker-compose` and seeds demo
-data idempotently. Log in with HTTP Basic using one of the seeded test users: `developer` /
+The showcase starts on `http://localhost:8080` with Swagger UI at `/swagger-ui.html`. It auto-starts a persistent
+PostgreSQL 17 container via `spring-boot-docker-compose` and seeds demo data idempotently. Log in with HTTP Basic using
+one of the seeded test users: `developer` /
 `developer`, `admin` / `admin`, or `user` / `user`.
 
 ## Documentation
@@ -415,8 +472,8 @@ data idempotently. Log in with HTTP Basic using one of the seeded test users: `d
 This README is a facade. The full developer guide lives under [`docs/`](docs/README.md):
 
 - [Getting started](docs/getting-started.md) — from an empty project to a running API.
-- [Architecture](docs/architecture.md) — module layering, the request adapter chain, channel-agnostic
-  interception, the DAL lifecycle.
+- [Architecture](docs/architecture.md) — module layering, the request adapter chain, channel-agnostic interception, the
+  DAL lifecycle.
 - [REST API reference](docs/rest-api.md) — endpoints, the `q` filter language, pagination, error model.
 - [Security guide](docs/security-guide.md) — authorization, RBAC strategies, exposure control.
 - [Configuration reference](docs/configuration.md) — every `telaio.*` property.
@@ -426,9 +483,9 @@ This README is a facade. The full developer guide lives under [`docs/`](docs/REA
 ## Acknowledgments
 
 Telaio's filter query language is powered by [**Turkraft Spring Filter**](https://github.com/turkraft/springfilter)
-— an excellent library that parses a compact `q=` expression and turns it into a JPA `Specification`. The
-expressive, type-safe filtering Telaio exposes on every read endpoint rests directly on their work. A special
-thank-you to the Turkraft team and contributors for building and maintaining it.
+— an excellent library that parses a compact `q=` expression and turns it into a JPA `Specification`. The expressive,
+type-safe filtering Telaio exposes on every read endpoint rests directly on their work. A special thank-you to the
+Turkraft team and contributors for building and maintaining it.
 
 ## Commercial Support
 
@@ -449,13 +506,13 @@ For commercial support, contact: [marcopag90@gmail.com](mailto:marcopag90@gmail.
 ## Support the Project
 
 If Telaio saves you time or is used in your company, consider sponsoring its development through
-[**GitHub Sponsors**](https://github.com/sponsors/marcopag90).
-Sponsorship helps fund maintenance, documentation, examples, bug fixing, and new features.
+[**GitHub Sponsors**](https://github.com/sponsors/marcopag90). Sponsorship helps fund maintenance, documentation,
+examples, bug fixing, and new features.
 
 ## License
 
 Telaio is **free and open source**, licensed under the
-[**Apache License, Version 2.0**](https://www.apache.org/licenses/LICENSE-2.0). You may use, modify,
-and distribute it — including commercially — under the terms of the license.
+[**Apache License, Version 2.0**](https://www.apache.org/licenses/LICENSE-2.0). You may use, modify, and distribute it —
+including commercially — under the terms of the license.
 
 See [`LICENSE`](LICENSE) for the full text.
