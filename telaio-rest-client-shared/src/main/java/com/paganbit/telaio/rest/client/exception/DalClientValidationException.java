@@ -13,6 +13,9 @@ import java.util.List;
  * @author Marco Pagan
  * @since 1.1.0
  */
+// S110: depth comes from the JDK exception chain
+// Telaio adds only two deliberate levels (DalClientException, DalClientResponseException).
+@SuppressWarnings("java:S110")
 public class DalClientValidationException extends DalClientResponseException {
 
     private final transient List<ValidationError> errors;

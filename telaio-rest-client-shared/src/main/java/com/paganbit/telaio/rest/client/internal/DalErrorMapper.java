@@ -150,6 +150,10 @@ public final class DalErrorMapper {
     }
 
     private static String detailOr(@Nullable ProblemDetail problem, String fallback) {
-        return problem != null && problem.getDetail() != null ? problem.getDetail() : fallback;
+        if (problem == null) {
+            return fallback;
+        }
+        String detail = problem.getDetail();
+        return detail != null ? detail : fallback;
     }
 }
