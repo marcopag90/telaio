@@ -78,4 +78,34 @@ class DalIdCodecTest {
         assertThatThrownBy(() -> codec.decode("abc", Long.class))
             .isInstanceOf(DalIdCodecException.class);
     }
+
+    @Test
+    void unserializableIdFailsWithCodecException() {
+        // A complex id whose accessor throws while Jackson serializes it: the value never
+        // reaches the message (it may be sensitive), only the declared type does.
+        ExplodingId id = new ExplodingId("x");
+        assertThatThrownBy(() -> codec.encode(id, ExplodingId.class))
+            .isInstanceOf(DalIdCodecException.class)
+            .hasMessageContaining("encode")
+            .hasMessageContaining(ExplodingId.class.getName());
+    }
+
+    @Test
+    void validBase64WithWrongJsonShapeFailsWithCodecException() {
+        // Well-formed Base64, but the decoded JSON does not map onto the composite type.
+        String encoded = Base64.getUrlEncoder().withoutPadding()
+            .encodeToString("[1,2,3]".getBytes(StandardCharsets.UTF_8));
+
+        assertThatThrownBy(() -> codec.decode(encoded, CompositeId.class))
+            .isInstanceOf(DalIdCodecException.class)
+            .hasMessageContaining("composite");
+    }
+
+    /** A complex (record) id whose accessor throws while Jackson serializes it. */
+    record ExplodingId(String code) {
+        @Override
+        public String code() {
+            throw new IllegalStateException("cannot read id component");
+        }
+    }
 }

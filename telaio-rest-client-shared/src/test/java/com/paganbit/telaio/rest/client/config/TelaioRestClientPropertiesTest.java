@@ -1,4 +1,4 @@
-package com.paganbit.telaio.rest.client.autoconfigure;
+package com.paganbit.telaio.rest.client.config;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;

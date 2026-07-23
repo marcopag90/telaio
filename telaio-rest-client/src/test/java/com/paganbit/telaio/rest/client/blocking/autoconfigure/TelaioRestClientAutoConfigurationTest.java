@@ -1,8 +1,12 @@
-package com.paganbit.telaio.rest.client.autoconfigure;
+package com.paganbit.telaio.rest.client.blocking.autoconfigure;
 
-import com.paganbit.telaio.rest.client.TelaioClient;
-import com.paganbit.telaio.rest.client.TelaioClientRegistry;
-import com.paganbit.telaio.rest.client.TelaioRestClientCustomizer;
+import com.paganbit.telaio.rest.client.DalPageRequest;
+import com.paganbit.telaio.rest.client.blocking.TelaioClient;
+import com.paganbit.telaio.rest.client.blocking.TelaioClientRegistry;
+import com.paganbit.telaio.rest.client.blocking.TelaioRestClientCustomizer;
+import com.turkraft.springfilter.converter.FilterStringConverter;
+import com.turkraft.springfilter.parser.node.FieldNode;
+import com.turkraft.springfilter.parser.node.FilterNode;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -25,7 +29,9 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
@@ -146,6 +152,30 @@ class TelaioRestClientAutoConfigurationTest {
 
                 assertThat(client.dal("products", Product.class, Long.class).readOne(1L))
                     .contains(new Product(1L));
+                server.verify();
+            });
+    }
+
+    @Test
+    void userProvidedFilterStringConverterRendersTheFilterTrees() {
+        FilterStringConverter converter = mock(FilterStringConverter.class);
+        when(converter.convert(any(FilterNode.class))).thenReturn("custom");
+        AtomicReference<@Nullable MockRestServiceServer> serverRef = new AtomicReference<>();
+        runner.withBean(FilterStringConverter.class, () -> converter)
+            .withBean(TelaioRestClientCustomizer.class,
+                () -> (name, builder) -> serverRef.set(MockRestServiceServer.bindTo(builder).build()))
+            .withPropertyValues("telaio.rest-client.connections.main.base-url=http://remote")
+            .run(context -> {
+                TelaioClient client = context.getBean(TelaioClientRegistry.class).get("main");
+                MockRestServiceServer server = Objects.requireNonNull(serverRef.get());
+                server.expect(requestTo("http://remote/dal/v1/products?q=custom&page=0&size=10"))
+                    .andExpect(method(HttpMethod.GET))
+                    .andRespond(withSuccess("""
+                        {"content": [], "page": {"size": 10, "number": 0, "totalElements": 0,
+                         "totalPages": 0}}""", MediaType.APPLICATION_JSON));
+
+                client.dal("products", Product.class, Long.class)
+                    .read(new FieldNode("ignored"), DalPageRequest.of(0, 10));
                 server.verify();
             });
     }
