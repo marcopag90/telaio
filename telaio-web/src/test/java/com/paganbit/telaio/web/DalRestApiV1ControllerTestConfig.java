@@ -1,9 +1,9 @@
 package com.paganbit.telaio.web;
 
-import com.turkraft.springfilter.parser.node.FilterNode;
 import com.paganbit.telaio.core.Dal;
 import com.paganbit.telaio.web.annotation.DalIdArgumentResolver;
 import com.paganbit.telaio.web.autoconfigure.TelaioWebAutoConfiguration;
+import com.turkraft.springfilter.parser.node.FilterNode;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Import;

@@ -1,9 +1,9 @@
 package com.paganbit.telaio.web;
 
-import com.turkraft.springfilter.converter.FilterStringConverter;
-import com.turkraft.springfilter.parser.node.FilterNode;
 import com.paganbit.telaio.core.adapter.DalOperationAdapter;
 import com.paganbit.telaio.web.registry.WebDalOperationAdapterRegistry;
+import com.turkraft.springfilter.converter.FilterStringConverter;
+import com.turkraft.springfilter.parser.node.FilterNode;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;

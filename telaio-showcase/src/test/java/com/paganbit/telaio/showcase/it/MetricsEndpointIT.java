@@ -41,7 +41,7 @@ class MetricsEndpointIT extends AbstractShowcaseIT {
 
         JsonNode overview = tree(actuator("telaiometrics"));
 
-        // products is present with a positive operation count...
+        // products are present with a positive operation count...
         JsonNode products = productSummary(overview);
         assertThat(products).isNotNull();
         assertThat(products.get("stats").get("count").asLong()).isPositive();

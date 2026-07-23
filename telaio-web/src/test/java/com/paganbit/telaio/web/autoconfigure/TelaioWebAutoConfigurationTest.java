@@ -1,11 +1,11 @@
 package com.paganbit.telaio.web.autoconfigure;
 
-import com.turkraft.springfilter.converter.FilterStringConverter;
 import com.paganbit.telaio.core.autoconfigure.TelaioCoreAutoConfiguration;
 import com.paganbit.telaio.web.annotation.DalIdArgumentResolver;
 import com.paganbit.telaio.web.registry.DefaultWebDalOperationAdapterRegistry;
 import com.paganbit.telaio.web.registry.WebDalOperationAdapterAssembler;
 import com.paganbit.telaio.web.registry.WebDalOperationAdapterRegistry;
+import com.turkraft.springfilter.converter.FilterStringConverter;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ReactiveWebApplicationContextRunner;

@@ -172,7 +172,7 @@ class DalOpenApiCustomizerTest {
 
         @Override
         public Product create(Map<String, Object> properties) {
-            return null;
+            return new Product();
         }
 
         @Override
