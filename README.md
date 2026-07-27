@@ -390,6 +390,7 @@ graph TD
     WEB --> SHOWCASE
     JPA --> SHOWCASE
     OPENAPI --> SHOWCASE
+    CLIENT --> SHOWCASE
 ```
 
 `telaio-introspection` is the reflection/type-utility foundation with no DAL dependency.
