@@ -134,7 +134,7 @@ protected @Nullable FilterNode defaultFilter() {
 }
 ```
 
-The full query grammar is in the [REST API reference](docs/rest-api.md#filtering-query-language); the `defaultFilter()`
+The full query grammar is in the [REST API reference](docs/rest-api.md); the `defaultFilter()`
 hook is covered in the [core module docs](docs/modules/core.md).
 
 ## Quick start
@@ -303,7 +303,7 @@ curl -u developer:developer http://localhost:8080/dal/v1/announcements/1
 `PATCH /dal/v1/announcements/{id}` applies a partial update, `DELETE /dal/v1/announcements/{id}`
 removes it. Errors follow RFC 9457 (`application/problem+json`). Entities with a composite key are addressed by passing
 the key's JSON as a Base64 URL-safe `{id}` segment — see
-[Composite IDs](docs/rest-api.md#composite-ids).
+[Composite IDs](docs/rest-api.md).
 
 ## Telaio-to-Telaio — the typed remote client
 
@@ -346,52 +346,36 @@ plugs in through Spring's `RestClient` customization (see
 
 ## Architecture at a glance
 
+The modules form two stacks that share a foundation: the **server stack** serves the DAL REST API, the **client
+stack** consumes it remotely. `telaio-rest-contract` is the hinge between the two — it codifies what both sides must
+agree on, and beyond `telaio-introspection` it is the only module they share.
+
+### Server stack
+
 ```mermaid
 graph TD
-    subgraph Foundation
-        INTRO[telaio-introspection]
-        CONTRACT[telaio-rest-contract]
-    end
-    subgraph Core
-        CORE[telaio-core]
-    end
-    subgraph "Cross-cutting modules"
-        SEC[telaio-security]
-        AUDIT[telaio-audit]
-        METRICS[telaio-metrics]
-        WEB[telaio-web]
-        JPA[telaio-jpa]
-    end
-    subgraph "Web extension"
-        OPENAPI[telaio-openapi]
-    end
-    subgraph "Remote client"
-        CLIENTSHARED[telaio-rest-client-shared]
-        CLIENT[telaio-rest-client]
-    end
-    subgraph "Demo application"
-        SHOWCASE[telaio-showcase]
-    end
-
-    INTRO --> CORE
-    INTRO --> CONTRACT
+    INTRO[telaio-introspection] --> CORE[telaio-core]
+    INTRO --> CONTRACT[telaio-rest-contract]
+    CORE --> SEC[telaio-security]
+    CORE --> AUDIT[telaio-audit]
+    CORE --> METRICS[telaio-metrics]
+    CORE --> WEB[telaio-web]
+    CORE --> JPA[telaio-jpa]
     CONTRACT --> WEB
-    CONTRACT --> CLIENTSHARED
-    CLIENTSHARED --> CLIENT
-    CORE --> SEC
-    CORE --> AUDIT
-    CORE --> METRICS
-    CORE --> WEB
-    CORE --> JPA
-    WEB --> OPENAPI
-    SEC --> SHOWCASE
-    AUDIT --> SHOWCASE
-    METRICS --> SHOWCASE
-    WEB --> SHOWCASE
-    JPA --> SHOWCASE
-    OPENAPI --> SHOWCASE
-    CLIENT --> SHOWCASE
+    WEB --> OPENAPI[telaio-openapi]
 ```
+
+### Client stack
+
+```mermaid
+graph LR
+    INTRO[telaio-introspection] --> CONTRACT[telaio-rest-contract]
+    CONTRACT --> CLIENTSHARED[telaio-rest-client-shared]
+    CLIENTSHARED --> CLIENT[telaio-rest-client]
+```
+
+The client chain is deliberately linear, with **no dependency on `telaio-core` or `telaio-web`**: client applications
+never pull in the server stack.
 
 `telaio-introspection` is the reflection/type-utility foundation with no DAL dependency.
 `telaio-core` defines the `Dal` contract, bean registration, and the channel-agnostic interceptor SPI
@@ -421,7 +405,7 @@ pulling in the blocking `RestClient` stack. `telaio-showcase` is a runnable demo
 | `telaio-web`                | Dynamic REST exposure of every registered DAL.                            | `DalRestApiV1Controller`, `@DalId`                             | [docs/modules/web.md](docs/modules/web.md)                              |
 | `telaio-openapi`            | Generates concrete, per-DAL OpenAPI/Swagger documentation.                | `DalOpenApiCustomizer`, `DalPathsGenerator`                    | [docs/modules/openapi.md](docs/modules/openapi.md)                      |
 | `telaio-jpa`                | JPA/Hibernate `Dal` backend — the first persistence implementation.       | `JpaDal<E,I>`, `JpaDalRepository<E,I>`                         | [docs/modules/jpa.md](docs/modules/jpa.md)                              |
-| `telaio-rest-client-shared` | Transport-neutral code shared by the DAL REST clients.                    | `DalPage`, `DalClientException`, `TelaioRestClientProperties`  | [docs/modules/rest-client.md](docs/modules/rest-client.md#module-split) |
+| `telaio-rest-client-shared` | Transport-neutral code shared by the DAL REST clients.                    | `DalPage`, `DalClientException`, `TelaioRestClientProperties`  | [docs/modules/rest-client.md](docs/modules/rest-client.md) |
 | `telaio-rest-client`        | Typed (blocking) REST client to invoke another Telaio application's DALs. | `TelaioClientRegistry`, `TelaioClient`, `DalClient<E,I>`       | [docs/modules/rest-client.md](docs/modules/rest-client.md)              |
 | `telaio-bom`                | Bill of Materials: import it to align all Telaio module versions.         | —                                                              | [Quick start](#quick-start)                                             |
 | `telaio-showcase`           | Runnable reference application exercising every module.                   | `TelaioShowcaseApplication`                                    | [docs/modules/showcase.md](docs/modules/showcase.md)                    |
@@ -479,7 +463,7 @@ This README is a facade. The full developer guide lives under [`docs/`](docs/REA
 - [Security guide](docs/security-guide.md) — authorization, RBAC strategies, exposure control.
 - [Configuration reference](docs/configuration.md) — every `telaio.*` property.
 - [Observability](docs/observability.md) — audit log formats and metrics storage/export options.
-- Per-module deep dives in the [developer guide index](docs/README.md#module-documentation).
+- Per-module deep dives in the [developer guide index](docs/README.md).
 
 ## Acknowledgments
 

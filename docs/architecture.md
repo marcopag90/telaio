@@ -32,6 +32,12 @@ querying) can plug into the same contract without touching core, security, audit
 
 ## Module Dependency Graph
 
+The modules form two stacks that share a foundation: the **server stack** serves the DAL REST API, the **client
+stack** consumes it remotely. `telaio-rest-contract` is the hinge between the two — it codifies what both sides must
+agree on, and beyond introspection it is the only module they share.
+
+### Server stack
+
 ```mermaid
 graph TD
     A["telaio-introspection<br/>(reflection utilities)"]
@@ -41,21 +47,10 @@ graph TD
     B --> D["telaio-audit<br/>(operation logging)"]
     B --> E["telaio-metrics<br/>(performance)"]
     B --> F["telaio-web<br/>(REST endpoints)"]
-    R --> F
-    R --> S["telaio-rest-client-shared<br/>(transport-neutral client code)"]
-    S --> T["telaio-rest-client<br/>(blocking remote client)"]
     B --> G["telaio-jpa<br/>(first backend impl)"]
+    R --> F
     F --> H["telaio-openapi<br/>(auto docs)"]
-    C --> I["telaio-showcase<br/>(demo app)"]
-    D --> I
-    E --> I
-    F --> I
-    G --> I
-    H --> I
-    T --> I
 ```
-
-**Layering explanation**:
 
 1. **introspection**: Type introspection, property name resolution. No Telaio dependencies.
 2. **rest-contract**: The frozen `/dal/v1` wire contract — path and parameter constants (`DalApiV1`), the
@@ -69,12 +64,25 @@ graph TD
 6. **openapi**: Auto-generates OpenAPI specs. Depends on web (integrates with the REST controller).
 7. **jpa**: JPA/Hibernate implementation of `AbstractDal` — the first backend of the persistence-agnostic contract
    (built on Spring Data JPA). Depends on core. Future backends (e.g. MongoDB) plug into the same `execute*` SPI.
+
+### Client stack
+
+```mermaid
+graph LR
+    A["telaio-introspection<br/>(reflection utilities)"] --> R["telaio-rest-contract<br/>(/dal/v1 wire contract)"]
+    R --> S["telaio-rest-client-shared<br/>(transport-neutral client code)"]
+    S --> T["telaio-rest-client<br/>(blocking remote client)"]
+```
+
+The chain is deliberately linear, and it has **no dependency on core or web**: client applications never pull in the
+server stack.
+
 8. **rest-client-shared**: Transport-neutral client code — paging DTOs, the `DalClientException` tree, URI/payload/
    error mapping, connection properties. Depends on rest-contract only, reusable by every client transport.
-9. **rest-client**: The blocking remote client (`TelaioClientRegistry`, built on Spring's `RestClient`). Depends on
-   rest-client-shared — no dependency on core or web, so client applications don't pull in the server stack.
-10. **showcase**: Complete demo app demonstrating all modules — including consuming its own DAL API remotely through
-    the rest-client.
+9. **rest-client**: The blocking remote client (`TelaioClientRegistry`, built on Spring's `RestClient`).
+
+> `telaio-showcase` (the demo app) is deliberately absent from these graphs: it is not part of the architecture. It
+> consumes every module above to demonstrate them — including the rest-client, pointed at the app's own DAL API.
 
 ## DAL Lifecycle
 
