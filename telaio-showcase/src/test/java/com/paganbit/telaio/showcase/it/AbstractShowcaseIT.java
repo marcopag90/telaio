@@ -109,7 +109,7 @@ abstract class AbstractShowcaseIT {
     }
 
     /**
-     * Serialises a map to a JSON request body. Use a raw JSON string when null values are needed.
+     * Serializes a map to a JSON request body. Use a raw JSON string when null values are needed.
      */
     protected String body(Map<String, ?> map) {
         return JSON.writeValueAsString(map);

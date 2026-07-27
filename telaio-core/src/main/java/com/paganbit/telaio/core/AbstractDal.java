@@ -9,7 +9,6 @@ import com.paganbit.telaio.core.validation.DalValidator;
 import com.turkraft.springfilter.builder.FilterBuilder;
 import com.turkraft.springfilter.converter.FilterStringConverter;
 import com.turkraft.springfilter.parser.node.FilterNode;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -259,7 +258,7 @@ public abstract class AbstractDal<E, I>
     }
 
     @Override
-    public void validate(@NonNull E target) throws DalEntityValidationException {
+    public void validate(E target) throws DalEntityValidationException {
         this.mapConverterValidator.validate(target);
     }
 

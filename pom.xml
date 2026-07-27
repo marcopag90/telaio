@@ -62,6 +62,7 @@
 
     <modules>
         <module>telaio-introspection</module>
+        <module>telaio-rest-contract</module>
         <module>telaio-core</module>
         <module>telaio-security</module>
         <module>telaio-audit</module>
@@ -69,6 +70,8 @@
         <module>telaio-web</module>
         <module>telaio-openapi</module>
         <module>telaio-jpa</module>
+        <module>telaio-rest-client-shared</module>
+        <module>telaio-rest-client</module>
         <module>telaio-bom</module>
         <module>telaio-showcase</module>
     </modules>

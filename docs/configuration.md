@@ -48,11 +48,11 @@ telaio:
 
 **Prefix**: `telaio.audit`
 
-| Property              | Type                    | Default                          | Description                                                                                                                                                                       |
-|-----------------------|-------------------------|----------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `logging.format`      | enum (`TEXT` or `JSON`) | `TEXT`                           | Serialization format for audit events. `TEXT` emits human-readable logfmt `key=value` lines; `JSON` emits one JSON object per line (JSON Lines) for ingestion by log aggregators. |
+| Property              | Type                    | Default                           | Description                                                                                                                                                                       |
+|-----------------------|-------------------------|-----------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `logging.format`      | enum (`TEXT` or `JSON`) | `TEXT`                            | Serialization format for audit events. `TEXT` emits human-readable logfmt `key=value` lines; `JSON` emits one JSON object per line (JSON Lines) for ingestion by log aggregators. |
 | `logging.category`    | string                  | `com.paganbit.telaio.audit.AUDIT` | Logger category under which audit events are emitted. Use a dedicated category to route audit logs to a separate appender/file/index.                                             |
-| `logging.include-mdc` | boolean                 | `true`                           | Whether to copy the current MDC (e.g., `traceId`, `spanId` from Micrometer Tracing) onto each audit event for correlation.                                                        |
+| `logging.include-mdc` | boolean                 | `true`                            | Whether to copy the current MDC (e.g., `traceId`, `spanId` from Micrometer Tracing) onto each audit event for correlation.                                                        |
 
 **Example**:
 
@@ -70,6 +70,7 @@ telaio:
 If using JSON audit format, configure Logback to write clean JSON Lines without wrapping:
 
 ```xml
+
 <appender name="AUDIT_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <file>logs/audit.log</file>
     <encoder>
@@ -216,6 +217,36 @@ Telaio does not define top-level security properties. Security is controlled via
 - Custom `DalAuthAdapter` and `DalRbacAdapter` implementations
 
 See [Security Guide](security-guide.md) for details.
+
+## Client Configuration
+
+**Prefix**: `telaio.rest-client`
+
+| Property                                           | Type            | Default | Description                                          |
+|----------------------------------------------------|-----------------|---------|------------------------------------------------------|
+| `connections.<name>.base-url`                      | string          | —       | Base URL of the remote Telaio application (required) |
+| `connections.<name>.default-headers.<header-name>` | list of strings | —       | Static HTTP headers sent with every request          |
+
+Connections are configured as a map (`<name>` can be any string) and resolved through the
+`TelaioClientRegistry`. When exactly one connection exists — or one is named **`default`** — it is also exposed as the
+primary `TelaioClient` bean for direct injection.
+
+**Example**:
+
+```yaml
+telaio:
+  rest-client:
+    connections:
+      billing:
+        base-url: https://billing.example.com
+        default-headers:
+          X-Tenant: [ acme ]
+      inventory:
+        base-url: https://inventory.example.com
+```
+
+Timeouts and SSL come from Spring Boot's own `spring.http.client.*` properties (the client builds on the autoconfigured
+`RestClient.Builder`). See [Client Module](modules/rest-client.md) for authentication and programmatic construction.
 
 ## Profile-Specific Example
 

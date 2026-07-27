@@ -22,7 +22,7 @@ import com.paganbit.telaio.security.annotation.DalSecurity;
  *   <li><b>{@code resolveView}</b> in {@link EmployeeRbacAdapter} returns the principal's most-privileged
  *       view (or {@code null} to deny all fields for an unrecognized role).</li>
  *   <li><b>{@code @JsonProperty} aliases</b> — fields are exposed under JSON names ({@code employeeName},
- *       {@code employeeEmail}); the view machinery operates on the serialized representation, so the
+ *       {@code employeeEmail}); Jackson views operate on the serialized representation, so the
  *       aliases are honored transparently on both input and output.</li>
  *   <li><b>Secure by default</b> — {@code MapperFeature.DEFAULT_VIEW_INCLUSION} is disabled, so any field
  *       <em>without</em> a {@code @JsonView} is hidden from <em>every</em> view.</li>

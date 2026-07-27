@@ -17,17 +17,20 @@ persistence-agnostic (built on Spring Data); JPA/Hibernate is the first shipped 
 
 ### Module Documentation
 
-| Module            | Purpose                                             | Start Here                                                |
-|-------------------|-----------------------------------------------------|-----------------------------------------------------------|
-| **introspection** | Type introspection and reflection utilities         | [modules/introspection.md](modules/introspection.md) |
-| **core**          | DAL abstraction, CRUD contracts, Spring integration | [modules/core.md](modules/core.md)                   |
-| **jpa**           | JPA/Hibernate-backed DAL implementation             | [modules/jpa.md](modules/jpa.md)                     |
-| **security**      | Authentication, RBAC, field-level access control    | [modules/security.md](modules/security.md)           |
-| **audit**         | Operation auditing with flexible event stores       | [modules/audit.md](modules/audit.md)                 |
-| **metrics**       | Performance monitoring and usage statistics         | [modules/metrics.md](modules/metrics.md)             |
-| **web**           | Dynamic REST API and endpoint exposure              | [modules/web.md](modules/web.md)                     |
-| **openapi**       | Per-DAL OpenAPI documentation generation            | [modules/openapi.md](modules/openapi.md)             |
-| **showcase**      | Reference SaaS admin app demonstrating all features | [modules/showcase.md](modules/showcase.md)           |
+| Module                 | Purpose                                              | Start Here                                                    |
+|------------------------|------------------------------------------------------|---------------------------------------------------------------|
+| **introspection**      | Type introspection and reflection utilities          | [modules/introspection.md](modules/introspection.md)          |
+| **core**               | DAL abstraction, CRUD contracts, Spring integration  | [modules/core.md](modules/core.md)                            |
+| **jpa**                | JPA/Hibernate-backed DAL implementation              | [modules/jpa.md](modules/jpa.md)                              |
+| **security**           | Authentication, RBAC, field-level access control     | [modules/security.md](modules/security.md)                    |
+| **audit**              | Operation auditing with flexible event stores        | [modules/audit.md](modules/audit.md)                          |
+| **metrics**            | Performance monitoring and usage statistics          | [modules/metrics.md](modules/metrics.md)                      |
+| **rest-contract**      | The frozen `/dal/v1` wire contract (server + client) | [modules/rest-contract.md](modules/rest-contract.md)          |
+| **web**                | Dynamic REST API and endpoint exposure               | [modules/web.md](modules/web.md)                              |
+| **openapi**            | Per-DAL OpenAPI documentation generation             | [modules/openapi.md](modules/openapi.md)                      |
+| **rest-client-shared** | Transport-neutral code shared by the REST clients    | [modules/rest-client.md](modules/rest-client.md#module-split) |
+| **rest-client**        | Typed REST client for remote Telaio applications     | [modules/rest-client.md](modules/rest-client.md)              |
+| **showcase**           | Reference SaaS admin app demonstrating all features  | [modules/showcase.md](modules/showcase.md)                    |
 
 ## What is Telaio?
 
@@ -51,6 +54,7 @@ No controllers. No DTOs. No boilerplate.
 Declare a JPA entity:
 
 ```java
+
 @Entity
 @Table(name = "announcements")
 public class Announcement {
@@ -77,6 +81,7 @@ public interface AnnouncementRepository
 Register the DAL service:
 
 ```java
+
 @DalService(name = "announcements")
 public class AnnouncementDalService extends JpaDal<Announcement, Long> {
 }
@@ -107,8 +112,8 @@ curl -X DELETE http://localhost:8080/dal/v1/announcements/1
 
 ## Key Concepts at a Glance
 
-**Entity as Hub**: Your entity is returned directly from the API — there is no DTO layer. RBAC adapters filter
-fields on input and output to respect role-based visibility.
+**Entity as Hub**: Your entity is returned directly from the API — there is no DTO layer. RBAC adapters filter fields on
+input and output to respect role-based visibility.
 
 **Persistence-Agnostic DAL**: the `Dal` contract depends only on Spring Data abstractions; backends implement the
 `execute*` SPI. JPA is the first implementation — MongoDB, QueryDSL and a reactive exposure are on the
@@ -139,6 +144,12 @@ telaio-core (DAL abstraction)
     │    ↓
     │  telaio-openapi (auto-generated docs)
     └→ telaio-jpa (first backend implementation, Spring Data JPA)
+
+telaio-rest-contract (frozen /dal/v1 wire contract)
+    ↓
+telaio-rest-client-shared (transport-neutral client code)
+    ↓
+telaio-rest-client (blocking remote client)
 
 All modules → telaio-showcase (demo app)
 ```

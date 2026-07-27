@@ -20,6 +20,11 @@ boundary.
 restricted to specific operations (`operations = {…}`). The underlying `Dal` bean retains all methods, so trusted
 in-process code is never affected.
 
+**Shared Wire Contract**: everything the server and the remote client must agree on to interoperate — path and
+parameter constants, the ID encoding, the validation-error payload — lives in `telaio-rest-contract`, so the two
+sides cannot drift apart within a contract version. The server decodes with the same codec the client encodes with:
+parity by construction, verified end to end by the showcase round-trip test.
+
 **Persistence-Agnostic Core**: the `Dal` contract and `AbstractDal` depend only on Spring Data's paging/sorting
 abstractions (`Page`, `Pageable`, `Sort`) — no JPA types. The abstract `execute*` methods are the persistence SPI a
 backend implements: `telaio-jpa` is the first implementation, and additional backends (e.g. MongoDB, QueryDSL-based
@@ -27,34 +32,57 @@ querying) can plug into the same contract without touching core, security, audit
 
 ## Module Dependency Graph
 
+The modules form two stacks that share a foundation: the **server stack** serves the DAL REST API, the **client
+stack** consumes it remotely. `telaio-rest-contract` is the hinge between the two — it codifies what both sides must
+agree on, and beyond introspection it is the only module they share.
+
+### Server stack
+
 ```mermaid
 graph TD
     A["telaio-introspection<br/>(reflection utilities)"]
     A --> B["telaio-core<br/>(DAL contracts)"]
+    A --> R["telaio-rest-contract<br/>(/dal/v1 wire contract)"]
     B --> C["telaio-security<br/>(auth + RBAC)"]
     B --> D["telaio-audit<br/>(operation logging)"]
     B --> E["telaio-metrics<br/>(performance)"]
     B --> F["telaio-web<br/>(REST endpoints)"]
     B --> G["telaio-jpa<br/>(first backend impl)"]
+    R --> F
     F --> H["telaio-openapi<br/>(auto docs)"]
-    C --> I["telaio-showcase<br/>(demo app)"]
-    D --> I
-    E --> I
-    F --> I
-    G --> I
-    H --> I
 ```
 
-**Layering explanation**:
-
 1. **introspection**: Type introspection, property name resolution. No Telaio dependencies.
-2. **core**: DAL abstraction (`Dal<E,I>`), CRUD contracts, bean registration, `DalManager`. Foundation for all modules.
-3. **security**, **audit**, **metrics**: Cross-cutting adapters and interceptors. Depend on core only.
-4. **web**: Dynamic REST routing (`DalRestApiV1Controller`). Depends on core.
-5. **openapi**: Auto-generates OpenAPI specs. Depends on web (integrates with the REST controller).
-6. **jpa**: JPA/Hibernate implementation of `AbstractDal` — the first backend of the persistence-agnostic contract
+2. **rest-contract**: The frozen `/dal/v1` wire contract — path and parameter constants (`DalApiV1`), the
+   validation-error payload (`ValidationError`), and the version-agnostic ID codec (`DalIdCodec`, in the root
+   package so future contract versions can reuse it). Shared by the server boundary and the remote client so the
+   wire shape cannot drift apart. Depends on introspection and Jackson only.
+3. **core**: DAL abstraction (`Dal<E,I>`), CRUD contracts, bean registration, `DalManager`. Foundation for all modules.
+4. **security**, **audit**, **metrics**: Cross-cutting adapters and interceptors. Depend on core only.
+5. **web**: Dynamic REST routing (`DalRestApiV1Controller`). Depends on core and rest-contract (it serves the wire
+   shape the contract codifies).
+6. **openapi**: Auto-generates OpenAPI specs. Depends on web (integrates with the REST controller).
+7. **jpa**: JPA/Hibernate implementation of `AbstractDal` — the first backend of the persistence-agnostic contract
    (built on Spring Data JPA). Depends on core. Future backends (e.g. MongoDB) plug into the same `execute*` SPI.
-7. **showcase**: Complete SaaS app demonstrating all modules.
+
+### Client stack
+
+```mermaid
+graph LR
+    A["telaio-introspection<br/>(reflection utilities)"] --> R["telaio-rest-contract<br/>(/dal/v1 wire contract)"]
+    R --> S["telaio-rest-client-shared<br/>(transport-neutral client code)"]
+    S --> T["telaio-rest-client<br/>(blocking remote client)"]
+```
+
+The chain is deliberately linear, and it has **no dependency on core or web**: client applications never pull in the
+server stack.
+
+8. **rest-client-shared**: Transport-neutral client code — paging DTOs, the `DalClientException` tree, URI/payload/
+   error mapping, connection properties. Depends on rest-contract only, reusable by every client transport.
+9. **rest-client**: The blocking remote client (`TelaioClientRegistry`, built on Spring's `RestClient`).
+
+> `telaio-showcase` (the demo app) is deliberately absent from these graphs: it is not part of the architecture. It
+> consumes every module above to demonstrate them — including the rest-client, pointed at the app's own DAL API.
 
 ## DAL Lifecycle
 
@@ -375,7 +403,11 @@ Here's a complete walkthrough of a PATCH request to update a product:
 Telaio separates concerns across layers:
 
 - **Core** (`telaio-core`): DAL abstraction, registration, CRUD contracts.
+- **Wire contract** (`telaio-rest-contract`): The frozen `/dal/v1` shape — constants, ID codec, validation-error
+  payload — shared by server and client.
 - **Boundary** (`telaio-web`): REST routing, exposure control, the adapter chain.
+- **Remote client** (`telaio-rest-client-shared`, `telaio-rest-client`): A typed client of the DAL REST API, built on
+  the same wire contract the server serves.
 - **Cross-cutting** (`telaio-security`, `telaio-audit`, `telaio-metrics`): Interceptors and adapters plugged into both
   layers.
 - **Persistence** (`telaio-jpa`): JPA-specific implementation.

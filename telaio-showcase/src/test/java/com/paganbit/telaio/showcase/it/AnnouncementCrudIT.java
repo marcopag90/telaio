@@ -50,7 +50,7 @@ class AnnouncementCrudIT extends AbstractShowcaseIT {
         assertThat(listed.getStatusCode()).isEqualTo(HttpStatus.OK);
         JsonNode page = tree(listed);
         assertThat(page.get("content").isArray()).isTrue();
-        // Spring Data pages serialize VIA_DTO: pagination metadata is nested under "page".
+        // telaio-web returns a PagedModel: pagination metadata is nested under "page".
         assertThat(page.get("page").get("totalElements").asLong()).isPositive();
         boolean present = false;
         for (JsonNode node : page.get("content")) {

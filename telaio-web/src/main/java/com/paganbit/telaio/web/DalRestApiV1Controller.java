@@ -1,11 +1,11 @@
 package com.paganbit.telaio.web;
 
-import com.turkraft.springfilter.converter.FilterStringConverter;
-import com.turkraft.springfilter.parser.node.FilterNode;
 import com.paganbit.telaio.core.adapter.DalOperationAdapter;
 import com.paganbit.telaio.web.registry.WebDalOperationAdapterRegistry;
-import org.springframework.data.domain.Page;
+import com.turkraft.springfilter.converter.FilterStringConverter;
+import com.turkraft.springfilter.parser.node.FilterNode;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PagedModel;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RestController;
@@ -39,11 +39,11 @@ public class DalRestApiV1Controller implements DalRestApiV1 {
     }
 
     @Override
-    public Page<Object> read(String dalName, String filter, Pageable pageable) {
+    public PagedModel<Object> read(String dalName, String filter, Pageable pageable) {
         FilterNode filterNode = StringUtils.hasText(filter)
             ? filterStringConverter.convert(filter)
             : null;
-        return adapter(dalName).read(filterNode, pageable);
+        return new PagedModel<>(adapter(dalName).read(filterNode, pageable));
     }
 
     @Override
