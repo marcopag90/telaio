@@ -5,7 +5,7 @@ import com.paganbit.telaio.rest.client.internal.DalErrorMapper;
 import com.paganbit.telaio.rest.client.internal.DalFilterStringConverters;
 import com.paganbit.telaio.rest.client.internal.DalPayloadCodec;
 import com.paganbit.telaio.rest.client.internal.DalUriFactory;
-import com.paganbit.telaio.rest.contract.v1.DalIdCodec;
+import com.paganbit.telaio.rest.contract.DalIdCodec;
 import com.turkraft.springfilter.converter.FilterStringConverter;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;

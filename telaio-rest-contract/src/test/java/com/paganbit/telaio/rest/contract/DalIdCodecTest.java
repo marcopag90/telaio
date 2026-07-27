@@ -1,6 +1,5 @@
-package com.paganbit.telaio.rest.contract.v1;
+package com.paganbit.telaio.rest.contract;
 
-import com.paganbit.telaio.rest.contract.DalIdCodecException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 

@@ -28,10 +28,12 @@ drift apart within a version.
 
 The artifact is split in two layers so that a future `v2` can coexist without disturbing v1:
 
-- **`com.paganbit.telaio.rest.contract`** — version-agnostic root, for contract types with no
-  byte-on-the-wire shape of their own. Today: `DalIdCodecException`.
-- **`com.paganbit.telaio.rest.contract.v1`** — the frozen `/dal/v1` wire shape: `DalApiV1`,
-  `DalIdCodec` and `ValidationError`.
+- **`com.paganbit.telaio.rest.contract`** — version-agnostic root, for contract types not tied to
+  one contract version. Today: `DalIdCodec` and `DalIdCodecException`. The codec is a general
+  encoding technique, reusable by future contract versions or other transports; note that its
+  behavior is still frozen while v1 binds to it (see the compatibility policy below).
+- **`com.paganbit.telaio.rest.contract.v1`** — the types that define the `/dal/v1` wire shape:
+  `DalApiV1` and `ValidationError`.
 
 The simple-vs-composite classification is delegated to `TypeUtil.isComplexType` from
 `telaio-introspection` (`DefaultSimpleTypePredicate`), evaluated on the **declared** ID type —
@@ -47,8 +49,10 @@ the same input the server derives from `Dal#getIdClass()` and the typed client r
 The v1 wire shape — paths, parameters, the `errors` extension, the page JSON, the ID-encoding
 scheme **and the simple-type classification** — is **frozen**. Any change is a breaking API
 change that requires a new contract version (`/dal/v2`, a new `v2` package in this artifact),
-never an in-place edit. A failing client/server round-trip test is a server regression by
-default. The page JSON (Spring Data's `PagedModel` shape) is owned by Spring Data: if a Spring
+never an in-place edit. This freeze extends to `DalIdCodec` even though it lives in the
+version-agnostic root: while v1 binds to it, a contract version (or any other use) needing a
+different encoding introduces a **new codec**, never changes this one in place. A failing
+client/server round-trip test is a server regression by default. The page JSON (Spring Data's `PagedModel` shape) is owned by Spring Data: if a Spring
 Data upgrade ever changes it, the **server compensates** (custom serialization) — deployed
 clients are never required to follow.
 

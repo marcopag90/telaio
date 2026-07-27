@@ -2,7 +2,7 @@ package com.paganbit.telaio.web.annotation;
 
 import com.paganbit.telaio.core.Dal;
 import com.paganbit.telaio.core.registry.DalManager;
-import com.paganbit.telaio.rest.contract.v1.DalIdCodec;
+import com.paganbit.telaio.rest.contract.DalIdCodec;
 import com.paganbit.telaio.web.DalRestApiV1;
 import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.NonNull;

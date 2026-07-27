@@ -1,7 +1,6 @@
-package com.paganbit.telaio.rest.contract.v1;
+package com.paganbit.telaio.rest.contract;
 
 import com.paganbit.telaio.introspection.TypeUtil;
-import com.paganbit.telaio.rest.contract.DalIdCodecException;
 import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
@@ -9,11 +8,12 @@ import java.util.Base64;
 import java.util.Objects;
 
 /**
- * Encodes and decodes DAL entity IDs to and from the {@code {id}} path segment.
+ * Encodes and decodes DAL entity IDs to and from their single-string representation, as used in
+ * the {@code {id}} path segment.
  *
  * <ul>
  *   <li><strong>Simple</strong> types ({@code Long}, {@code String}, {@code UUID}, temporal
- *       types, …) travel as the raw path segment, converted through Jackson's
+ *       types, …) travel as the raw string, converted through Jackson's
  *       {@code convertValue}.</li>
  *   <li><strong>Complex</strong> types (composite-key POJOs or records) travel as URL-safe,
  *       unpadded Base64 of their JSON serialization.</li>
