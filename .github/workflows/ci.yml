@@ -127,3 +127,10 @@ jobs:
             **/target/surefire-reports/**
             **/target/failsafe-reports/**
           retention-days: 7
+
+      - name: Upload JaCoCo aggregate report
+        uses: actions/upload-artifact@v7
+        with:
+          name: jacoco-aggregate-report
+          path: telaio-coverage-report/target/site/jacoco-aggregate/**
+          retention-days: 7

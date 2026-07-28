@@ -74,6 +74,7 @@
         <module>telaio-rest-client</module>
         <module>telaio-bom</module>
         <module>telaio-showcase</module>
+        <module>telaio-coverage-report</module>
     </modules>
 
     <dependencyManagement>
