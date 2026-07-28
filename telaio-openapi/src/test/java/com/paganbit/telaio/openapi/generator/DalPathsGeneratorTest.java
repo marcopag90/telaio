@@ -1,5 +1,6 @@
 package com.paganbit.telaio.openapi.generator;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.paganbit.telaio.core.adapter.DalOperationType;
 import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import com.paganbit.telaio.openapi.fixture.CompositeId;
@@ -17,6 +18,7 @@ import tools.jackson.databind.json.JsonMapper;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.EnumSet;
+import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -185,6 +187,64 @@ class DalPathsGeneratorTest {
         assertThat(collection.getPost().getTags()).containsExactly("DAL");
     }
 
+    @Test
+    void generate_shouldTolerateEmptyDalName() {
+        OpenAPI openApi = new OpenAPI().paths(new Paths());
+        Schema<Object> problemDetailRef = new Schema<>();
+        problemDetailRef.set$ref("#/components/schemas/ProblemDetail");
+
+        generator(true).generate(openApi, "", Product.class, Long.class, problemDetailRef,
+            EnumSet.allOf(DalOperationType.class));
+
+        // An empty name capitalizes to itself and still registers under the base path.
+        assertThat(openApi.getPaths()).containsKey("/dal/v1/");
+        assertThat(openApi.getPaths().get("/dal/v1/").getPost().getTags()).containsExactly("");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void generate_shouldBuildSkeletonExampleForWideCompositeId() {
+        PathItem item = generate(true, WideCompositeId.class).getPaths().get(ITEM_PATH);
+
+        Object example = idParameter(item).getSchema().getExample();
+        assertThat(example).as("composite id param carries a copy-pasteable example").isNotNull();
+
+        String decoded = new String(
+            Base64.getUrlDecoder().decode(example.toString()), StandardCharsets.UTF_8);
+        Map<String, Object> skeleton =
+            (Map<String, Object>) JsonMapper.builder().build().readValue(decoded, Map.class);
+
+        // The synthetic this$0 field of the non-static inner id class is skipped.
+        assertThat(skeleton)
+            .doesNotContainKey("this$0")
+            // A non-empty @JsonProperty value renames the key; a bare one falls back to the field name.
+            .containsEntry("tenant_id", "string")
+            .containsEntry("code", "string")
+            // Booleans (primitive and boxed) default to false, Numerics to 0.
+            .containsEntry("primitiveFlag", false)
+            .containsEntry("boxedFlag", false)
+            .containsEntry("i", 0)
+            .containsEntry("l", 0)
+            .containsEntry("d", 0)
+            .containsEntry("f", 0)
+            .containsEntry("s", 0)
+            .containsEntry("b", 0);
+    }
+
+    @Test
+    void generate_shouldBuildEmptySkeletonForInterfaceId() {
+        PathItem item = generate(true, MarkerId.class).getPaths().get(ITEM_PATH);
+
+        Parameter idParam = idParameter(item);
+        assertThat(idParam.getDescription()).contains("Base64");
+
+        // The interface constant is static and excluded, so the skeleton is empty.
+        String decoded = new String(
+            Base64.getUrlDecoder().decode(idParam.getSchema().getExample().toString()),
+            StandardCharsets.UTF_8);
+        assertThat(decoded).isEqualTo("{}");
+    }
+
     /**
      * Asserts the given response carries an {@code application/problem+json} body referencing the shared
      * {@code ProblemDetail} schema.
@@ -200,5 +260,49 @@ class DalPathsGeneratorTest {
             .filter(parameter -> "id".equals(parameter.getName()))
             .findFirst()
             .orElseThrow(() -> new AssertionError("No 'id' parameter on item operation"));
+    }
+
+    /**
+     * A wide composite id covering every skeleton placeholder shape. Declared as a non-static inner
+     * class on purpose: its compiler-generated {@code this$0} field is synthetic and must be skipped.
+     * The outer reference below is deliberate — without it the compiler omits {@code this$0} entirely.
+     */
+    @SuppressWarnings("unused")
+    class WideCompositeId {
+
+        private Object outer() {
+            return DalPathsGeneratorTest.this;
+        }
+
+        @JsonProperty("tenant_id")
+        private String tenant;
+
+        @JsonProperty
+        private String code;
+
+        private boolean primitiveFlag;
+
+        private Boolean boxedFlag;
+
+        private int i;
+
+        private long l;
+
+        private double d;
+
+        private float f;
+
+        private short s;
+
+        private byte b;
+    }
+
+    /**
+     * An interface id type: complex (so Base64-documented) but with only a constant, which is static
+     * and excluded from the skeleton.
+     */
+    @SuppressWarnings("unused")
+    interface MarkerId {
+        String KIND = "k";
     }
 }
