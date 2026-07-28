@@ -26,6 +26,7 @@ on:
       - 'LICENSE'
       - '.gitignore'
       - '.github/FUNDING.yml'
+      - '.github/workflows/publish.yml'
       - '.claude/**'
   workflow_dispatch:
 
@@ -70,7 +71,7 @@ jobs:
             exit 0
           fi
           # KEEP IN SYNC with the push paths-ignore list at the top of this file.
-          IGNORE_REGEX='^(docs/.*|\.claude/.*|LICENSE|\.gitignore|\.github/FUNDING\.yml|.*\.md)$'
+          IGNORE_REGEX='^(docs/.*|\.claude/.*|LICENSE|\.gitignore|\.github/FUNDING\.yml|\.github/workflows/publish\.yml|.*\.md)$'
           # Three-dot diff (merge-base..head): the same semantics GitHub itself
           # applies to pull_request path filters. Fail open on any git error.
           if ! files=$(git diff --name-only "${BASE_SHA}...${HEAD_SHA}"); then
