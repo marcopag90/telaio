@@ -56,7 +56,7 @@ graph TD
 2. **rest-contract**: The frozen `/dal/v1` wire contract — path and parameter constants (`DalApiV1`), the
    validation-error payload (`ValidationError`), and the version-agnostic ID codec (`DalIdCodec`, in the root
    package so future contract versions can reuse it). Shared by the server boundary and the remote client so the
-   wire shape cannot drift apart. Depends on introspection and Jackson only.
+   wire shape cannot drift apart. Depends on introspection, Jackson and swagger annotations only.
 3. **core**: DAL abstraction (`Dal<E,I>`), CRUD contracts, bean registration, `DalManager`. Foundation for all modules.
 4. **security**, **audit**, **metrics**: Cross-cutting adapters and interceptors. Depend on core only.
 5. **web**: Dynamic REST routing (`DalRestApiV1Controller`). Depends on core and rest-contract (it serves the wire

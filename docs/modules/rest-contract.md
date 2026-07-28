@@ -63,8 +63,12 @@ the wire) and is designed so that v1 and a future v2 coexist on the same connect
 ## Dependencies
 
 `telaio-introspection` (whose only compile dependency is `spring-core`), Jackson 3
-(`jackson-databind`), jSpecify annotations, and — optional — swagger annotations (only consumed
-when springdoc is present on the server; client applications are unaffected).
+(`jackson-databind`), jSpecify annotations, and swagger annotations. The swagger dependency is a
+regular compile dependency: the contract DTOs carry runtime-retained `@Schema` annotations in their
+bytecode, so consumers need the annotation classes on the compile classpath to build without
+warnings. The jar contains annotations only — it pulls in no runtime behavior; the annotations are
+used only when springdoc is present on the server. Applications need not declare it
+themselves: it arrives transitively from any Telaio module that depends on the contract.
 
 ## No Configuration
 
