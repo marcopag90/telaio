@@ -10,6 +10,7 @@ import org.aopalliance.intercept.MethodInvocation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -17,6 +18,7 @@ import org.springframework.data.domain.PageImpl;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -84,6 +86,82 @@ class DalSecurityInterceptorTest {
 
         assertNotNull(result);
         assertEquals(List.of("a!", "b!"), result.getContent());
+    }
+
+    @Test
+    void readOne_whenDenied_shouldThrowAccessDenied() throws Throwable {
+        when(invocation.getMethod()).thenReturn(DalOperationAdapter.class.getMethod("readOne", Object.class));
+        when(invocation.getArguments()).thenReturn(new Object[]{1L});
+        when(authAdapter.authorizeReadOne(any(), eq(1L))).thenReturn(false);
+
+        assertThrows(DalAccessDeniedException.class, () -> interceptor.invoke(invocation));
+        verify(invocation, never()).proceed();
+        verifyNoInteractions(rbacAdapter);
+    }
+
+    @Test
+    void readOne_whenAllowed_shouldFilterOutput() throws Throwable {
+        when(invocation.getMethod()).thenReturn(DalOperationAdapter.class.getMethod("readOne", Object.class));
+        when(invocation.getArguments()).thenReturn(new Object[]{1L});
+        when(authAdapter.authorizeReadOne(any(), eq(1L))).thenReturn(true);
+        when(invocation.proceed()).thenReturn("dto");
+        when(rbacAdapter.filterOutput(eq(DalOperationType.READ_ONE), eq("dto"), any())).thenReturn("filteredDto");
+
+        Object result = interceptor.invoke(invocation);
+
+        assertEquals("filteredDto", result);
+    }
+
+    @Test
+    void update_whenDenied_shouldThrowAccessDenied() throws Throwable {
+        when(invocation.getMethod()).thenReturn(
+            DalOperationAdapter.class.getMethod("update", Object.class, Map.class));
+        when(invocation.getArguments()).thenReturn(new Object[]{1L, Map.of("a", 1)});
+        when(authAdapter.authorizeUpdate(any(), eq(1L))).thenReturn(false);
+
+        assertThrows(DalAccessDeniedException.class, () -> interceptor.invoke(invocation));
+        verify(invocation, never()).proceed();
+        verify(rbacAdapter, never()).filterInput(any(), any(), any());
+    }
+
+    @Test
+    void update_whenAllowed_shouldFilterInputAndOutput() throws Throwable {
+        Map<String, Object> patch = Map.of("a", 1);
+        Map<String, Object> filteredPatch = Map.of("a", 1, "filtered", true);
+        Object[] arguments = {1L, patch};
+        when(invocation.getMethod()).thenReturn(
+            DalOperationAdapter.class.getMethod("update", Object.class, Map.class));
+        when(invocation.getArguments()).thenReturn(arguments);
+        when(authAdapter.authorizeUpdate(any(), eq(1L))).thenReturn(true);
+        when(rbacAdapter.filterInput(eq(DalOperationType.UPDATE), eq(patch), any())).thenReturn(filteredPatch);
+        when(invocation.proceed()).thenReturn(Optional.of("dto"));
+        when(rbacAdapter.filterOutput(eq(DalOperationType.UPDATE), eq("dto"), any())).thenReturn("filteredDto");
+
+        Object result = interceptor.invoke(invocation);
+
+        assertEquals(Optional.of("filteredDto"), result);
+        assertSame(filteredPatch, arguments[1]);
+        // The ordering is the security property: the patch must be filtered BEFORE the operation runs.
+        InOrder inOrder = inOrder(rbacAdapter, invocation);
+        inOrder.verify(rbacAdapter).filterInput(eq(DalOperationType.UPDATE), eq(patch), any());
+        inOrder.verify(invocation).proceed();
+        inOrder.verify(rbacAdapter).filterOutput(eq(DalOperationType.UPDATE), eq("dto"), any());
+    }
+
+    @Test
+    void update_whenEntityMissing_shouldReturnEmptyOptional() throws Throwable {
+        Map<String, Object> patch = Map.of("a", 1);
+        when(invocation.getMethod()).thenReturn(
+            DalOperationAdapter.class.getMethod("update", Object.class, Map.class));
+        when(invocation.getArguments()).thenReturn(new Object[]{1L, patch});
+        when(authAdapter.authorizeUpdate(any(), eq(1L))).thenReturn(true);
+        when(rbacAdapter.filterInput(eq(DalOperationType.UPDATE), eq(patch), any())).thenReturn(patch);
+        when(invocation.proceed()).thenReturn(Optional.empty());
+
+        Object result = interceptor.invoke(invocation);
+
+        assertEquals(Optional.empty(), result);
+        verify(rbacAdapter, never()).filterOutput(any(), any(), any());
     }
 
     @Test

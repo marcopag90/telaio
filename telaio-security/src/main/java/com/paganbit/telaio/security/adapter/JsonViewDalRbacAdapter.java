@@ -222,7 +222,7 @@ public abstract class JsonViewDalRbacAdapter<T> implements DalRbacAdapter<T> {
         return current.getRawClass();
     }
 
-    private record PropertyInfo(JavaType type, Class<?>[] views) {
+    record PropertyInfo(JavaType type, Class<?>[] views) {
 
         @Override
         public boolean equals(@Nullable Object o) {
