@@ -22,6 +22,16 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # REQUIRED REPO SETTING: the github-pages environment must allow deployments from tags.
+    # It is created allowing only the default branch, so with a tag-only trigger the very first
+    # release fails at the deploy step with "Tag vX.Y.Z is not allowed to deploy to github-pages
+    # due to environment protection rules" — a rejection by the environment, invisible in the
+    # workflow logs (it appears as a run annotation). Fix, once per repo:
+    #   Settings -> Environments -> github-pages -> Deployment branches and tags
+    #   -> Selected branches and tags -> Add rule: Tag `v*`   (plus Branch `main` if you want the
+    #      workflow_dispatch dry run to be able to deploy as well).
+    # After adding the rule, a rejected run can simply be re-run: the tagged commit is immutable,
+    # so the recomputed coverage still matches what shipped.
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
