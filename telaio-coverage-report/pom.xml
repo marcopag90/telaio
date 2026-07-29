@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.paganbit</groupId>
+        <artifactId>telaio</artifactId>
+        <version>1.1.0</version>
+    </parent>
+
+    <artifactId>telaio-coverage-report</artifactId>
+    <packaging>pom</packaging>
+    <name>Telaio Coverage Report</name>
+    <description>
+        Aggregates JaCoCo coverage data across all library modules into a single report. Build-only
+        module: produces no publishable artifact.
+    </description>
+    <url>https://github.com/marcopag90/telaio</url>
+
+    <properties>
+        <maven.source.skip>true</maven.source.skip>
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <maven.javadoc.skip>true</maven.javadoc.skip>
+        <gpg.skip>true</gpg.skip>
+        <skipPublishing>true</skipPublishing>
+    </properties>
+
+    <!-- Direct dependencies exist solely so jacoco:report-aggregate can discover each module's
+         jacoco.exec (it only scans direct, non-transitive dependencies) — not a runtime/API
+         dependency on any of these modules. -->
+    <dependencies>
+        <dependency>
+            <groupId>com.paganbit</groupId>
+            <artifactId>telaio-introspection</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.paganbit</groupId>
+            <artifactId>telaio-rest-contract</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.paganbit</groupId>
+            <artifactId>telaio-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.paganbit</groupId>
+            <artifactId>telaio-security</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.paganbit</groupId>
+            <artifactId>telaio-audit</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.paganbit</groupId>
+            <artifactId>telaio-metrics</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.paganbit</groupId>
+            <artifactId>telaio-web</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.paganbit</groupId>
+            <artifactId>telaio-openapi</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.paganbit</groupId>
+            <artifactId>telaio-jpa</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.paganbit</groupId>
+            <artifactId>telaio-rest-client-shared</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.paganbit</groupId>
+            <artifactId>telaio-rest-client</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <phase>none</phase>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>none</phase>
+                    </execution>
+                    <execution>
+                        <id>report-aggregate</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report-aggregate</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

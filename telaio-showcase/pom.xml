@@ -6,7 +6,7 @@
     <parent>
         <groupId>com.paganbit</groupId>
         <artifactId>telaio</artifactId>
-        <version>1.0.1</version>
+        <version>1.1.0</version>
     </parent>
 
     <artifactId>telaio-showcase</artifactId>
@@ -21,6 +21,7 @@
         <maven.javadoc.skip>true</maven.javadoc.skip>
         <gpg.skip>true</gpg.skip>
         <skipPublishing>true</skipPublishing>
+        <jacoco.skip>true</jacoco.skip>
     </properties>
 
     <dependencies>
@@ -52,6 +53,16 @@
         <dependency>
             <groupId>com.paganbit</groupId>
             <artifactId>telaio-jpa</artifactId>
+        </dependency>
+        <!-- The blocking REST client at compile scope: the app is a client of its own DAL API
+             (see SupportTicketDalService + telaio.rest-client.connections.self). -->
+        <dependency>
+            <groupId>com.paganbit</groupId>
+            <artifactId>telaio-rest-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-restclient</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -91,11 +102,6 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers-postgresql</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-restclient</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

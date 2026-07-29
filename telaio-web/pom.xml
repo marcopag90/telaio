@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.paganbit</groupId>
         <artifactId>telaio</artifactId>
-        <version>1.0.1</version>
+        <version>1.1.0</version>
     </parent>
 
     <artifactId>telaio-web</artifactId>
@@ -22,8 +22,17 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
+            <groupId>com.paganbit</groupId>
+            <artifactId>telaio-rest-contract</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-data-commons</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springdoc</groupId>

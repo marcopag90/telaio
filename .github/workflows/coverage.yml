@@ -1,0 +1,58 @@
+name: Coverage
+
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# GitHub's own recommended group for Pages deployments: serializes deploys, but never
+# cancels one mid-flight (a half-published site would be worse than a queued one).
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  # Only tags trigger a real publish; workflow_dispatch is for a manual dry run.
+  coverage:
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      # Recomputed here rather than reused from ci.yml/publish.yml: publish.yml deploys
+      # with -DskipTests, and ci.yml's own run happened on the release/* branch, not on
+      # this tagged commit on main. This is the only way the coverage numbers are
+      # guaranteed to correspond to exactly what got tagged.
+      - name: Build and test
+        run: mvn -B clean verify
+
+      - name: Generate coverage badge
+        uses: cicirello/jacoco-badge-generator@v2
+        with:
+          jacoco-csv-file: telaio-coverage-report/target/site/jacoco-aggregate/jacoco.csv
+          badges-directory: telaio-coverage-report/target/site/jacoco-aggregate
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: telaio-coverage-report/target/site/jacoco-aggregate
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

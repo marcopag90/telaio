@@ -26,7 +26,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.data.web.config.EnableSpringDataWebSupport;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -47,7 +46,6 @@ import java.util.List;
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @Import({DalRestApiV1Controller.class, TelaioWebExceptionHandler.class})
 @EnableConfigurationProperties(TelaioWebProperties.class)
-@EnableSpringDataWebSupport(pageSerializationMode = EnableSpringDataWebSupport.PageSerializationMode.VIA_DTO)
 public class TelaioWebAutoConfiguration {
 
     @Bean

@@ -149,6 +149,89 @@ class DalOpenApiCustomizerTest {
     }
 
     @Test
+    void shouldCreatePathsWhenDocumentHasNone() {
+        DalManager dalManager = mock(DalManager.class);
+        when(dalManager.getAllDefinitions())
+            .thenReturn(List.of(new DalDefinitionEntry("products", TestProductDal.class)));
+        doReturn(new TestProductDal()).when(dalManager).getServiceByName("products");
+
+        // A document without a Paths container: the customizer must create one.
+        OpenAPI openApi = new OpenAPI();
+
+        customizer(dalManager).customise(openApi);
+
+        assertThat(openApi.getPaths()).isNotNull();
+        assertThat(openApi.getPaths()).containsKey("/dal/v1/products");
+    }
+
+    @Test
+    void shouldSkipMisbehavingDalAndDocumentTheOthers() {
+        DalManager dalManager = mock(DalManager.class);
+        when(dalManager.getAllDefinitions()).thenReturn(List.of(
+            new DalDefinitionEntry("broken", TestProductDal.class),
+            new DalDefinitionEntry("products", TestProductDal.class)));
+        doThrow(new IllegalStateException("boom")).when(dalManager).getServiceByName("broken");
+        doReturn(new TestProductDal()).when(dalManager).getServiceByName("products");
+
+        OpenAPI openApi = new OpenAPI().paths(new Paths());
+
+        // A single misbehaving DAL is logged and skipped; the others are still documented.
+        customizer(dalManager).customise(openApi);
+
+        assertThat(openApi.getPaths()).containsKeys("/dal/v1/products", "/dal/v1/products/{id}");
+        assertThat(openApi.getPaths().keySet()).noneMatch(path -> path.contains("broken"));
+    }
+
+    @Test
+    void shouldLeaveEmptyTagListUntouched() {
+        DalManager dalManager = mock(DalManager.class);
+        when(dalManager.getAllDefinitions())
+            .thenReturn(List.of(new DalDefinitionEntry("products", TestProductDal.class)));
+        doReturn(new TestProductDal()).when(dalManager).getServiceByName("products");
+
+        OpenAPI openApi = new OpenAPI().paths(new Paths());
+        openApi.setTags(new ArrayList<>());
+
+        customizer(dalManager).customise(openApi);
+
+        // Pruning is a no-op on an already-empty tag list: it stays an empty list, not nulled.
+        assertThat(openApi.getTags()).isNotNull();
+        assertThat(openApi.getTags()).isEmpty();
+    }
+
+    @Test
+    void shouldNotKeepOrphanTagAliveThroughUntaggedOperation() {
+        DalManager dalManager = mock(DalManager.class);
+        when(dalManager.getAllDefinitions()).thenReturn(List.of());
+
+        OpenAPI openApi = new OpenAPI().paths(new Paths());
+        // A foreign path whose operation carries no tags contributes nothing to the used-tag set.
+        openApi.getPaths().addPathItem("/custom", new PathItem().get(new Operation()));
+        openApi.setTags(new ArrayList<>(List.of(new Tag().name("DAL API v1"))));
+
+        customizer(dalManager).customise(openApi);
+
+        assertThat(openApi.getTags()).isNull();
+    }
+
+    @Test
+    void shouldRetainReferencedTagAndDropOrphanTag() {
+        DalManager dalManager = mock(DalManager.class);
+        when(dalManager.getAllDefinitions())
+            .thenReturn(List.of(new DalDefinitionEntry("products", TestProductDal.class)));
+        doReturn(new TestProductDal()).when(dalManager).getServiceByName("products");
+
+        OpenAPI openApi = new OpenAPI().paths(new Paths());
+        openApi.setTags(new ArrayList<>(List.of(new Tag().name("Products"), new Tag().name("DAL API v1"))));
+
+        customizer(dalManager).customise(openApi);
+
+        // The per-DAL tag is referenced by the synthesized operations and survives; the orphan is
+        // dropped, and the non-empty list is kept (not nulled).
+        assertThat(openApi.getTags()).extracting(Tag::getName).containsExactly("Products");
+    }
+
+    @Test
     void shouldPruneOrphanControllerTag() {
         DalManager dalManager = mock(DalManager.class);
         when(dalManager.getAllDefinitions())
@@ -172,7 +255,7 @@ class DalOpenApiCustomizerTest {
 
         @Override
         public Product create(Map<String, Object> properties) {
-            return null;
+            return new Product();
         }
 
         @Override

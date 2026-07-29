@@ -400,7 +400,7 @@ class PropertyBasedDalRbacAdapterTest {
         assertEquals("Platform", result.get("name"));
         List<?> members = (List<?>) result.get("members");
         assertEquals(2, members.size());
-        Map<?, ?> first = (Map<?, ?>) members.get(0);
+        Map<?, ?> first = (Map<?, ?>) members.getFirst();
         assertTrue(first.containsKey("name"));
         assertFalse(first.containsKey("salary"));
         Map<?, ?> second = (Map<?, ?>) members.get(1);
@@ -465,6 +465,207 @@ class PropertyBasedDalRbacAdapterTest {
         assertTrue(readOne.has("id"));
         assertFalse(readOne.has("name"));
         assertFalse(readOne.has("email"));
+    }
+
+    // ------------------------------------------------------------------------
+    // Descendant-only grants (parent field reachable only through nested paths)
+    // ------------------------------------------------------------------------
+
+    @Test
+    void input_descendantOnlyGrant_filtersNestedObjectRecursively() {
+        // 'address' itself is not writable, only 'address.street' — the nested map must be
+        // recursed into and reduced to the granted children.
+        NestedWriteAdapter adapter = new NestedWriteAdapter();
+        adapter.setObjectMapper(objectMapper);
+        doReturn(List.of(UserAuthority.USER)).when(mockAuthentication).getAuthorities();
+
+        var result = adapter.filterInput(DalOperationType.CREATE, testInput, mockAuthentication);
+
+        assertEquals(2, result.size());
+        assertTrue(result.containsKey("name"));
+        Map<?, ?> address = (Map<?, ?>) result.get("address");
+        assertEquals(Set.of("street"), address.keySet());
+    }
+
+    @Test
+    void input_exactParentGrant_passesWholeSubtreeUnfiltered() {
+        // Contract, not accident: an EXACT grant on a parent path ("address") admits the whole
+        // subtree, including children that carry no grant of their own ("zipCode"). This is the
+        // permissive input mirror of the strict output pruning proven in
+        // output_parentGrantWithoutChildren_removesEmptiedNestedObject — grant a bare parent on the
+        // writable side only when every nested field is meant to be writable.
+        doReturn(List.of(UserAuthority.USER)).when(mockAuthentication).getAuthorities();
+
+        var result = defaultAdapter.filterInput(DalOperationType.CREATE, testInput, mockAuthentication);
+
+        Map<?, ?> address = (Map<?, ?>) result.get("address");
+        assertEquals(Set.of("street", "city", "zipCode"), address.keySet());
+    }
+
+    @Test
+    void input_descendantOnlyGrant_dropsNestedObjectWithNoGrantedChildren() {
+        NestedWriteAdapter adapter = new NestedWriteAdapter();
+        adapter.setObjectMapper(objectMapper);
+        doReturn(List.of(UserAuthority.USER)).when(mockAuthentication).getAuthorities();
+
+        Map<String, Object> input = new HashMap<>();
+        input.put("name", "N");
+        input.put("address", Map.of("zipCode", "12345"));
+
+        var result = adapter.filterInput(DalOperationType.CREATE, input, mockAuthentication);
+
+        assertFalse(result.containsKey("address"), "nested map emptied by filtering must be dropped");
+    }
+
+    @Test
+    void input_descendantOnlyGrant_ignoresScalarValueAtParentPath() {
+        NestedWriteAdapter adapter = new NestedWriteAdapter();
+        adapter.setObjectMapper(objectMapper);
+        doReturn(List.of(UserAuthority.USER)).when(mockAuthentication).getAuthorities();
+
+        Map<String, Object> input = new HashMap<>();
+        input.put("address", "not a nested object");
+
+        var result = adapter.filterInput(DalOperationType.CREATE, input, mockAuthentication);
+
+        assertTrue(result.isEmpty(), "a scalar at a descendant-only path cannot be granted");
+    }
+
+    @Test
+    void input_listElements_scalarSkippedAndAllDeniedElementDropped() {
+        // In a filtered list only element maps with surviving fields are kept: scalar elements and
+        // elements whose fields are all denied disappear — here that empties the list entirely.
+        CollectionWriteAdapter adapter = new CollectionWriteAdapter();
+        adapter.setObjectMapper(objectMapper);
+        doReturn(List.of(UserAuthority.USER)).when(mockAuthentication).getAuthorities();
+
+        Map<String, Object> input = new HashMap<>();
+        input.put("name", "T");
+        input.put("members", List.of("just a string", Map.of("salary", "100k")));
+
+        var result = adapter.filterInput(DalOperationType.CREATE, input, mockAuthentication);
+
+        assertTrue(result.containsKey("name"));
+        assertFalse(result.containsKey("members"), "list with no surviving elements must be dropped");
+    }
+
+    @Test
+    void output_descendantOnlyGrant_prunesNestedObjectToGrantedChildren() {
+        DescendantReadableAdapter adapter = new DescendantReadableAdapter();
+        adapter.setObjectMapper(objectMapper);
+        doReturn(List.of(UserAuthority.USER)).when(mockAuthentication).getAuthorities();
+
+        JsonNode result = (JsonNode) adapter.filterOutput(DalOperationType.READ, user, mockAuthentication);
+
+        assertTrue(result.has("id"));
+        assertFalse(result.has("name"));
+        JsonNode address = result.get("address");
+        assertNotNull(address);
+        assertTrue(address.has("street"));
+        assertFalse(address.has("city"));
+        assertFalse(address.has("zipCode"));
+    }
+
+    @Test
+    void output_parentGrantWithoutChildren_removesEmptiedNestedObject() {
+        // 'address' is readable but none of its children are: pruning empties the object, and an
+        // empty object must not leak into the response.
+        ParentOnlyReadableAdapter adapter = new ParentOnlyReadableAdapter();
+        adapter.setObjectMapper(objectMapper);
+        doReturn(List.of(UserAuthority.USER)).when(mockAuthentication).getAuthorities();
+
+        JsonNode result = (JsonNode) adapter.filterOutput(DalOperationType.READ, user, mockAuthentication);
+
+        assertTrue(result.has("id"));
+        assertFalse(result.has("address"), "nested object emptied by pruning must be removed");
+    }
+
+    @Test
+    void output_descendantOnlyGrant_prunesArrayElements() {
+        CollectionDescendantReadableAdapter adapter = new CollectionDescendantReadableAdapter();
+        adapter.setObjectMapper(objectMapper);
+        doReturn(List.of(UserAuthority.USER)).when(mockAuthentication).getAuthorities();
+        Team team = new Team("T", List.of(new Member("alice", "100k"), new Member("bob", "90k")));
+
+        JsonNode result = (JsonNode) adapter.filterOutput(DalOperationType.READ, team, mockAuthentication);
+
+        JsonNode members = result.get("members");
+        assertNotNull(members);
+        assertEquals(2, members.size());
+        assertTrue(members.get(0).has("name"));
+        assertFalse(members.get(0).has("salary"));
+    }
+
+    @Test
+    void output_emptyArrayAtGrantedPath_isRemoved() {
+        CollectionDescendantReadableAdapter adapter = new CollectionDescendantReadableAdapter();
+        adapter.setObjectMapper(objectMapper);
+        doReturn(List.of(UserAuthority.USER)).when(mockAuthentication).getAuthorities();
+        Team team = new Team("T", List.of());
+
+        JsonNode result = (JsonNode) adapter.filterOutput(DalOperationType.READ, team, mockAuthentication);
+
+        assertTrue(result.has("name"));
+        assertFalse(result.has("members"), "an empty array must not leak into the response");
+    }
+
+    @Test
+    void output_ungrantedArray_isRemovedEntirely() {
+        TeamNameOnlyReadableAdapter adapter = new TeamNameOnlyReadableAdapter();
+        adapter.setObjectMapper(objectMapper);
+        doReturn(List.of(UserAuthority.USER)).when(mockAuthentication).getAuthorities();
+        Team team = new Team("T", List.of(new Member("alice", "100k")));
+
+        JsonNode result = (JsonNode) adapter.filterOutput(DalOperationType.READ, team, mockAuthentication);
+
+        assertTrue(result.has("name"));
+        assertFalse(result.has("members"));
+    }
+
+    @Test
+    void output_arrayOfScalars_isKeptUnchanged() {
+        TaggedAdapter adapter = new TaggedAdapter();
+        adapter.setObjectMapper(objectMapper);
+        doReturn(List.of(UserAuthority.USER)).when(mockAuthentication).getAuthorities();
+        TaggedDoc doc = new TaggedDoc("T", List.of("a", "b"));
+
+        JsonNode result = (JsonNode) adapter.filterOutput(DalOperationType.READ, doc, mockAuthentication);
+
+        JsonNode tags = result.get("tags");
+        assertNotNull(tags);
+        assertEquals(2, tags.size());
+        assertEquals("a", tags.get(0).asString());
+    }
+
+    @Test
+    void output_nonObjectTree_isReturnedUntouched() {
+        // An entity serializing to a non-object tree (here: an array) has no fields to prune.
+        // Limitation pinned here: pruning applies to OBJECT trees only, so a type serializing to an
+        // array of objects would bypass field filtering entirely — expose such types through this
+        // adapter only if every element field may be read by every principal.
+        ArrayEntityAdapter adapter = new ArrayEntityAdapter();
+        adapter.setObjectMapper(objectMapper);
+        doReturn(List.of(UserAuthority.USER)).when(mockAuthentication).getAuthorities();
+        StringListEntity entity = new StringListEntity();
+        entity.add("a");
+        entity.add("b");
+
+        JsonNode result = (JsonNode) adapter.filterOutput(DalOperationType.READ, entity, mockAuthentication);
+
+        assertTrue(result.isArray());
+        assertEquals(2, result.size());
+    }
+
+    @Test
+    void output_serializationFailure_isWrappedInIllegalStateException() {
+        ExplodingPropertyAdapter adapter = new ExplodingPropertyAdapter();
+        adapter.setObjectMapper(objectMapper);
+        doReturn(List.of(UserAuthority.USER)).when(mockAuthentication).getAuthorities();
+        ExplodingEntity entity = new ExplodingEntity();
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+            () -> adapter.filterOutput(DalOperationType.READ, entity, mockAuthentication));
+        assertTrue(exception.getMessage().startsWith("Failed to filter output for type"));
     }
 
     // ------------------------------------------------------------------------
@@ -692,7 +893,104 @@ class PropertyBasedDalRbacAdapterTest {
         }
     }
 
-    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static class NestedWriteAdapter extends PropertyBasedDalRbacAdapter<User> {
+        @Override
+        protected Map<GrantedAuthority, Set<String>> readableFieldsByRole() {
+            return Map.of();
+        }
+
+        @Override
+        protected Map<GrantedAuthority, Set<String>> writableFieldsByRole() {
+            // 'address' itself is not writable, only its nested 'street' — forcing map recursion.
+            return Map.of(UserAuthority.USER, Set.of("name", "address.street"));
+        }
+    }
+
+    private static class DescendantReadableAdapter extends PropertyBasedDalRbacAdapter<User> {
+        @Override
+        protected Map<GrantedAuthority, Set<String>> readableFieldsByRole() {
+            return Map.of(UserAuthority.USER, Set.of("id", "address.street"));
+        }
+
+        @Override
+        protected Map<GrantedAuthority, Set<String>> writableFieldsByRole() {
+            return Map.of();
+        }
+    }
+
+    private static class ParentOnlyReadableAdapter extends PropertyBasedDalRbacAdapter<User> {
+        @Override
+        protected Map<GrantedAuthority, Set<String>> readableFieldsByRole() {
+            return Map.of(UserAuthority.USER, Set.of("id", "address"));
+        }
+
+        @Override
+        protected Map<GrantedAuthority, Set<String>> writableFieldsByRole() {
+            return Map.of();
+        }
+    }
+
+    private static class CollectionDescendantReadableAdapter extends PropertyBasedDalRbacAdapter<Team> {
+        @Override
+        protected Map<GrantedAuthority, Set<String>> readableFieldsByRole() {
+            return Map.of(UserAuthority.USER, Set.of("name", "members.name"));
+        }
+
+        @Override
+        protected Map<GrantedAuthority, Set<String>> writableFieldsByRole() {
+            return Map.of();
+        }
+    }
+
+    private static class TeamNameOnlyReadableAdapter extends PropertyBasedDalRbacAdapter<Team> {
+        @Override
+        protected Map<GrantedAuthority, Set<String>> readableFieldsByRole() {
+            return Map.of(UserAuthority.USER, Set.of("name"));
+        }
+
+        @Override
+        protected Map<GrantedAuthority, Set<String>> writableFieldsByRole() {
+            return Map.of();
+        }
+    }
+
+    private static class TaggedAdapter extends PropertyBasedDalRbacAdapter<TaggedDoc> {
+        @Override
+        protected Map<GrantedAuthority, Set<String>> readableFieldsByRole() {
+            return Map.of(UserAuthority.USER, Set.of("name", "tags"));
+        }
+
+        @Override
+        protected Map<GrantedAuthority, Set<String>> writableFieldsByRole() {
+            return Map.of();
+        }
+    }
+
+    private static class ArrayEntityAdapter extends PropertyBasedDalRbacAdapter<StringListEntity> {
+        @Override
+        protected Map<GrantedAuthority, Set<String>> readableFieldsByRole() {
+            return Map.of();
+        }
+
+        @Override
+        protected Map<GrantedAuthority, Set<String>> writableFieldsByRole() {
+            return Map.of();
+        }
+    }
+
+    private static class ExplodingPropertyAdapter extends PropertyBasedDalRbacAdapter<ExplodingEntity> {
+        @Override
+        protected Map<GrantedAuthority, Set<String>> readableFieldsByRole() {
+            return Map.of();
+        }
+
+        @Override
+        protected Map<GrantedAuthority, Set<String>> writableFieldsByRole() {
+            return Map.of();
+        }
+    }
+
+    @SuppressWarnings({"rawtypes"})
     private static class RawAdapter extends PropertyBasedDalRbacAdapter {
         @Override
         protected Map readableFieldsByRole() {
@@ -785,5 +1083,29 @@ class PropertyBasedDalRbacAdapterTest {
         private Long id;
         private String name;
         private String secret;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    static class TaggedDoc {
+        private String name;
+        private List<String> tags;
+    }
+
+    /**
+     * Serializes to a JSON array, not an object — no fields to prune.
+     */
+    static class StringListEntity extends ArrayList<String> {
+    }
+
+    static class ExplodingEntity {
+        // Deliberately NOT an IllegalStateException: the wrap assertion must be able to tell the
+        // adapter's wrapper apart from the raw getter failure leaking through unwrapped.
+        @SuppressWarnings("unused")
+        public String getBoom() {
+            throw new UnsupportedOperationException("boom");
+        }
     }
 }

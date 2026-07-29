@@ -12,7 +12,7 @@
 
     <groupId>com.paganbit</groupId>
     <artifactId>telaio</artifactId>
-    <version>1.0.1</version>
+    <version>1.1.0</version>
     <packaging>pom</packaging>
 
     <name>Telaio</name>
@@ -51,6 +51,7 @@
         <gitflow-maven-plugin.version>1.21.0</gitflow-maven-plugin.version>
         <central-publishing-maven-plugin.version>0.11.0</central-publishing-maven-plugin.version>
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
+        <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
         <!-- testcontainers -->
         <testcontainers.image.postgresql>postgres:17</testcontainers.image.postgresql>
         <testcontainers.image.mysql>mysql:8.4</testcontainers.image.mysql>
@@ -61,6 +62,7 @@
 
     <modules>
         <module>telaio-introspection</module>
+        <module>telaio-rest-contract</module>
         <module>telaio-core</module>
         <module>telaio-security</module>
         <module>telaio-audit</module>
@@ -68,8 +70,11 @@
         <module>telaio-web</module>
         <module>telaio-openapi</module>
         <module>telaio-jpa</module>
+        <module>telaio-rest-client-shared</module>
+        <module>telaio-rest-client</module>
         <module>telaio-bom</module>
         <module>telaio-showcase</module>
+        <module>telaio-coverage-report</module>
     </modules>
 
     <dependencyManagement>
@@ -173,6 +178,26 @@
                         <id>attach-sources</id>
                         <goals>
                             <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco-maven-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
                         </goals>
                     </execution>
                 </executions>

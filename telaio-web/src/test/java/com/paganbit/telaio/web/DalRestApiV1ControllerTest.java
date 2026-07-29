@@ -71,7 +71,11 @@ class DalRestApiV1ControllerTest {
 
     @Test
     void readCompanies_shouldReturnPage() throws Exception {
+        // Explicit paging params, so the resolved Pageable (and thus page.size) is deterministic
+        // and independent of the default page size.
         mockMvc.perform(get("/dal/v1/company")
+                .param("page", "0")
+                .param("size", "5")
                 .accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -80,7 +84,13 @@ class DalRestApiV1ControllerTest {
             .andExpect(jsonPath("$.content[0].id").value(1))
             .andExpect(jsonPath("$.content[0].name").value("Company One"))
             .andExpect(jsonPath("$.content[1].id").value(2))
-            .andExpect(jsonPath("$.content[1].name").value("Company Two"));
+            .andExpect(jsonPath("$.content[1].name").value("Company Two"))
+            // PagedModel wire shape: pagination metadata nested under "page" (owned by Telaio,
+            // independent of the host's Spring Data page serialization mode).
+            .andExpect(jsonPath("$.page.size").value(5))
+            .andExpect(jsonPath("$.page.number").value(0))
+            .andExpect(jsonPath("$.page.totalElements").value(2))
+            .andExpect(jsonPath("$.page.totalPages").value(1));
     }
 
     @Test

@@ -24,6 +24,57 @@ itself is compiled to and distributed as Java 21, so this is a property of the d
 | **translations**  | Composite ID (`TranslationId`) — [Base64 `{id}` segment](../rest-api.md#composite-ids) | `TranslationDalService`  |
 | **app-settings**  | Internal DAL (no REST/OpenAPI)                                                         | `AppSettingDalService`   |
 | **feed**          | Append-only, `operations={CREATE,READ}`                                                | `FeedEntryDalService`    |
+| **tickets**       | Calls another DAL over the remote `telaio-rest-client` (DAL-to-DAL round-trip)         | `SupportTicketDalService`|
+
+## REST Client: DAL-to-DAL Round-Trip
+
+The showcase depends on **`telaio-rest-client` at compile scope** and acts as a client of its own
+DAL API. `SupportTicketDalService` demonstrates a DAL whose writes call another DAL through the
+typed client:
+
+- **create** → persists the ticket, then `POST`s an activity entry to the append-only `feed` DAL;
+- **update** → applies the patch, then posts another `feed` entry.
+
+The remote call is a genuine HTTP round-trip back to this same application, so it exercises the full
+web + security chain exactly as an external client would. It is wired through the
+`finalizeAfterCreate`/`finalizeAfterUpdate` lifecycle hooks, which run **inside the write's
+transaction**: if the remote call fails the unchecked `DalClientException` propagates and the local
+transaction **rolls back** (proven by `TicketFeedRollbackIT`).
+
+This is a **dual-write, not a distributed transaction** — the guarantee is one-directional: only a
+*failing* remote call rolls the local write back; a remote success followed by a local commit
+failure leaves an orphaned feed entry. It is a teaching example, not a production pattern: the
+synchronous self-call runs while the DB transaction is open (a real remote call must size connection
+pools/timeouts, or publish out of band), and it carries a single static service credential with no
+propagation of the caller's identity. See the `SupportTicketDalService` Javadoc for the full caveats.
+
+The connection is configured in YAML and authenticated with an interceptor:
+
+```yaml
+telaio:
+  rest-client:
+    connections:
+      self:                              # single connection ⇒ backs the primary TelaioClient bean
+        base-url: http://localhost:8080
+```
+
+```java
+// ShowcaseRestClientConfig: basic auth for the "self" connection, the idiomatic per-connection hook
+@Bean
+TelaioRestClientCustomizer selfConnectionBasicAuth(
+        @Value("${telaio.showcase.self-client.username:user}") String username,
+        @Value("${telaio.showcase.self-client.password:user}") String password) {
+    return (connectionName, builder) -> {
+        if ("self".equals(connectionName)) {
+            builder.requestInterceptor(new BasicAuthenticationInterceptor(username, password));
+        }
+    };
+}
+```
+
+`SupportTicketDalService` injects the primary `TelaioClient` and calls
+`telaioClient.dal("feed", FeedActivity.class, Long.class).create(...)`. The round-trip is proven
+end-to-end by `TicketFeedRoundTripIT`.
 
 ## Running the Showcase
 
@@ -203,6 +254,10 @@ management:
         include: health, telaiometrics
 
 telaio:
+  rest-client:
+    connections:
+      self:                       # the app is a client of its own DAL API (DAL-to-DAL round-trip)
+        base-url: http://localhost:8080
   web:
     openapi:
       enabled: true
@@ -234,6 +289,7 @@ telaio-showcase/
 │   │   ├── JacksonConfiguration.java
 │   │   ├── JpaConfiguration.java
 │   │   ├── SecurityConfiguration.java
+│   │   ├── ShowcaseRestClientConfig.java
 │   │   └── SwaggerConfiguration.java
 │   ├── dal/
 │   │   ├── announcement/
@@ -244,7 +300,8 @@ telaio-showcase/
 │   │   ├── department/
 │   │   ├── translation/
 │   │   ├── setting/
-│   │   └── feed/
+│   │   ├── feed/
+│   │   └── ticket/       (SupportTicketDalService — DAL-to-DAL round-trip via the REST client)
 │   └── role/
 │       └── UserRole.java
 ├── src/main/resources/

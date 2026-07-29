@@ -180,6 +180,105 @@ class JsonViewDalRbacAdapterTest {
     }
 
     @Test
+    void input_unknownPayloadKey_isDropped() {
+        // A payload key that maps to no introspected property must be pruned, not passed through.
+        doReturn(List.of(Roles.PUBLIC)).when(auth).getAuthorities();
+
+        Map<String, Object> input = new HashMap<>();
+        input.put("title", "T");
+        input.put("bogus", "B");
+
+        var result = adapter.filterInput(DalOperationType.CREATE, input, auth);
+
+        assertEquals(1, result.size());
+        assertTrue(result.containsKey("title"));
+        assertFalse(result.containsKey("bogus"));
+    }
+
+    @Test
+    void input_arrayOfScalars_isKeptUnchanged() {
+        // Scalar array elements have no nested properties to prune and must survive as-is.
+        NestedAdapter nestedAdapter = new NestedAdapter();
+        nestedAdapter.setObjectMapper(JsonMapper.builder().build());
+        doReturn(List.of(Roles.PUBLIC)).when(auth).getAuthorities();
+
+        Map<String, Object> input = new HashMap<>();
+        input.put("name", "N");
+        input.put("tags", List.of("a", "b"));
+
+        var result = nestedAdapter.filterInput(DalOperationType.CREATE, input, auth);
+
+        assertEquals(List.of("a", "b"), result.get("tags"));
+    }
+
+    @Test
+    void input_getterOnlyProperty_isIntrospectedViaGetter() {
+        // A getter-only property has no mutator and no field: viewsOf must skip the null members and
+        // read @JsonView off the getter. Introspection reads annotations only, so the getter never runs.
+        // Keeping the key in the payload is harmless: with no mutator the value can never bind to the
+        // bean — this pins the introspection fallback (mutator -> field -> primary -> getter), not a write.
+        ExplodingAdapter explodingAdapter = new ExplodingAdapter();
+        explodingAdapter.setObjectMapper(JsonMapper.builder().build());
+
+        Map<String, Object> input = new HashMap<>();
+        input.put("boom", "defused");
+
+        var result = explodingAdapter.filterInput(DalOperationType.CREATE, input, auth);
+
+        assertTrue(result.containsKey("boom"), "getter-only property in view must be writable-visible");
+    }
+
+    @Test
+    void propertyInfo_equalsHonorsTypeAndViewContent() {
+        var mapper = JsonMapper.builder().build();
+        var stringType = mapper.constructType(String.class);
+        var info = new JsonViewDalRbacAdapter.PropertyInfo(
+            stringType, new Class<?>[]{Views.Public.class});
+        var sameContent = new JsonViewDalRbacAdapter.PropertyInfo(
+            stringType, new Class<?>[]{Views.Public.class});
+        var otherType = new JsonViewDalRbacAdapter.PropertyInfo(
+            mapper.constructType(Long.class), new Class<?>[]{Views.Public.class});
+        var otherViews = new JsonViewDalRbacAdapter.PropertyInfo(
+            stringType, new Class<?>[]{Views.Internal.class});
+
+        // The Object-typed locals keep the reflexive and cross-type cases free of IDE/Sonar
+        // self-comparison and inconvertible-type warnings: both branches belong to the equals
+        // contract of the handwritten implementation and must stay exercised.
+        Object notAPropertyInfo = "not a PropertyInfo";
+        assertEquals(info, info);
+        assertEquals(info, sameContent);
+        assertNotEquals(info, otherType);
+        assertNotEquals(info, otherViews);
+        // info must be the FIRST argument: JUnit invokes equals on it, and the point is exercising
+        // PropertyInfo.equals' non-PropertyInfo rejection — swapped, String.equals runs instead.
+        assertNotEquals(info, notAPropertyInfo);
+    }
+
+    @Test
+    void propertyInfo_hashCodeMatchesForEqualContent() {
+        var mapper = JsonMapper.builder().build();
+        var stringType = mapper.constructType(String.class);
+        var info = new JsonViewDalRbacAdapter.PropertyInfo(
+            stringType, new Class<?>[]{Views.Public.class});
+        var sameContent = new JsonViewDalRbacAdapter.PropertyInfo(
+            stringType, new Class<?>[]{Views.Public.class});
+
+        assertEquals(info.hashCode(), sameContent.hashCode());
+    }
+
+    @Test
+    void propertyInfo_toStringListsTypeAndViews() {
+        var mapper = JsonMapper.builder().build();
+        var info = new JsonViewDalRbacAdapter.PropertyInfo(
+            mapper.constructType(String.class), new Class<?>[]{Views.Public.class});
+
+        String text = info.toString();
+
+        assertTrue(text.startsWith("PropertyInfo[type="));
+        assertTrue(text.contains(Views.Public.class.getName()));
+    }
+
+    @Test
     void output_nullEntity_returnsNull() {
         assertNull(adapter.filterOutput(DalOperationType.READ, null, auth));
     }
@@ -192,8 +291,9 @@ class JsonViewDalRbacAdapterTest {
         explodingAdapter.setObjectMapper(JsonMapper.builder().build());
         ExplodingDoc entity = new ExplodingDoc();
 
-        assertThrows(IllegalStateException.class,
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
             () -> explodingAdapter.filterOutput(DalOperationType.READ, entity, auth));
+        assertTrue(exception.getMessage().startsWith("Failed to filter output for type"));
     }
 
     @Test
@@ -303,6 +403,8 @@ class JsonViewDalRbacAdapterTest {
         private Member child;
         @JsonView(Views.Public.class)
         private List<Member> members;
+        @JsonView(Views.Public.class)
+        private List<String> tags;
     }
 
     @Getter
@@ -317,9 +419,12 @@ class JsonViewDalRbacAdapterTest {
     }
 
     static class ExplodingDoc {
+        // Deliberately NOT an IllegalStateException: the wrap assertion must be able to tell the
+        // adapter's wrapper apart from the raw getter failure leaking through unwrapped.
+        @SuppressWarnings("unused")
         @JsonView(Views.Public.class)
         public String getBoom() {
-            throw new IllegalStateException("boom");
+            throw new UnsupportedOperationException("boom");
         }
     }
 }

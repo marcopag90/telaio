@@ -1,6 +1,5 @@
 package com.paganbit.telaio.web.registry;
 
-import com.turkraft.springfilter.parser.node.FilterNode;
 import com.paganbit.telaio.core.Dal;
 import com.paganbit.telaio.core.adapter.DalAdapterContext;
 import com.paganbit.telaio.core.adapter.DalAdapterInterceptorProvider;
@@ -11,6 +10,7 @@ import com.paganbit.telaio.core.registry.DalDefinitionEntry;
 import com.paganbit.telaio.core.registry.DalManager;
 import com.paganbit.telaio.web.exception.DalOperationNotExposedException;
 import com.paganbit.telaio.web.interceptor.WebDalExposureInterceptorProvider;
+import com.turkraft.springfilter.parser.node.FilterNode;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;

@@ -2,6 +2,7 @@ package com.paganbit.telaio.core;
 
 import com.paganbit.telaio.core.adapter.DalOperation;
 import com.paganbit.telaio.core.adapter.DalOperationType;
+import com.paganbit.telaio.core.exception.DalEntityNotFoundException;
 import com.turkraft.springfilter.parser.node.FilterNode;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Page;
@@ -66,7 +67,7 @@ public interface Dal<E, I> extends DalMetadata<E, I> {
      *
      * <p>An entity that does not exist — or that is hidden by the DAL's default filter — cannot
      * be deleted: the operation fails with
-     * {@link com.paganbit.telaio.core.exception.DalEntityNotFoundException}.</p>
+     * {@link DalEntityNotFoundException}.</p>
      *
      * @param id the entity identifier
      */

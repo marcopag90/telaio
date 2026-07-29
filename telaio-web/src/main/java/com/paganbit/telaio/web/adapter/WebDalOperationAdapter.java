@@ -1,9 +1,9 @@
 package com.paganbit.telaio.web.adapter;
 
-import com.turkraft.springfilter.parser.node.FilterNode;
 import com.paganbit.telaio.core.Dal;
 import com.paganbit.telaio.core.adapter.DalOperationAdapter;
 import com.paganbit.telaio.web.exception.DalResourceNotFoundException;
+import com.turkraft.springfilter.parser.node.FilterNode;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
