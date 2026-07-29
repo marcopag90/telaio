@@ -151,7 +151,7 @@ There is no single "starter" artifact — depend on the modules your project nee
 <dependency>
     <groupId>com.paganbit</groupId>
     <artifactId>telaio-core</artifactId>
-    <version>1.0.1</version>
+    <version>1.1.0</version>
 </dependency>
 ```
 
@@ -167,7 +167,7 @@ abstraction, built on Spring Data JPA), plus a JDBC driver:
         <dependency>
             <groupId>com.paganbit</groupId>
             <artifactId>telaio-bom</artifactId>
-            <version>1.0.1</version>
+            <version>1.1.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
