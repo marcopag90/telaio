@@ -43,3 +43,24 @@ updates:
         update-types:
           - "minor"
           - "patch"
+
+  # Dev container Features only: the feature references in devcontainer.json and
+  # the matching devcontainer-lock.json entries. Dependabot does NOT bump the base
+  # image — moving off :jdk25-v1 stays a deliberate manual decision.
+  - package-ecosystem: "devcontainers"
+    directory: "/" # Features are found in any valid dev container location below it
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "Europe/Rome"
+    target-branch: "development"
+    commit-message:
+      prefix: "chore"
+      include: "scope" # -> "chore(deps): bump ..."
+    groups:
+      devcontainers-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
