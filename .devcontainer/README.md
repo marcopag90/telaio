@@ -19,10 +19,11 @@ The image is `linux/amd64` only.
 `devcontainer.json` is an open specification and `customizations` is namespaced per tool, so the same file serves every
 client:
 
-- **IntelliJ IDEA** — open `devcontainer.json` in the editor, then use the *Create Dev Container* gutter icon →
-  **Create Dev Container and Mount Sources…** (the *Clone Sources* variant clones from a remote instead, losing
-  uncommitted work). Progress shows in the *Services* tool window; then *Connect*. The first connection downloads the
-  backend IDE into the `telaio-jetbrains` volume, so only the first one is slow.
+- **IntelliJ IDEA** — open `devcontainer.json` in the editor, then use the *Create Dev Container* gutter icon → **Create
+  Dev Container and Mount Sources…** (the *Clone Sources* variant clones from a remote instead, losing uncommitted
+  work). Progress shows in the *Services* tool window; then *Connect* — the first connection downloads the backend IDE,
+  so it is the slow one. The backend then runs as a JVM inside the container; the client is a frame of your local IDE,
+  not a separate application, so closing the local IDE ends the session while the container keeps running.
 - **VS Code** — the *Dev Containers* extension → *Reopen in Container*.
 - **CLI** — no IDE needed:
 
@@ -53,12 +54,12 @@ host socket, a container published on the host's `localhost:5432` would not be r
 
 ## Volumes
 
-| Volume             | Mount                | Why                                                                                                                                                                  |
-|--------------------|----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `telaio-dind`      | `/var/lib/docker`    | The inner daemon's image store. The Testcontainers vendor matrix pulls ~6 GB (Oracle XE and SQL Server dominate); without this they are re-pulled on every recreate. |
-| `telaio-m2`        | `~/.m2`              | Maven repository.                                                                                                                                                    |
-| `telaio-jetbrains` | `~/.cache/JetBrains` | The JetBrains backend IDE is ~1.5 GB.                                                                                                                                |
-| `telaio-gh`        | `~/.config/gh`       | Keeps the `gh` login across recreates.                                                                                                                               |
+| Volume             | Mount                | Why                                                                                                                                                                                                |
+|--------------------|----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `telaio-dind`      | `/var/lib/docker`    | The inner daemon's image store. The Testcontainers vendor matrix pulls ~6 GB (Oracle XE and SQL Server dominate); without this they are re-pulled on every recreate.                               |
+| `telaio-m2`        | `~/.m2`              | Maven repository.                                                                                                                                                                                  |
+| `telaio-jetbrains` | `~/.cache/JetBrains` | Caches and indexes of the JetBrains backend. Not the backend itself — that is deployed under `/tmp`, outside our control. What this saves is re-indexing a 14-module reactor after every recreate. |
+| `telaio-gh`        | `~/.config/gh`       | Keeps the `gh` login across recreates.                                                                                                                                                             |
 
 Deleting a volume is safe — it only costs a re-download. `post-create.sh` hands the fresh (root-owned)
 volumes to the container user on first create.
@@ -72,14 +73,21 @@ volumes to the container user on first create.
   `post-create.sh` registers the workspace as a git `safe.directory` as a backstop.
 - **Signed releases are not supported in here.** No GPG key is mounted; signing happens in CI (`publish.yml`,
   `-Dgpg.signer=bc`). Use the container for building and testing.
-- **`portsAttributes` is honoured unevenly.** JetBrains IDEs read only `label` and ignore the rest, so
-  `onAutoForward` applies to VS Code and the `devcontainer` CLI alone. Nothing breaks either way.
+- **`portsAttributes` is honored unevenly.** The JetBrains documentation states that only `label` is supported. In
+  practice IDEA does keep the rest in its container model, but treat `onAutoForward` as reliable on VS Code and the
+  `devcontainer` CLI only. Nothing breaks either way.
 - **One container at a time.** Each client creates its own container, and they all mount `telaio-dind`
   at `/var/lib/docker` — two inner daemons over one storage directory contend for the same locks. Remove the previous
-  container before opening the project with a different client:
+  container before opening the project with a different client. The label to filter on depends on who created it:
 
   ```bash
+  # devcontainer CLI and VS Code — lowercased drive letter, backslashes
   docker rm -f $(docker ps -aq --filter 'label=devcontainer.local_folder=d:\path\to\telaio')
+
+  # IntelliJ IDEA — original case, forward slashes
+  docker rm -f $(docker ps -aq --filter 'label=com.intellij.devcontainer.sources.path=D:/path/to/telaio')
   ```
+
+  `docker ps -a` and picking the id by hand works just as well.
 - The image is maintained at <https://github.com/marcopag90/java-maven-devcontainer>. It is deliberately generic — no
   editor, no agent, no personal configuration — so project-specific tooling belongs in this file, not in the image.
