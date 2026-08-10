@@ -1,0 +1,56 @@
+{
+  "name": "telaio",
+  // Shared base image, pinned to an explicit tag.
+  // Contents: Ubuntu 24.04, Temurin JDK 25, Maven 3.9.15, git, gh, perl, gnupg.
+  "image": "ghcr.io/marcopag90/java-maven-devcontainer:jdk25-v1",
+  // A real daemon is required (rather than the host socket) because telaio uses
+  // Testcontainers and spring-boot-docker-compose: inside the container
+  // "localhost" must really be localhost, so telaio-showcase/compose.yaml works
+  // as-is and @ServiceConnection wires the datasource without any override.
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "remoteUser": "vscode",
+  "workspaceFolder": "/workspaces/telaio",
+  "mounts": [
+    // Storage for the inner daemon. Without this volume the database images
+    // pulled by the Testcontainers vendor matrix — Oracle XE and SQL Server
+    // alone are ~3-4 GB — would be re-pulled every time the container is
+    // recreated.
+    "source=telaio-dind,target=/var/lib/docker,type=volume",
+
+    "source=telaio-m2,target=/home/vscode/.m2,type=volume",
+    // The JetBrains backend IDE weighs ~1.5 GB: without a volume it is
+    // downloaded again on every rebuild.
+    "source=telaio-jetbrains,target=/home/vscode/.cache/JetBrains,type=volume",
+    "source=telaio-gh,target=/home/vscode/.config/gh,type=volume"
+  ],
+  "forwardPorts": [8080],
+  "portsAttributes": {
+    "8080": { "label": "telaio-showcase" },
+    // Compose runs in the inner daemon, but `ports: 5432:5432` publishes on this
+    // container's own network namespace, so the client auto-forwards it too.
+    "5432": { "label": "showcase postgres", "onAutoForward": "silent" }
+  },
+  // Testcontainers publishes a random high port per container: auto-forward
+  // notifications for those are pure noise.
+  "otherPortsAttributes": { "onAutoForward": "silent" },
+  // `customizations` is namespaced per tool: each client reads its own key and
+  // ignores the others, so this file works the same whether it is opened with a
+  // JetBrains IDE, VS Code, the `devcontainer` CLI or GitHub Codespaces.
+  "customizations": {
+    "jetbrains": {
+      "backend": "IntelliJ"
+    },
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "vmware.vscode-boot-dev-pack"
+      ],
+      "settings": {
+        "java.configuration.updateBuildConfiguration": "automatic"
+      }
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh"
+}
