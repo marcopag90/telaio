@@ -8,7 +8,7 @@
   // "localhost" must really be localhost, so telaio-showcase/compose.yaml works
   // as-is and @ServiceConnection wires the datasource without any override.
   "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+    "ghcr.io/devcontainers/features/docker-in-docker:4": {}
   },
   "remoteUser": "vscode",
   "workspaceFolder": "/workspaces/telaio",
