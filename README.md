@@ -14,7 +14,7 @@
   <img src="https://github.com/marcopag90/telaio/actions/workflows/ci.yml/badge.svg?branch=development" alt="CI">
   <a href="https://marcopag90.github.io/telaio/index.html"><img src="https://marcopag90.github.io/telaio/jacoco.svg" alt="Coverage"></a>
   <img src="https://img.shields.io/badge/Java-21-orange" alt="Java 21">
-  <img src="https://img.shields.io/badge/Powered%20by-Spring%20Boot%204.1.0-6DB33F" alt="Powered by Spring Boot 4.1.0">
+  <img src="https://img.shields.io/badge/Powered%20by-Spring%20Boot%204.1.1-6DB33F" alt="Powered by Spring Boot 4.1.1">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue" alt="License Apache 2.0"></a>
   <a href="https://central.sonatype.com/namespace/com.paganbit"><img src="https://img.shields.io/maven-central/v/com.paganbit/telaio-bom" alt="Maven Central"></a>
 </p>
@@ -427,7 +427,7 @@ attach to the `Dal` bean independently of the invocation channel. Planned work w
 
 - **Java 21+** — the Telaio library modules are compiled to, and distributed as, Java **21** bytecode. That is all you
   need to depend on Telaio.
-- **Spring Boot 4.1.0**, **Jackson 3** (`tools.jackson.*`).
+- **Spring Boot 4.1.1**, **Jackson 3** (`tools.jackson.*`).
 
 > **A note on Java 25:** `telaio-showcase` is a runnable demo (never published) and is the *only* module
 > that targets Java **25**. Building or running the showcase therefore needs JDK 25+ — but that is a

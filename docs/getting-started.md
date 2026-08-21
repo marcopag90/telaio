@@ -7,7 +7,7 @@ minutes.
 
 - **Java 21+** — Telaio is compiled to and distributed as Java 21 bytecode. (Only the optional `telaio-showcase` demo
   targets Java 25; that is not a requirement of the framework.)
-- **Spring Boot 4.1.0+**
+- **Spring Boot 4.1.1+**
 - **Maven 3.9+**
 
 ## Step 1: Add Dependencies
