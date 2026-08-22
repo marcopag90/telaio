@@ -129,11 +129,35 @@ protected @Nullable FilterNode defaultFilter() {
     if (isPowerUser()) {        // role check via DalSecurityContextHelper — full code in the showcase
         return null;            // DEVELOPER/ADMIN see everything: drafts, archived, published
     }
-    return filterBuilder.field(propertyName(Article::getStatus))   // type-safe property reference
-        .equal(filterBuilder.input(ArticleStatus.PUBLISHED))
-        .get();                 // everyone else is silently scoped to PUBLISHED articles
+    return ArticleFilter.where(filterBuilder)   // compile-time generated type-safe builder
+        .status().equal(ArticleStatus.PUBLISHED)
+        .build();               // everyone else is silently scoped to PUBLISHED articles
 }
 ```
+
+`ArticleFilter` is generated at compile time by Spring Filter's
+[**type-safe filter builder**](https://github.com/turkraft/springfilter#type-safe-filter-builder): annotate the entity
+with `@Filterable` and the annotation processor emits an `<Entity>Filter` class with one method per field, so field
+names and operators are checked by the compiler. Both artifacts are version-managed by the Telaio BOM:
+
+```xml
+<dependency>
+    <groupId>com.turkraft.springfilter</groupId>
+    <artifactId>typesafe</artifactId>            <!-- runtime fluent steps -->
+</dependency>
+<dependency>
+    <groupId>com.turkraft.springfilter</groupId>
+    <artifactId>typesafe-processor</artifactId>  <!-- @Filterable + codegen -->
+    <scope>provided</scope>
+</dependency>
+```
+
+and the processor is registered via `maven-compiler-plugin`'s `annotationProcessorPaths` (see
+`telaio-showcase/pom.xml` for a working setup alongside Lombok). One caveat: the generated builders emit **Java field
+names** — when a `FilterNode` is sent over the wire (e.g. `DalClient.read(FilterNode, …)`), they must match the JSON
+names, so entities with `@JsonProperty` renames need care. For one-off expressions or classes you cannot annotate,
+the no-codegen alternative is `propertyName(Article::getStatus)` from telaio-introspection paired with the plain
+`filterBuilder` (see the [introspection module docs](docs/modules/introspection.md)).
 
 The full query grammar is in the [REST API reference](docs/rest-api.md); the `defaultFilter()`
 hook is covered in the [core module docs](docs/modules/core.md).

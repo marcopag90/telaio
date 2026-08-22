@@ -1,5 +1,6 @@
 package com.paganbit.telaio.showcase.dal.announcement;
 
+import com.turkraft.springfilter.typesafe.Filterable;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -12,6 +13,7 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @NoArgsConstructor
+@Filterable
 @Entity
 @Table(name = "announcements")
 public class Announcement {

@@ -16,7 +16,7 @@ itself is compiled to and distributed as Java 21, so this is a property of the d
 | DAL               | Highlights                                                                             | Key File                 |
 |-------------------|----------------------------------------------------------------------------------------|--------------------------|
 | **announcements** | Baseline: no security, no audit, metrics disabled                                      | `AnnouncementDalService` |
-| **articles**      | Read-only (via `operations`), audit, default filter, role-based visibility             | `ArticleDalService`      |
+| **articles**      | Read-only (via `operations`), audit, default filter via type-safe builder (`@Filterable`), role-based visibility | `ArticleDalService`      |
 | **products**      | Full: auth + property-based RBAC, lifecycle hooks, multi-entity transactions           | `ProductDalService`      |
 | **employees**     | JsonView RBAC with hierarchical role visibility                                        | `EmployeeDalService`     |
 | **bulletins**     | Custom auth adapter (admin writes), metrics disabled                                   | `BulletinDalService`     |
@@ -219,7 +219,8 @@ curl -u developer:developer http://localhost:8080/dal/v1/products
 **Articles (read-only for non-power-users):**
 
 - `developer` / `admin`: See all (DRAFT, PUBLISHED, ARCHIVED)
-- `user`: See only PUBLISHED articles (implicit filter in `defaultFilter()`)
+- `user`: See only PUBLISHED articles (implicit filter in `defaultFilter()`, built with the
+  compile-time-generated `ArticleFilter` type-safe builder — `Article` is annotated `@Filterable`)
 
 **Products (write restricted):**
 

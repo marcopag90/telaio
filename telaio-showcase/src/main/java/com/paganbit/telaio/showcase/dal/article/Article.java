@@ -1,5 +1,6 @@
 package com.paganbit.telaio.showcase.dal.article;
 
+import com.turkraft.springfilter.typesafe.Filterable;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Min;
@@ -17,6 +18,7 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @NoArgsConstructor
+@Filterable
 @Entity
 @Table(name = "articles")
 @EntityListeners(AuditingEntityListener.class)
