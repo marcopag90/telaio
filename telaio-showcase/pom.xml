@@ -54,6 +54,16 @@
             <groupId>com.paganbit</groupId>
             <artifactId>telaio-jpa</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.turkraft.springfilter</groupId>
+            <artifactId>typesafe</artifactId>
+        </dependency>
+        <!-- Provides @Filterable (SOURCE retention) to entity sources; provided = compile-only. -->
+        <dependency>
+            <groupId>com.turkraft.springfilter</groupId>
+            <artifactId>typesafe-processor</artifactId>
+            <scope>provided</scope>
+        </dependency>
         <!-- The blocking REST client at compile scope: the app is a client of its own DAL API
              (see SupportTicketDalService + telaio.rest-client.connections.self). -->
         <dependency>
@@ -108,6 +118,19 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <!-- Appends to the parent-managed processor path list (Lombok stays first). -->
+                    <annotationProcessorPaths combine.children="append">
+                        <path>
+                            <groupId>com.turkraft.springfilter</groupId>
+                            <artifactId>typesafe-processor</artifactId>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>

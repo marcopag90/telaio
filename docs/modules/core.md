@@ -137,7 +137,10 @@ Available hooks:
 - `defaultSort()` — Default sort order when none is requested
 - `defaultFilter()` — Implicit filter AND-combined with the request's `q` parameter and enforced on
   every operation addressing existing rows (list and by-id reads, updates, deletes — a hidden entity
-  behaves like a missing one; create payloads are not scoped by it)
+  behaves like a missing one; create payloads are not scoped by it). The returned `FilterNode` can be
+  built type-safely with the `@Filterable`-generated `<Entity>Filter` builder (Spring Filter's
+  `typesafe` + `typesafe-processor` artifacts) or manually via the injected `filterBuilder` — see the
+  [introspection module docs](./introspection.md) for when to use which
 
 ### 5. Validate Input Automatically
 

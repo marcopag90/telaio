@@ -10,8 +10,6 @@ import com.turkraft.springfilter.parser.node.FilterNode;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.Authentication;
 
-import static com.paganbit.telaio.introspection.PropertyNameResolver.propertyName;
-
 /**
  * <h2>Use case — a read-only resource via per-operation exposure, with audit and an implicit read filter</h2>
  * <p>
@@ -36,7 +34,12 @@ import static com.paganbit.telaio.introspection.PropertyNameResolver.propertyNam
  * own {@code q} filter on <em>every</em> read (see {@code AbstractDal#combineWithDefaultFilter}). Here it
  * implements row-level visibility: non-power-users (anyone who is not {@code DEVELOPER}/{@code ADMIN}) can
  * only ever see {@code PUBLISHED} articles, regardless of the filter they send. Returning {@code null}
- * disables the constraint for power-users, who see drafts and archived articles too.
+ * disables the constraint for power-users, who see drafts and archived articles too. The constraint is
+ * built with {@code ArticleFilter}, the type-safe builder generated at compile time from the
+ * {@code @Filterable} annotation on {@link Article} (Turkraft {@code typesafe-processor}). Compared to the
+ * equivalent manual {@code filterBuilder.field(propertyName(Article::getStatus))} pairing — which is
+ * already refactor-safe on the field name — the generated builder also type-checks the operator and its
+ * value against the field's type.
  */
 @DalService(name = "articles", operations = {DalOperationType.READ, DalOperationType.READ_ONE})
 @DalAudit(operations = {DalOperationType.READ, DalOperationType.READ_ONE})
@@ -46,12 +49,12 @@ public class ArticleDalService extends JpaDal<Article, Long> {
     protected @Nullable FilterNode defaultFilter() {
         Authentication auth = DalSecurityContextHelper.getCurrentAuthentication();
         boolean isPowerUser = auth != null && auth.getAuthorities().stream()
-            .anyMatch(a -> UserRole.DEVELOPER.equals(a) || UserRole.ADMIN.equals(a));
+                .anyMatch(a -> UserRole.DEVELOPER.equals(a) || UserRole.ADMIN.equals(a));
         if (isPowerUser) {
             return null;
         }
-        return filterBuilder.field(propertyName(Article::getStatus))
-            .equal(filterBuilder.input(ArticleStatus.PUBLISHED))
-            .get();
+        return ArticleFilter.where(filterBuilder)
+                .status().equal(ArticleStatus.PUBLISHED)
+                .build();
     }
 }

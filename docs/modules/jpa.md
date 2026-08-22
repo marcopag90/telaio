@@ -145,6 +145,8 @@ Available hooks (from `AbstractDal`):
 - `finalizeBeforeDelete/AfterDelete(I)` — Hooks around deletion (receive the entity id)
 - `defaultSort()` → `Sort` — Default sort order
 - `defaultFilter()` → `FilterNode?` — Implicit baseline filter (enforced on reads, updates and deletes).
+  Build the node type-safely with the `@Filterable`-generated `<Entity>Filter` builder or manually via the
+  injected `filterBuilder` (see the [introspection module docs](./introspection.md)).
   The delete pre-check runs inside the delete transaction and removes the loaded managed instance, so an
   entity with a JPA `@Version` attribute is race-proof (concurrent modification → `409 Conflict`); without
   `@Version` a theoretical intra-transaction window remains (known limitation)
