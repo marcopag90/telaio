@@ -16,8 +16,7 @@ import java.util.List;
  * functions are preserved verbatim, and the tree shape is unchanged.</p>
  *
  * <p>This operates purely on the Turkraft <em>core</em> parse tree and Jackson introspection, so it lives
- * in telaio-core; the JPA-specific wiring that applies it (a {@code FilterSpecificationConverter}
- * decorator) lives in telaio-jpa.</p>
+ * in telaio-core; the wiring that applies it lives in each persistence backend module.</p>
  *
  * <p>Translation is lenient: names that are already Java names, or that do not correspond to any known
  * JSON name, pass through untouched — so the rewrite is purely additive and never breaks a filter that

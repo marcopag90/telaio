@@ -2,7 +2,7 @@
 
 This is the comprehensive developer guide for **Telaio**, a Spring Boot framework that transforms an entity and
 repository into a secured, audited, and monitored REST API with zero boilerplate. The DAL abstraction is
-persistence-agnostic (built on Spring Data); JPA/Hibernate is the first shipped backend.
+persistence-agnostic (built on Spring Data); JPA/Hibernate and MongoDB are the shipped backends.
 
 ## Quick Links
 
@@ -22,6 +22,7 @@ persistence-agnostic (built on Spring Data); JPA/Hibernate is the first shipped 
 | **introspection**      | Type introspection and reflection utilities          | [modules/introspection.md](modules/introspection.md)          |
 | **core**               | DAL abstraction, CRUD contracts, Spring integration  | [modules/core.md](modules/core.md)                            |
 | **jpa**                | JPA/Hibernate-backed DAL implementation              | [modules/jpa.md](modules/jpa.md)                              |
+| **mongo**              | MongoDB-backed DAL implementation                    | [modules/mongo.md](modules/mongo.md)                          |
 | **security**           | Authentication, RBAC, field-level access control     | [modules/security.md](modules/security.md)                    |
 | **audit**              | Operation auditing with flexible event stores        | [modules/audit.md](modules/audit.md)                          |
 | **metrics**            | Performance monitoring and usage statistics          | [modules/metrics.md](modules/metrics.md)                      |
@@ -116,7 +117,7 @@ curl -X DELETE http://localhost:8080/dal/v1/announcements/1
 input and output to respect role-based visibility.
 
 **Persistence-Agnostic DAL**: the `Dal` contract depends only on Spring Data abstractions; backends implement the
-`execute*` SPI. JPA is the first implementation — MongoDB, QueryDSL and a reactive exposure are on the
+`execute*` SPI. JPA and MongoDB are the shipped implementations — QueryDSL and a reactive exposure are on the
 [roadmap](../README.md#roadmap).
 
 **No `@ComponentScan` in Autoconfiguration**: Every bean is registered explicitly via `@Bean` or `@Import`, keeping
@@ -143,7 +144,8 @@ telaio-core (DAL abstraction)
     ├→ telaio-web (REST endpoints)
     │    ↓
     │  telaio-openapi (auto-generated docs)
-    └→ telaio-jpa (first backend implementation, Spring Data JPA)
+    ├→ telaio-jpa (backend implementation, Spring Data JPA)
+    └→ telaio-mongo (backend implementation, Spring Data MongoDB)
 
 telaio-rest-contract (frozen /dal/v1 wire contract)
     ↓
