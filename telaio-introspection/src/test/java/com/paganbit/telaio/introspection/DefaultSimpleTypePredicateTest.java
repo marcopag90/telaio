@@ -4,8 +4,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.math.BigInteger;
+import java.time.*;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -60,14 +60,24 @@ class DefaultSimpleTypePredicateTest {
         assertTrue(predicate.test(Long.class));
         assertTrue(predicate.test(Double.class));
         assertTrue(predicate.test(Float.class));
+        assertTrue(predicate.test(Byte.class));
+        assertTrue(predicate.test(Short.class));
         assertTrue(predicate.test(BigDecimal.class));
+        assertTrue(predicate.test(BigInteger.class));
     }
 
     @Test
     void testWithDateAndTemporalTypes() {
         assertTrue(predicate.test(Date.class));
+        assertTrue(predicate.test(java.sql.Date.class));
+        assertTrue(predicate.test(java.sql.Timestamp.class));
+        assertTrue(predicate.test(Instant.class));
         assertTrue(predicate.test(LocalDate.class));
+        assertTrue(predicate.test(LocalTime.class));
         assertTrue(predicate.test(LocalDateTime.class));
+        assertTrue(predicate.test(ZonedDateTime.class));
+        assertTrue(predicate.test(OffsetTime.class));
+        assertTrue(predicate.test(OffsetDateTime.class));
     }
 
     @Test
@@ -86,6 +96,15 @@ class DefaultSimpleTypePredicateTest {
     }
 
     @Test
+    void testWithContributedTypes() {
+        var withContribution = new DefaultSimpleTypePredicate(Set.of(ContributedType.class));
+
+        assertTrue(withContribution.test(ContributedType.class));
+        // Contributions are per-instance: the default predicate stays agnostic.
+        assertFalse(predicate.test(ContributedType.class));
+    }
+
+    @Test
     void testWithComplexTypes() {
         assertFalse(predicate.test(Object.class));
         assertFalse(predicate.test(DefaultSimpleTypePredicateTest.class));
@@ -98,5 +117,8 @@ class DefaultSimpleTypePredicateTest {
     }
 
     private static class ComplexType {
+    }
+
+    private static class ContributedType {
     }
 }

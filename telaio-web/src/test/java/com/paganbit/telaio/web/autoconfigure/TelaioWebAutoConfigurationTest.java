@@ -56,6 +56,7 @@ class TelaioWebAutoConfigurationTest {
     void reactiveWebContext_shouldNotLoadTelaioWebAutoConfiguration() {
         new ReactiveWebApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(TelaioWebAutoConfiguration.class))
-            .run(context -> assertThat(context).doesNotHaveBean(WebDalOperationAdapterRegistry.class));
+            .run(context ->
+                assertThat(context).doesNotHaveBean(WebDalOperationAdapterRegistry.class));
     }
 }

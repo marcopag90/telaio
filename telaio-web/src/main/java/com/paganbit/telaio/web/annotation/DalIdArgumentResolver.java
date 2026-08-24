@@ -18,6 +18,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Predicate;
 
 /**
  * Argument resolver for the {@link DalId} annotation.
@@ -38,9 +39,21 @@ public class DalIdArgumentResolver implements HandlerMethodArgumentResolver {
     private final DalManager dalManager;
     private final DalIdCodec dalIdCodec;
 
-    public DalIdArgumentResolver(DalManager dalManager, ObjectMapper objectMapper) {
+    /**
+     * Creates a resolver whose codec uses the given simple-type classification — typically the
+     * aggregated predicate carrying backend-contributed types.
+     *
+     * @param dalManager          the registry resolving the target DAL by name
+     * @param objectMapper        the mapper backing the id codec
+     * @param simpleTypePredicate the classification deciding raw-vs-Base64 id travel
+     */
+    public DalIdArgumentResolver(
+        DalManager dalManager,
+        ObjectMapper objectMapper,
+        Predicate<Class<?>> simpleTypePredicate
+    ) {
         this.dalManager = dalManager;
-        this.dalIdCodec = new DalIdCodec(objectMapper);
+        this.dalIdCodec = new DalIdCodec(objectMapper, simpleTypePredicate);
     }
 
     @Override

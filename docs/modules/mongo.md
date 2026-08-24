@@ -61,9 +61,11 @@ public class Announcement {
 
 > **Why `String` ids:** Spring Data maps a `String` `@Id` onto `_id` (generating an ObjectId hex string when unset),
 > and it round-trips cleanly through the `/dal/v1` wire contract — URLs stay plain
-> (`/dal/v1/announcements/{hexId}`). `org.bson.types.ObjectId` as the id type is **not supported yet**: the
-> `DalIdCodec` classifies it as a complex id (Base64-encoded JSON) and no Jackson 3 (de)serializer exists for it.
-> ObjectId support is tracked on the [roadmap](../roadmap.md).
+> (`/dal/v1/announcements/{hexId}`). `org.bson.types.ObjectId` ids are **supported as well**: telaio-mongo
+> contributes the type to the framework's simple-type classification (`SimpleTypeContributor`) and registers a
+> Jackson 3 module (`ObjectIdJacksonModule`), so ObjectId ids also travel as plain hex strings — and `q=` filters on
+> ObjectId fields match via the extended-JSON `$oid` shape. `String` stays the recommended default: remote clients
+> addressing an ObjectId-backed DAL should declare `String` as the client-side id type (wire-identical).
 
 ### 2. Define a Repository Interface
 
@@ -116,6 +118,10 @@ expression** (that is what the Turkraft mongo artifact emits), which has two pra
 
 Also note the Mongo filter function vocabulary is thinner than JPA's (only `size` and `today` beyond the standard
 operators — the upstream `mongo-language` artifact is empty).
+
+For `ObjectId`-typed fields, telaio-mongo registers `ObjectIdAwareFieldTypeResolver` as the *primary* Turkraft
+`FieldTypeResolver`. The bean is context-global — in a mixed jpa+mongo application the JPA filter path sees it too —
+but it only rewrites `ObjectId`-typed fields and delegates everything else unchanged.
 
 ## Transactions
 
@@ -176,4 +182,4 @@ settings.
 - [JPA Module](./jpa.md) — The JPA counterpart (lifecycle hooks documented there apply here too)
 - [Core Module](./core.md) — `AbstractDal` base class and lifecycle hooks
 - [REST API Guide](../rest-api.md) — How filtering works at the HTTP boundary
-- [Roadmap](../roadmap.md) — Deferred items: ObjectId ids, upstream Turkraft gaps
+- [Roadmap](../roadmap.md) — Deferred items: upstream Turkraft gaps, showcase Mongo demo

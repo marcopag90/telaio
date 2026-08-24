@@ -5,6 +5,7 @@ import com.turkraft.springfilter.converter.FilterStringConverter;
 import com.turkraft.springfilter.parser.node.FilterNode;
 import lombok.Getter;
 import lombok.Setter;
+import org.bson.types.ObjectId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -88,6 +89,26 @@ class JsonAwareFilterQueryConverterIntegrationTest {
         assertThat(found.getFirst().getName()).isEqualTo("big");
     }
 
+    @Test
+    void objectIdFieldFilterMatchesPersistedDocuments() {
+        // The ObjectIdAwareFieldTypeResolver decorator maps the ObjectId-typed @Id to Turkraft's
+        // CustomObjectId, whose {"$oid": <hex>} shape parses into a real BSON ObjectId.
+        mongoOperations.remove(new Query(), Gadget.class);
+        Gadget first = new Gadget();
+        first.setLabel("first");
+        Gadget second = new Gadget();
+        second.setLabel("second");
+        mongoOperations.save(first);
+        mongoOperations.save(second);
+
+        FilterNode node = filterStringConverter.convert("id : '" + first.getId().toHexString() + "'");
+
+        List<Gadget> found = mongoOperations.find(queryConverter.convert(node, Gadget.class), Gadget.class);
+
+        assertThat(found).hasSize(1);
+        assertThat(found.getFirst().getLabel()).isEqualTo("first");
+    }
+
     @Getter
     @Setter
     static class Widget {
@@ -99,6 +120,16 @@ class JsonAwareFilterQueryConverterIntegrationTest {
 
         @JsonProperty("stock_count")
         private int stockCount;
+    }
+
+    @Getter
+    @Setter
+    static class Gadget {
+
+        @Id
+        private ObjectId id;
+
+        private String label;
     }
 
     @SpringBootConfiguration

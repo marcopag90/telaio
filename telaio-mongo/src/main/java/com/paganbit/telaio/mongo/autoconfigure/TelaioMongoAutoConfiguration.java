@@ -2,15 +2,19 @@ package com.paganbit.telaio.mongo.autoconfigure;
 
 import com.paganbit.telaio.core.autoconfigure.TelaioCoreAutoConfiguration;
 import com.paganbit.telaio.core.transaction.PassThroughTransactionManager;
+import com.paganbit.telaio.introspection.SimpleTypeContributor;
 import com.paganbit.telaio.mongo.MongoDal;
 import com.paganbit.telaio.mongo.filter.FilterQueryConverter;
 import com.paganbit.telaio.mongo.filter.JsonAwareFilterQueryConverter;
+import com.paganbit.telaio.mongo.filter.ObjectIdAwareFieldTypeResolver;
+import com.paganbit.telaio.mongo.jackson.ObjectIdJacksonModule;
 import com.turkraft.springfilter.helper.FieldTypeResolver;
 import com.turkraft.springfilter.helper.JsonNodeHelper;
 import com.turkraft.springfilter.helper.JsonNodeHelperImpl;
 import com.turkraft.springfilter.transformer.FilterJsonNodeTransformer;
 import com.turkraft.springfilter.transformer.processor.factory.FilterNodeProcessorFactories;
 import com.turkraft.springfilter.transformer.processor.factory.FilterNodeProcessorFactoriesImpl;
+import org.bson.types.ObjectId;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -21,12 +25,15 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.convert.ApplicationConversionService;
 import org.springframework.boot.data.mongodb.autoconfigure.DataMongoAutoConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.data.mongodb.MongoTransactionManager;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.transaction.PlatformTransactionManager;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
+
+import java.util.Set;
 
 /**
  * {@link EnableAutoConfiguration Auto-configuration} for Telaio Mongo.
@@ -62,6 +69,38 @@ import tools.jackson.databind.json.JsonMapper;
 public class TelaioMongoAutoConfiguration {
 
     private static final org.slf4j.Logger log = LoggerFactory.getLogger(TelaioMongoAutoConfiguration.class);
+
+    /**
+     * Jackson 3 module mapping {@link ObjectId} to its hexadecimal string form.
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    ObjectIdJacksonModule telaioObjectIdJacksonModule() {
+        return new ObjectIdJacksonModule();
+    }
+
+    /**
+     * Contributes {@link ObjectId} to the framework's simple-type classification, so ObjectId
+     * identifiers travel raw (not Base64-JSON) in the {@code {id}} path segment.
+     */
+    @Bean
+    SimpleTypeContributor telaioMongoSimpleTypeContributor() {
+        return () -> Set.of(ObjectId.class);
+    }
+
+    /**
+     * Primary {@link FieldTypeResolver} decorating Turkraft's resolver so that
+     * {@link org.bson.types.ObjectId}-typed fields filter through the extended-JSON
+     * {@code {"$oid": …}} shape. Primary because Turkraft's helper and node processors — where
+     * filter-value target types are computed — inject the resolver by plain type.
+     */
+    @Bean
+    @Primary
+    @ConditionalOnBean(FieldTypeResolver.class)
+    @ConditionalOnMissingBean(ObjectIdAwareFieldTypeResolver.class)
+    FieldTypeResolver telaioObjectIdAwareFieldTypeResolver(FieldTypeResolver fieldTypeResolver) {
+        return new ObjectIdAwareFieldTypeResolver(fieldTypeResolver);
+    }
 
     /**
      * Default {@link FilterQueryConverter}, built on Turkraft's mongo transformer beans. The

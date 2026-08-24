@@ -5,23 +5,22 @@ also carries a `TODO(roadmap)` comment at the relevant spot — search the codeb
 
 ## 1. ObjectId id support (telaio-mongo)
 
-`org.bson.types.ObjectId` is not usable as a DAL id type today: `DefaultSimpleTypePredicate`
-(telaio-introspection) does not recognize it, so `DalIdCodec` (telaio-rest-contract) classifies it as a *complex*
-id — Base64-encoded JSON — and no Jackson 3 (de)serializer exists for it. Until fixed, **`String` ids are the supported
-identifier type** for Mongo entities (documented in [modules/mongo.md](modules/mongo.md)).
+**Done (2026-08-24):** `org.bson.types.ObjectId` is now a supported DAL id type, travelling as a
+plain hex string on the `/dal/v1` wire. Implemented through a type-safe contribution mechanism:
 
-Plan:
-
-- Extend `DefaultSimpleTypePredicate` to recognize `ObjectId` **without** adding a bson dependency to
-  telaio-introspection (class-name check, or a pluggable predicate).
-- Contribute a Jackson 3 `ObjectId` (de)serializer module from telaio-mongo (e.g. via a
-  `Jackson3ObjectMapperBuilderCustomizer` / `JacksonModule` bean), so `objectMapper.convertValue(String, ObjectId)`
-  works both in `DalIdCodec.decode` and on the client encode side (`DalUriFactory` in telaio-rest-client-shared — the
-  codec must hold symmetrically).
-- Related: filtering on a `String @Id` field through `q=` relies on Turkraft's `StringCustomObjectIdConverter`
-  being registered in the active `ConversionService`; verify/document the by-id filter path when tackling this.
-
-Code anchors: `MongoDal` (class-level TODO), `DefaultSimpleTypePredicate`, `DalIdCodec`.
+- `DefaultSimpleTypePredicate` (telaio-introspection) accepts contributed types at construction;
+  the new `SimpleTypeContributor` SPI lets modules contribute types as beans, aggregated by
+  `TelaioCoreAutoConfiguration` into the shared predicate — introspection gained no bson
+  dependency, not even test-scoped. The static `TypeUtil` was removed (it could diverge from the
+  aggregated classification) — **breaking change**, to be called out in the next release notes.
+- telaio-mongo contributes `ObjectId` and registers `ObjectIdJacksonModule` (Jackson 3, hex in
+  both directions), picked up by Boot's Jackson autoconfiguration; `DalIdCodec`, the web id
+  resolver and the OpenAPI generators consume the aggregated predicate.
+- `q=` filtering on ObjectId-typed fields works via `ObjectIdAwareFieldTypeResolver`, registered
+  as the `@Primary` Turkraft `FieldTypeResolver` (maps `ObjectId` → `CustomObjectId`, whose
+  annotation-driven `{"$oid": hex}` shape survives the internal-node-mapper rendering).
+- Remote clients addressing an ObjectId-backed DAL should declare `String` as the client-side id
+  type (wire-identical hex); see the rest-contract compatibility note.
 
 ## 2. Jackson 2 containment & removal (goal: Jackson 3 / `tools.jackson` only)
 
@@ -29,7 +28,9 @@ Code anchors: `MongoDal` (class-level TODO), `DefaultSimpleTypePredicate`, `DalI
 (`tools.jackson`) — upstream PR by this repo's maintainer. telaio-mongo dropped both containment measures:
 the private Jackson 2 mapper in `JsonAwareFilterQueryConverter` (the transformer now receives the injected
 Jackson 3 mapper) and the `telaioMongoJackson2ObjectMapper` bean in `TelaioMongoAutoConfiguration`
-(4.0.7's `JsonNodeHelperImpl` constructor-injects a Jackson 3 `ObjectMapper`, which Boot provides).
+(4.0.7's `JsonNodeHelperImpl` constructor-injects a Jackson 3 `ObjectMapper`, provided by Boot's
+Jackson autoconfiguration — telaio-mongo now declares `spring-boot-jackson` so the bean exists on
+every consumer's classpath).
 Verified via `dependency:tree`: `com.fasterxml.jackson.core:jackson-databind` now reaches a Telaio
 application only through springdoc/Swagger. (`com.fasterxml.jackson.annotation.*` remains as the
 annotations package shared with Jackson 3 — never part of the problem.)

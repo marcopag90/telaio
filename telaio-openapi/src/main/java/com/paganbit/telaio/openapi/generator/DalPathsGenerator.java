@@ -2,7 +2,6 @@ package com.paganbit.telaio.openapi.generator;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.paganbit.telaio.core.adapter.DalOperationType;
-import com.paganbit.telaio.introspection.TypeUtil;
 import com.paganbit.telaio.openapi.introspection.DalEntitySchemaResolver;
 import com.paganbit.telaio.web.DalRestApiV1;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -21,6 +20,7 @@ import java.lang.reflect.Modifier;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.function.Predicate;
 
 /**
  * Synthesizes a concrete set of OpenAPI operations for a single DAL, mirroring the five operations the
@@ -41,6 +41,7 @@ public class DalPathsGenerator {
     private final DalEntitySchemaResolver schemaResolver;
     private final FilterParameterDescriber filterDescriber;
     private final ObjectMapper objectMapper;
+    private final Predicate<Class<?>> simpleTypePredicate;
     private final boolean tagPerDal;
 
     private static final String DEFAULT_TAG = "DAL";
@@ -55,11 +56,13 @@ public class DalPathsGenerator {
         DalEntitySchemaResolver schemaResolver,
         FilterParameterDescriber filterDescriber,
         ObjectMapper objectMapper,
+        Predicate<Class<?>> simpleTypePredicate,
         boolean tagPerDal
     ) {
         this.schemaResolver = schemaResolver;
         this.filterDescriber = filterDescriber;
         this.objectMapper = objectMapper;
+        this.simpleTypePredicate = simpleTypePredicate;
         this.tagPerDal = tagPerDal;
     }
 
@@ -204,7 +207,7 @@ public class DalPathsGenerator {
     private Parameter idParameter(Class<?> idClass) {
         StringSchema schema = new StringSchema();
         String description = "Identifier of the entity.";
-        if (TypeUtil.isComplexType(idClass)) {
+        if (!simpleTypePredicate.test(idClass)) {
             String idJson = objectMapper.writeValueAsString(idSkeleton(idClass));
             description += " Composite identifier: a Base64 URL-safe encoded JSON representation of the id"
                 + " object, e.g. the encoding of " + idJson + ".";

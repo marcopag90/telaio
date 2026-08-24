@@ -15,8 +15,8 @@ Type introspection utilities enabling:
 
 | Type                         | Purpose                                                                                                                            |
 |------------------------------|------------------------------------------------------------------------------------------------------------------------------------|
-| `TypeUtil`                   | Utility methods for type checking (simple/complex classification)                                                                  |
-| `DefaultSimpleTypePredicate` | Predicate identifying primitive-like types: `Boolean`, `Character`, `String`, `UUID`, `Number`, `Enum`, `Date`, `Temporal`, `Optional`, `Collection`, `Map` (plus primitives and arrays) |
+| `DefaultSimpleTypePredicate` | Predicate identifying primitive-like types: `Boolean`, `Character`, `String`, `UUID`, `Number`, `Enum`, `Date`, `Temporal`, `Optional`, `Collection`, `Map` (plus primitives and arrays); accepts additional contributed types at construction |
+| `SimpleTypeContributor`      | Contribution SPI: modules expose a bean with the extra types to classify as simple; the framework aggregates every contribution into the shared predicate |
 | `PropertyNameResolver`       | Resolves property names from lambda method references with caching                                                                 |
 | `PropertyRef`                | Represents a property reference for introspection                                                                                  |
 

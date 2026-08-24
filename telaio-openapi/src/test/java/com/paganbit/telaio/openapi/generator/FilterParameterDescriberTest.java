@@ -1,6 +1,7 @@
 package com.paganbit.telaio.openapi.generator;
 
 import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
+import com.paganbit.telaio.introspection.DefaultSimpleTypePredicate;
 import com.paganbit.telaio.openapi.fixture.Product;
 import io.swagger.v3.oas.models.media.StringSchema;
 import io.swagger.v3.oas.models.parameters.Parameter;
@@ -23,7 +24,7 @@ class FilterParameterDescriberTest {
     private final JsonPropertyPathResolver resolver = new JsonPropertyPathResolver(JsonMapper.builder().build());
 
     private FilterParameterDescriber describer(boolean includeExamples) {
-        return new FilterParameterDescriber(resolver, includeExamples);
+        return new FilterParameterDescriber(resolver, new DefaultSimpleTypePredicate(), includeExamples);
     }
 
     @Test

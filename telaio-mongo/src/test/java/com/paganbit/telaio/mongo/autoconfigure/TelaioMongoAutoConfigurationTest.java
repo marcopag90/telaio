@@ -1,13 +1,17 @@
 package com.paganbit.telaio.mongo.autoconfigure;
 
 import com.paganbit.telaio.core.transaction.PassThroughTransactionManager;
+import com.paganbit.telaio.introspection.SimpleTypeContributor;
 import com.paganbit.telaio.mongo.MongoDal;
 import com.paganbit.telaio.mongo.filter.FilterQueryConverter;
 import com.paganbit.telaio.mongo.filter.JsonAwareFilterQueryConverter;
+import com.paganbit.telaio.mongo.filter.ObjectIdAwareFieldTypeResolver;
+import com.paganbit.telaio.mongo.jackson.ObjectIdJacksonModule;
 import com.turkraft.springfilter.helper.FieldTypeResolver;
 import com.turkraft.springfilter.helper.JsonNodeHelper;
 import com.turkraft.springfilter.transformer.FilterJsonNodeTransformer;
 import com.turkraft.springfilter.transformer.processor.factory.FilterNodeProcessorFactories;
+import org.bson.types.ObjectId;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -134,6 +138,33 @@ class TelaioMongoAutoConfigurationTest {
         public void setTransactionManager(PlatformTransactionManager transactionManager) {
             this.transactionManager = transactionManager;
         }
+    }
+
+    @Test
+    void objectIdJacksonModule_registered() {
+        runner.run(context -> assertThat(context).hasSingleBean(ObjectIdJacksonModule.class));
+    }
+
+    @Test
+    void objectIdJacksonModule_backsOffWhenUserDefinesOne() {
+        ObjectIdJacksonModule custom = new ObjectIdJacksonModule();
+        runner
+            .withBean("customObjectIdJacksonModule", ObjectIdJacksonModule.class, () -> custom)
+            .run(context -> assertThat(context.getBean(ObjectIdJacksonModule.class)).isSameAs(custom));
+    }
+
+    @Test
+    void simpleTypeContributor_contributesObjectId() {
+        runner.run(context ->
+            assertThat(context.getBean(SimpleTypeContributor.class).simpleTypes())
+                .containsExactly(ObjectId.class));
+    }
+
+    @Test
+    void fieldTypeResolver_primaryDecoratesTurkraftResolver() {
+        withTurkraftMongoBeans().run(context ->
+            assertThat(context.getBean(FieldTypeResolver.class))
+                .isInstanceOf(ObjectIdAwareFieldTypeResolver.class));
     }
 
     @Test

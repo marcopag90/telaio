@@ -9,6 +9,7 @@ import com.turkraft.springfilter.parser.node.FilterNode;
 import jakarta.validation.Validator;
 import lombok.Getter;
 import lombok.Setter;
+import org.bson.types.ObjectId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,12 +64,16 @@ class MongoDalIntegrationTest {
     @Autowired
     private TestConfig.VersionedEntityRepository versionedRepository;
 
+    @Autowired
+    private TestConfig.ObjectIdEntityRepository objectIdRepository;
+
     private TestMongoDal dal;
 
     @BeforeEach
     void setUp() {
         repository.deleteAll();
         versionedRepository.deleteAll();
+        objectIdRepository.deleteAll();
         dal = new TestMongoDal(repository, mongoOperations);
         wireAbstractDalCollaborators(dal);
         dal.afterPropertiesSet();
@@ -190,6 +195,29 @@ class MongoDalIntegrationTest {
         assertThat(versionedRepository.findById(saved.getId())).isPresent();
     }
 
+    /**
+     * Proves an {@code ObjectId}-typed identifier works through the DAL's own persistence paths:
+     * create assigns an id, the raw {@code _id} lookup finds it, and the instance delete removes it.
+     */
+    @Test
+    void objectIdIdentifier_persistsReadsAndDeletes() {
+        ObjectIdMongoDal objectIdDal = new ObjectIdMongoDal(objectIdRepository, mongoOperations);
+        wireAbstractDalCollaborators(objectIdDal);
+        objectIdDal.afterPropertiesSet();
+        ObjectIdEntity entity = new ObjectIdEntity();
+        entity.setName("alpha");
+
+        ObjectIdEntity saved = objectIdDal.executeCreate(entity);
+
+        assertThat(saved.getId()).isNotNull();
+        Optional<ObjectIdEntity> found = objectIdDal.executeReadOne(saved.getId());
+        assertThat(found).isPresent();
+        assertThat(found.get().getName()).isEqualTo("alpha");
+
+        objectIdDal.executeDelete(found.get());
+        assertThat(objectIdDal.executeReadOne(saved.getId())).isEmpty();
+    }
+
     static class TestMongoDal extends MongoDal<TestEntity, String> {
 
         TestMongoDal(MongoDalRepository<TestEntity, String> repository, MongoOperations mongoOperations) {
@@ -223,6 +251,13 @@ class MongoDalIntegrationTest {
         }
     }
 
+    static class ObjectIdMongoDal extends MongoDal<ObjectIdEntity, ObjectId> {
+
+        ObjectIdMongoDal(MongoDalRepository<ObjectIdEntity, ObjectId> repository, MongoOperations mongoOperations) {
+            super(repository, mongoOperations);
+        }
+    }
+
     @Getter
     @Setter
     static class TestEntity {
@@ -246,6 +281,16 @@ class MongoDalIntegrationTest {
         private Long version;
     }
 
+    @Getter
+    @Setter
+    static class ObjectIdEntity {
+
+        @Id
+        private ObjectId id;
+
+        private String name;
+    }
+
     @EnableAutoConfiguration
     @EnableMongoRepositories(considerNestedRepositories = true)
     static class TestConfig {
@@ -254,6 +299,9 @@ class MongoDalIntegrationTest {
         }
 
         interface VersionedEntityRepository extends MongoDalRepository<VersionedEntity, String> {
+        }
+
+        interface ObjectIdEntityRepository extends MongoDalRepository<ObjectIdEntity, ObjectId> {
         }
 
         @Bean

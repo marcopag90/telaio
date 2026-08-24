@@ -52,15 +52,14 @@ import java.util.Optional;
  * <p>
  * The transaction manager is injected by the {@link #TRANSACTION_MANAGER_BEAN_NAME} qualifier,
  * never by plain type, so multiple persistence backends can coexist in one context. {@code String}
- * ids are the recommended identifier type.
+ * ids are the recommended identifier type; {@code org.bson.types.ObjectId} ids are supported as
+ * well.
  *
  * @param <E> the entity type
  * @param <I> the entity identifier type
  * @author Marco Pagan
  * @since 1.2.0
  */
-// TODO(roadmap): ObjectId id support — DalIdCodec cannot handle org.bson.types.ObjectId yet;
-//  String ids are the supported identifier type. See docs/roadmap.md.
 public class MongoDal<E, I> extends AbstractDal<E, I> implements MongoDalMetadata<E, I> {
 
     /**

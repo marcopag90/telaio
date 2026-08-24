@@ -1,7 +1,6 @@
 package com.paganbit.telaio.openapi.generator;
 
 import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
-import com.paganbit.telaio.introspection.TypeUtil;
 import com.paganbit.telaio.web.DalRestApiV1;
 import io.swagger.v3.oas.models.media.StringSchema;
 import io.swagger.v3.oas.models.parameters.Parameter;
@@ -14,6 +13,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Builds the OpenAPI {@code q} query {@link Parameter} for a DAL entity.
@@ -34,10 +34,16 @@ public class FilterParameterDescriber {
             + "[Turkraft Spring Filter](https://github.com/turkraft/springfilter) query language.";
 
     private final JsonPropertyPathResolver jsonPathResolver;
+    private final Predicate<Class<?>> simpleTypePredicate;
     private final boolean includeExamples;
 
-    public FilterParameterDescriber(JsonPropertyPathResolver jsonPathResolver, boolean includeExamples) {
+    public FilterParameterDescriber(
+        JsonPropertyPathResolver jsonPathResolver,
+        Predicate<Class<?>> simpleTypePredicate,
+        boolean includeExamples
+    ) {
         this.jsonPathResolver = jsonPathResolver;
+        this.simpleTypePredicate = simpleTypePredicate;
         this.includeExamples = includeExamples;
     }
 
@@ -95,7 +101,7 @@ public class FilterParameterDescriber {
         if (!seen.add(field.getName())) {
             return null;
         }
-        if (TypeUtil.isComplexType(field.getType())) {
+        if (!simpleTypePredicate.test(field.getType())) {
             return null;
         }
         String jsonName = jsonPathResolver.toJsonPath(entityClass, field.getName(), true);
