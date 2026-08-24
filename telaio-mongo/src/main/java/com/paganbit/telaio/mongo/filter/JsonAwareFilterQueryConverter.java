@@ -1,6 +1,5 @@
 package com.paganbit.telaio.mongo.filter;
 
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.paganbit.telaio.core.json.JsonFieldNameFilterRewriter;
 import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import com.turkraft.springfilter.helper.FieldTypeResolver;
@@ -13,6 +12,7 @@ import org.springframework.core.convert.ConversionService;
 import org.springframework.data.mongodb.core.query.BasicQuery;
 import org.springframework.data.mongodb.core.query.Query;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
  * Default {@link FilterQueryConverter}: rewrites JSON wire names to Java property names, then runs
@@ -38,14 +38,7 @@ public class JsonAwareFilterQueryConverter implements FilterQueryConverter {
 
     private final JsonFieldNameFilterRewriter rewriter;
 
-    /**
-     * Jackson 2 mapper required by Turkraft's transformer API; strictly internal — no Jackson 2
-     * type is exposed by this module's public API.
-     */
-    // TODO(roadmap): Jackson 2 containment — remove once the upstream Turkraft mongo artifact drops
-    //  com.fasterxml (ideally by transforming straight to org.bson.Document). See docs/roadmap.md.
-    private final com.fasterxml.jackson.databind.ObjectMapper bsonMapper =
-        new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules();
+    private final ObjectMapper objectMapper;
 
     public JsonAwareFilterQueryConverter(
         ConversionService conversionService,
@@ -58,6 +51,7 @@ public class JsonAwareFilterQueryConverter implements FilterQueryConverter {
         this.processorFactories = processorFactories;
         this.fieldTypeResolver = fieldTypeResolver;
         this.jsonNodeHelper = jsonNodeHelper;
+        this.objectMapper = objectMapper;
         this.rewriter = new JsonFieldNameFilterRewriter(new JsonPropertyPathResolver(objectMapper));
     }
 
@@ -66,7 +60,7 @@ public class JsonAwareFilterQueryConverter implements FilterQueryConverter {
         FilterNode rewritten = rewriter.rewrite(node, entityType);
         // The transformer is stateful (entity type + per-node target types): one instance per call.
         final var transformer = new FilterJsonNodeTransformer(
-            conversionService, bsonMapper, processorFactories, fieldTypeResolver, entityType);
+            conversionService, objectMapper, processorFactories, fieldTypeResolver, entityType);
         ObjectNode json = jsonNodeHelper.wrapWithMongoExpression(transformer.transform(rewritten));
         // TODO(roadmap): Document.parse serializes temporal filter values as plain strings, so
         //  comparisons against BSON date fields do not match — upstream Turkraft mongo limitation.

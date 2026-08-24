@@ -148,14 +148,14 @@ requires a `PlatformTransactionManager`, telaio-mongo resolves this with a **ded
 participates in plain by-type autowiring — `JpaDal` beans keep receiving Boot's JPA transaction manager, `MongoDal`
 beans receive the Mongo one, and a mixed jpa+mongo application boots with no ambiguity.
 
-## Jackson 2 note
+## Jackson note
 
-The upstream Turkraft `mongo` artifact is built on Jackson 2 (`com.fasterxml.jackson`), while Telaio runs on Jackson 3
-(`tools.jackson`). telaio-mongo confines Jackson 2 to converter internals (no `com.fasterxml` type appears in any public
-API) and registers a Jackson 2 `ObjectMapper` bean (backing off if you define one) because Turkraft's autoconfigured
-beans require it at startup on Boot 4. Removal is tracked on the [roadmap](../roadmap.md).
+As of Turkraft Spring Filter **4.0.7** the upstream `mongo` artifact runs on Jackson 3 (`tools.jackson`), like the rest
+of Telaio — no Jackson 2 type enters the classpath through telaio-mongo. (`com.fasterxml.jackson.annotation` remains as
+the annotations package shared with Jackson 3; in a full Telaio application the only Jackson 2 arrival is
+springdoc/Swagger's internal use.)
 
-Also be aware the Turkraft `mongo` jar ships an `application.properties` at its jar root that enables
+Be aware the Turkraft `mongo` jar ships an `application.properties` at its jar root that enables
 `MongoTemplate` DEBUG logging on every consumer — override
 `logging.level.org.springframework.data.mongodb.core.MongoTemplate` in your own configuration if it bothers you.
 
@@ -176,4 +176,4 @@ settings.
 - [JPA Module](./jpa.md) — The JPA counterpart (lifecycle hooks documented there apply here too)
 - [Core Module](./core.md) — `AbstractDal` base class and lifecycle hooks
 - [REST API Guide](../rest-api.md) — How filtering works at the HTTP boundary
-- [Roadmap](../roadmap.md) — Deferred items: ObjectId ids, Jackson 2 removal, upstream Turkraft gaps
+- [Roadmap](../roadmap.md) — Deferred items: ObjectId ids, upstream Turkraft gaps

@@ -6,6 +6,20 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### ⭐ New Features
+
+- MongoDB DAL backend (`telaio-mongo`): `MongoDal` built on Spring Data MongoDB with Turkraft
+  filter conversion (`$expr`-based), default sort resolution, and a dedicated qualified
+  transaction manager (`telaioMongoTransactionManager`) with a no-op fallback for standalone
+  MongoDB — designed to coexist with `telaio-jpa` behind the same `/dal/v1` surface.
+
+### 🔨 Dependency Upgrades
+
+- Turkraft Spring Filter 4.0.6 → 4.0.7: the upstream `mongo` artifact migrated to Jackson 3
+  (`tools.jackson`), so telaio-mongo dropped its Jackson 2 containment (private converter mapper
+  and the `telaioMongoJackson2ObjectMapper` bean). Jackson 2 now reaches a Telaio application
+  only through springdoc/Swagger.
+
 ## [1.1.0] - 2026-07-29
 
 Telaio DALs can now be consumed remotely: three new modules add a typed, blocking REST client

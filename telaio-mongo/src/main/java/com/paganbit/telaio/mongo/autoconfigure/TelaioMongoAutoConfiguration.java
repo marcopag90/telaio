@@ -41,8 +41,7 @@ import tools.jackson.databind.json.JsonMapper;
  * built on Turkraft's mongo transformer beans. This lets filter queries reference {@code @JsonProperty}
  * wire names; {@code MongoDal} picks it up automatically through its {@code @Autowired} setter. It also
  * registers the {@link PlatformTransactionManager} routed to every {@link MongoDal} under the
- * {@link MongoDal#TRANSACTION_MANAGER_BEAN_NAME} qualifier, plus a transitional Jackson 2
- * {@code ObjectMapper} required by the upstream Turkraft mongo artifact. All beans are purely additive
+ * {@link MongoDal#TRANSACTION_MANAGER_BEAN_NAME} qualifier. All beans are purely additive
  * and overridable — define your own {@link FilterQueryConverter}, or your own
  * {@link PlatformTransactionManager} named {@link MongoDal#TRANSACTION_MANAGER_BEAN_NAME}, and the
  * corresponding autoconfigured bean backs off.</p>
@@ -63,21 +62,6 @@ import tools.jackson.databind.json.JsonMapper;
 public class TelaioMongoAutoConfiguration {
 
     private static final org.slf4j.Logger log = LoggerFactory.getLogger(TelaioMongoAutoConfiguration.class);
-
-    /**
-     * Jackson 2 {@code ObjectMapper} required at startup by the Turkraft mongo autoconfiguration
-     * ({@code JsonNodeHelperImpl} constructor-injects one; Spring Boot 4 no longer provides it).
-     * Backs off when the application declares its own. Necessarily a regular autowire candidate,
-     * so it is visible to any bean injecting a Jackson 2 mapper by type.
-     */
-    // TODO(roadmap): Jackson 2 containment — remove together with the private mapper in
-    //  JsonAwareFilterQueryConverter once the upstream Turkraft mongo artifact drops com.fasterxml.
-    //  See docs/roadmap.md.
-    @Bean
-    @ConditionalOnMissingBean(com.fasterxml.jackson.databind.ObjectMapper.class)
-    com.fasterxml.jackson.databind.ObjectMapper telaioMongoJackson2ObjectMapper() {
-        return new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules();
-    }
 
     /**
      * Default {@link FilterQueryConverter}, built on Turkraft's mongo transformer beans. The

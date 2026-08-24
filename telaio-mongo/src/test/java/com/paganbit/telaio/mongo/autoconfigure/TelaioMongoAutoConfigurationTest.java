@@ -137,21 +137,6 @@ class TelaioMongoAutoConfigurationTest {
     }
 
     @Test
-    void jackson2ObjectMapper_registeredForTurkraftEagerBeans() {
-        runner.run(context ->
-            assertThat(context).hasSingleBean(com.fasterxml.jackson.databind.ObjectMapper.class));
-    }
-
-    @Test
-    void jackson2ObjectMapper_backsOffWhenUserDefinesOne() {
-        com.fasterxml.jackson.databind.ObjectMapper custom = new com.fasterxml.jackson.databind.ObjectMapper();
-        runner
-            .withBean("customJackson2ObjectMapper", com.fasterxml.jackson.databind.ObjectMapper.class, () -> custom)
-            .run(context ->
-                assertThat(context.getBean(com.fasterxml.jackson.databind.ObjectMapper.class)).isSameAs(custom));
-    }
-
-    @Test
     void autoConfiguration_backsOffWithoutTurkraftMongoOnClasspath() {
         runner
             .withClassLoader(new FilteredClassLoader(FilterJsonNodeTransformer.class))

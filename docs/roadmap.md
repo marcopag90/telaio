@@ -25,45 +25,29 @@ Code anchors: `MongoDal` (class-level TODO), `DefaultSimpleTypePredicate`, `DalI
 
 ## 2. Jackson 2 containment & removal (goal: Jackson 3 / `tools.jackson` only)
 
-**Policy now:** Jackson 2 (`com.fasterxml.jackson.core:jackson-databind`) enters the classpath ONLY transitively via
-`com.turkraft.springfilter:mongo` (compile-scope dependency) and is confined to two places in telaio-mongo:
+**Done (2026-08-24):** Turkraft Spring Filter **4.0.7** migrated the `mongo` artifact to Jackson 3
+(`tools.jackson`) — upstream PR by this repo's maintainer. telaio-mongo dropped both containment measures:
+the private Jackson 2 mapper in `JsonAwareFilterQueryConverter` (the transformer now receives the injected
+Jackson 3 mapper) and the `telaioMongoJackson2ObjectMapper` bean in `TelaioMongoAutoConfiguration`
+(4.0.7's `JsonNodeHelperImpl` constructor-injects a Jackson 3 `ObjectMapper`, which Boot provides).
+Verified via `dependency:tree`: `com.fasterxml.jackson.core:jackson-databind` now reaches a Telaio
+application only through springdoc/Swagger. (`com.fasterxml.jackson.annotation.*` remains as the
+annotations package shared with Jackson 3 — never part of the problem.)
 
-- `JsonAwareFilterQueryConverter`'s private internal mapper (builds the intermediate Bson `JsonNode`);
-- the `telaioMongoJackson2ObjectMapper` bean in `TelaioMongoAutoConfiguration` — required because Turkraft's
-  eagerly-instantiated `JsonNodeHelperImpl` `@Service` constructor-injects a Jackson 2 `ObjectMapper`, which Spring Boot
-  4 no longer auto-configures (without our bean, any consumer's context fails to start).
+Residuals:
 
-No `com.fasterxml` type may appear in any telaio public API signature (`FilterQueryConverter` exposes only
-`FilterNode` + Spring Data `Query`). Note: `com.fasterxml.jackson.annotation.*` is the shared annotations package also
-read by Jackson 3 — not part of the problem.
-
-**Upstream inventory for the Turkraft PR** (to be opened by the maintainer of this repo): the Jackson 2 surface in
-`springfilter mongo` 4.0.6 is:
-
-- `FilterJsonNodeTransformer` — implements `FilterNodeTransformer<com.fasterxml.jackson.databind.JsonNode>`, constructor
-  takes a Jackson 2 `ObjectMapper`;
-- `JsonNodeHelper` / `JsonNodeHelperImpl` — `wrapWithMongoExpression(JsonNode)`; the impl constructor-injects the
-  Jackson 2 `ObjectMapper` (the Boot-4 startup blocker described above);
-- the 21 `*JsonNodeProcessor` classes;
-- `FilterJsonNodeArgumentResolver` — builds `new BasicQuery(Document.parse(json.toString()))`.
-
-Cleanest upstream fix: transform straight to `org.bson.Document` (removes Jackson entirely **and** fixes the
-temporal-literals-as-strings issue below). Alternative: migrate to Jackson 3. Same PR opportunity: stop shipping an
-`application.properties` at the jar root (it leaks `MongoTemplate` DEBUG logging and a flapdoodle property onto every
-consumer's classpath).
-
-**Swagger/springdoc:** still uses Jackson 2 internally — nothing actionable until upstream drops it; track their
-releases.
-
-Code anchors: `JsonAwareFilterQueryConverter` (mapper field + `Document.parse` TODOs),
-`TelaioMongoAutoConfiguration.telaioMongoJackson2ObjectMapper`.
+- **Swagger/springdoc** still uses Jackson 2 internally — nothing actionable until upstream drops it; track
+  their releases.
+- The Turkraft `mongo` jar (4.0.7 included) still ships an `application.properties` at its jar root that
+  enables `MongoTemplate` DEBUG logging on every consumer — remaining upstream PR opportunity.
 
 ## 3. Turkraft mongo functional gaps (document-only for now)
 
 - The `mongo-language` artifact is **empty** — the Mongo filter function vocabulary is only `size` / `today`
   beyond the standard operators, versus JPA's ~55 processors. Candidate for an upstream issue.
 - Temporal comparisons are unreliable: filter values pass through `Document.parse`, so date literals become plain
-  strings and never match BSON `Date` fields. Fixed for free by the `org.bson.Document` transform above.
+  strings and never match BSON `Date` fields. Persists in 4.0.7 (the Jackson 3 migration kept the JSON
+  intermediate); would be fixed upstream by transforming straight to `org.bson.Document` — open PR opportunity.
 - `$expr` queries cannot use indexes (except limited equality cases): filtered reads are collection scans — documented
   as a performance characteristic in [modules/mongo.md](modules/mongo.md).
 

@@ -46,7 +46,7 @@ class JsonAwareFilterQueryConverterTest {
     private final FilterNodeProcessorFactories processorFactories = mock(FilterNodeProcessorFactories.class);
 
     private final JsonNodeHelper jsonNodeHelper =
-        new JsonNodeHelperImpl(new com.fasterxml.jackson.databind.ObjectMapper(), fieldTypeResolver);
+        new JsonNodeHelperImpl(JsonMapper.builder().build(), fieldTypeResolver);
 
     private final JsonAwareFilterQueryConverter converter = new JsonAwareFilterQueryConverter(
         new DefaultFormattingConversionService(),
