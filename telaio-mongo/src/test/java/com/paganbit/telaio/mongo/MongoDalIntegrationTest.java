@@ -41,9 +41,11 @@ import static org.mockito.Mockito.mock;
 
 /**
  * Integration tests for {@link MongoDal} behavior that requires real Spring Data Mongo mapping
- * metadata, repository and template against a live server (Testcontainers, single-node replica
- * set): {@link MongoDal#defaultSort()}, {@link MongoDal#executeReadOne(Object)} (raw {@code _id}
- * lookup and {@code $and} composition with the default filter), {@link MongoDal#executeRead}
+ * metadata, repository and template against a live server (Testcontainers, standalone
+ * {@code mongod} — transactions intentionally unavailable; the transactional paths are covered by
+ * {@link MongoDalTransactionIntegrationTest}): {@link MongoDal#defaultSort()},
+ * {@link MongoDal#executeReadOne(Object)} (raw {@code _id} lookup and {@code $and} composition with
+ * the default filter), {@link MongoDal#executeRead}
  * (including an {@code $expr} query with count + paging — the exact query shape
  * {@code JsonAwareFilterQueryConverter} produces), and the version-checked instance delete. The DAL
  * is hand-built with a real repository + {@link MongoOperations} and mocked {@code AbstractDal}
@@ -306,9 +308,7 @@ class MongoDalIntegrationTest {
 
         @Bean
         @ServiceConnection
-        MongoDBContainer mongoContainer() {
-            // Image resolved from the root pom's testcontainers.image.mongodb property (surefire
-            // system property), with a fallback for IDE runs.
+        MongoDBContainer standaloneMongoContainer() {
             return new MongoDBContainer(System.getProperty("testcontainers.image.mongodb", "mongo:8"));
         }
     }

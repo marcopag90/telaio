@@ -154,22 +154,25 @@ requires a `PlatformTransactionManager`, telaio-mongo resolves this with a **ded
 participates in plain by-type autowiring — `JpaDal` beans keep receiving Boot's JPA transaction manager, `MongoDal`
 beans receive the Mongo one, and a mixed jpa+mongo application boots with no ambiguity.
 
-## Jackson note
-
-As of Turkraft Spring Filter **4.0.7** the upstream `mongo` artifact runs on Jackson 3 (`tools.jackson`), like the rest
-of Telaio — no Jackson 2 type enters the classpath through telaio-mongo. (`com.fasterxml.jackson.annotation` remains as
-the annotations package shared with Jackson 3; in a full Telaio application the only Jackson 2 arrival is
-springdoc/Swagger's internal use.)
-
-Be aware the Turkraft `mongo` jar ships an `application.properties` at its jar root that enables
-`MongoTemplate` DEBUG logging on every consumer — override
-`logging.level.org.springframework.data.mongodb.core.MongoTemplate` in your own configuration if it bothers you.
-
-## Testing
-
-Spring Boot 4 has no embedded Mongo (`@DataMongoTest` expects a live server). The module's own tests use Testcontainers'
-`MongoDBContainer`, which boots a **single-node replica set** — so even real transactions are testable. See
-`MongoDalIntegrationTest` for the pattern (a `@ServiceConnection` container bean).
+> **Mixed applications — declare the manager under the qualified name.** In a jpa+mongo application, prefer the
+> "full control" form for the opt-in as well. A *plain* `MongoTransactionManager` bean is a default-candidate
+> `TransactionManager`, and Spring Boot's JPA autoconfiguration creates its `JpaTransactionManager` only when no such
+> bean exists (`@ConditionalOnMissingBean(TransactionManager.class)`): the JPA transaction manager would silently
+> never be created and the JPA DALs and repositories would bind to the Mongo one. Should you also declare the JPA
+> manager yourself, the two default candidates break every qualifier-less lookup as well (telaio-metrics' JDBC store
+> resolves an `ObjectProvider<PlatformTransactionManager>`, and `getIfAvailable()` fails on two candidates).
+> Declaring the bean under `MongoDal.TRANSACTION_MANAGER_BEAN_NAME` with `defaultCandidate = false` avoids both: it is
+> invisible to Boot's condition and to by-type autowiring, and visible to the Mongo DALs' qualified setter only:
+>
+> ```java
+> @Bean(name = MongoDal.TRANSACTION_MANAGER_BEAN_NAME, defaultCandidate = false)
+> MongoTransactionManager mongoTransactionManager(MongoDatabaseFactory factory) {
+>     return new MongoTransactionManager(factory);
+> }
+> ```
+>
+> This is what the showcase does (`MongoConfiguration`), with `NotificationDalService` as the live Mongo DAL next to
+> the JPA ones.
 
 ## Configuration
 
@@ -182,4 +185,5 @@ settings.
 - [JPA Module](./jpa.md) — The JPA counterpart (lifecycle hooks documented there apply here too)
 - [Core Module](./core.md) — `AbstractDal` base class and lifecycle hooks
 - [REST API Guide](../rest-api.md) — How filtering works at the HTTP boundary
-- [Roadmap](../roadmap.md) — Deferred items: upstream Turkraft gaps, showcase Mongo demo
+- [Showcase Module](./showcase.md) — `notifications`: a Mongo DAL running next to the JPA DALs, on a replica set
+- [Roadmap](../roadmap.md) — Deferred items: upstream Turkraft gaps

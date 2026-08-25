@@ -17,8 +17,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.core.convert.ConversionService;
+import org.springframework.core.convert.support.DefaultConversionService;
 import org.springframework.data.mongodb.MongoDatabaseFactory;
 import org.springframework.data.mongodb.MongoTransactionManager;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -54,6 +57,27 @@ class TelaioMongoAutoConfigurationTest {
     @Test
     void converter_backsOffWithoutTurkraftMongoBeans() {
         runner.run(context -> assertThat(context).doesNotHaveBean(FilterQueryConverter.class));
+    }
+
+    /**
+     * Web-application scenario: several {@code ConversionService} beans coexist (Spring MVC's
+     * {@code mvcConversionService}, Turkraft's {@code sfConversionService}). The converter must select
+     * Turkraft's by name — a by-type lookup would be ambiguous and fail the context.
+     */
+    @Test
+    void converter_selectsTurkraftConversionServiceAmongSeveral() {
+        ConversionService mvc = new DefaultConversionService();
+        ConversionService turkraft = new DefaultConversionService();
+        withTurkraftMongoBeans()
+            .withBean("mvcConversionService", ConversionService.class, () -> mvc)
+            .withBean("sfConversionService", ConversionService.class, () -> turkraft)
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                assertThat(context).hasSingleBean(FilterQueryConverter.class);
+                assertThat(ReflectionTestUtils.getField(
+                    context.getBean(FilterQueryConverter.class), "conversionService"))
+                    .isSameAs(turkraft);
+            });
     }
 
     @Test

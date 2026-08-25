@@ -476,7 +476,8 @@ mvn -pl telaio-showcase spring-boot:run # run the demo app (needs JDK 25)
 > or exclude the demo with `mvn clean install -pl '!telaio-showcase'`.
 
 The showcase starts on `http://localhost:8080` with Swagger UI at `/swagger-ui.html`. It auto-starts a persistent
-PostgreSQL 17 container via `spring-boot-docker-compose` and seeds demo data idempotently. Log in with HTTP Basic using
+PostgreSQL 17 container and a single-node MongoDB 8 replica set via `spring-boot-docker-compose` (JPA and Mongo DALs
+side by side, each with its own transaction manager) and seeds demo data idempotently. Log in with HTTP Basic using
 one of the seeded test users: `developer` /
 `developer`, `admin` / `admin`, or `user` / `user`.
 

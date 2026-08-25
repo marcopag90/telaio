@@ -21,9 +21,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   reason the constructors of the framework-wiring classes `DalIdArgumentResolver`,
   `DalPathsGenerator` and `FilterParameterDescriber` now take the predicate.
 
+### 📔 Documentation
+
+- Showcase: `notifications`, a MongoDB-backed DAL running next to the JPA DALs with its own transaction
+  manager — jpa+mongo coexistence on one `/dal/v1` surface.
+
 ### 🔨 Dependency Upgrades
 
-- Turkraft Spring Filter 4.0.1 → 4.0.7
+- Turkraft Spring Filter 4.0.1 → 4.0.8
 
 ## [1.1.0] - 2026-07-29
 

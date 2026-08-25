@@ -40,7 +40,12 @@ Residuals:
 - **Swagger/springdoc** still uses Jackson 2 internally — nothing actionable until upstream drops it; track
   their releases.
 - The Turkraft `mongo` jar (4.0.7 included) still ships an `application.properties` at its jar root that
-  enables `MongoTemplate` DEBUG logging on every consumer — remaining upstream PR opportunity.
+  enables `MongoTemplate` DEBUG logging on every consumer — remaining upstream PR opportunity. Note that a
+  consumer cannot neutralize it from `application.yaml` (at the same location `.properties` takes precedence over
+  `.yaml`, and Boot loads a single `classpath:/application.properties` — the first on the classpath): the override
+  must live in the consumer's own `application.properties`, which then shadows the jar's file entirely (this is what
+  telaio-showcase does). telaio-mongo deliberately ships no `application.properties` of its own — it would be the
+  same anti-pattern.
 
 ## 3. Turkraft mongo functional gaps (document-only for now)
 
@@ -54,13 +59,39 @@ Residuals:
 
 ## 4. Showcase Mongo demo
 
-Wire a Mongo-backed DAL into telaio-showcase (docker-compose Mongo service + Testcontainers integration test) to prove
-jpa+mongo coexistence end-to-end: two backends, two transaction managers, one `/dal/v1` surface.
+**Done (2026-08-25):** telaio-showcase now runs a Mongo-backed DAL next to its JPA ones —
+`NotificationDalService` (`notifications`, `MongoDal<Notification, String>`, `@Version`, `@DalAudit`,
+metrics on) — proving jpa+mongo coexistence end-to-end: two backends, two transaction managers
+(`JpaTransactionManager` for the JPA DALs, a real `MongoTransactionManager` for the Mongo one; asserted by
+`TelaioShowcaseApplicationTests.twoBackendsUseTwoTransactionManagers`), one `/dal/v1` surface. The
+`compose.yaml` gained a `mongo` service, `TestcontainersConfiguration` a second `@ServiceConnection`
+container, and `NotificationCrudIT` covers the DAL over HTTP (CRUD, `q=` filtering, validation, 404,
+401, audit). Original goal: docker-compose Mongo service + Testcontainers integration test.
 
 ## 5. Transactions phase 2
 
-- Document/demo a `MongoTransactionManager` setup (replica-set docker-compose) as the production-grade configuration.
+**Done (2026-08-25):** the production-grade `MongoTransactionManager` setup is documented in
+[modules/mongo.md](modules/mongo.md#transactions) (single-node replica-set compose service whose healthcheck
+runs `rs.initiate` and gates on the writable primary; the mixed-application rule "declare the manager under
+`MongoDal.TRANSACTION_MANAGER_BEAN_NAME` with `defaultCandidate = false`" — a plain bean would satisfy Boot's
+`@ConditionalOnMissingBean(TransactionManager.class)`, so the `JpaTransactionManager` would never be created
+and the JPA DALs would bind to the Mongo manager) and
+demoed by the showcase (`compose.yaml`, `config/MongoConfiguration`). Real-transaction proof:
+`MongoDalTransactionIntegrationTest` (telaio-mongo) — delete rollback when `finalizeAfterDelete` throws,
+commit otherwise. While doing this, four docs/comments claiming Testcontainers' `MongoDBContainer` boots a
+replica set by default were corrected: in Testcontainers 2.x `org.testcontainers.mongodb.MongoDBContainer`
+is a standalone `mongod` and `withReplicaSet()` is opt-in (only the deprecated
+`org.testcontainers.containers.MongoDBContainer` is replica-set-by-default).
 
 **Decided (2026-08-23):** the `PassThroughTransactionManager` fallback (now in
 `com.paganbit.telaio.core.transaction`) is the final design — telaio-core will not offer an
 optional-transaction-manager mode. Wherever a backend has no real transaction manager, inject the pass-through.
+
+## 6. telaio-metrics JDBC store and multiple transaction managers
+
+`TelaioMetricsAutoConfiguration.jdbcDalMetricsStore` resolves its optional `PlatformTransactionManager` with
+`ObjectProvider.getIfAvailable()`, which fails the application context when a consumer holds two
+default-candidate transaction managers (e.g. two `DataSource`s, or an explicitly declared JPA manager next to a
+plain Mongo one). The store already tolerates a missing template, so a graceful degradation (`getIfUnique()`, or
+an explicit `telaio.metrics.jdbc.*` transaction-manager selection) is under evaluation — surfaced by the Block 2
+review on 2026-08-25, decision pending. Code anchor: `TODO(roadmap)` in `TelaioMetricsAutoConfiguration`.

@@ -17,6 +17,7 @@ import com.turkraft.springfilter.transformer.processor.factory.FilterNodeProcess
 import org.bson.types.ObjectId;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -71,6 +72,12 @@ public class TelaioMongoAutoConfiguration {
     private static final org.slf4j.Logger log = LoggerFactory.getLogger(TelaioMongoAutoConfiguration.class);
 
     /**
+     * Name of the {@link ConversionService} bean Turkraft's {@code FilterConversionServiceConfiguration}
+     * registers for its filter pipeline.
+     */
+    private static final String TURKRAFT_CONVERSION_SERVICE_BEAN_NAME = "sfConversionService";
+
+    /**
      * Jackson 3 module mapping {@link ObjectId} to its hexadecimal string form.
      */
     @Bean
@@ -104,21 +111,32 @@ public class TelaioMongoAutoConfiguration {
 
     /**
      * Default {@link FilterQueryConverter}, built on Turkraft's mongo transformer beans. The
-     * {@link ConversionService} and Jackson 3 {@link ObjectMapper} fall back to defaults in
-     * contexts that define none.
+     * {@link ConversionService} is Turkraft's own {@code sfConversionService} — the one its filter
+     * pipeline and {@code sfConverterRegistry} customizations target — selected by name because a
+     * web application holds several {@code ConversionService} beans (e.g. {@code mvcConversionService})
+     * and a plain by-type lookup would be ambiguous. It and the Jackson 3 {@link ObjectMapper} fall
+     * back to defaults in contexts that define none.
      */
     @Bean
     @ConditionalOnMissingBean(FilterQueryConverter.class)
     @ConditionalOnBean({FilterNodeProcessorFactories.class, FieldTypeResolver.class, JsonNodeHelper.class})
     FilterQueryConverter jsonAwareFilterQueryConverter(
+        @Qualifier(TURKRAFT_CONVERSION_SERVICE_BEAN_NAME)
         ObjectProvider<ConversionService> conversionService,
         FilterNodeProcessorFactories processorFactories,
         FieldTypeResolver fieldTypeResolver,
         JsonNodeHelper jsonNodeHelper,
         ObjectProvider<ObjectMapper> objectMapper
     ) {
+        ConversionService resolvedConversionService = conversionService.getIfAvailable();
+        if (resolvedConversionService == null) {
+            log.debug("No '{}' bean found: Mongo filter conversion falls back to the shared "
+                    + "ApplicationConversionService (custom Turkraft converters would not apply)",
+                TURKRAFT_CONVERSION_SERVICE_BEAN_NAME);
+            resolvedConversionService = ApplicationConversionService.getSharedInstance();
+        }
         return new JsonAwareFilterQueryConverter(
-            conversionService.getIfAvailable(ApplicationConversionService::getSharedInstance),
+            resolvedConversionService,
             processorFactories,
             fieldTypeResolver,
             jsonNodeHelper,

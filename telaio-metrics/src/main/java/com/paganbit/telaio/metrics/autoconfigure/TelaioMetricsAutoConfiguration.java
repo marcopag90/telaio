@@ -160,6 +160,9 @@ public class TelaioMetricsAutoConfiguration {
             final var jdbcTemplate = new JdbcTemplate(dataSource);
             final var tableName = jdbcProperties.getTableName();
             final var retention = jdbcProperties.getRetention();
+            // TODO(roadmap): getIfAvailable() fails the context when two default-candidate
+            //  PlatformTransactionManager beans exist; the store already tolerates a null template, so
+            //  a graceful degradation (e.g. getIfUnique()) is under evaluation. See docs/roadmap.md.
             final var txManager = txManagerProvider.getIfAvailable();
             final var tx = txManager != null ? new TransactionTemplate(txManager) : null;
             final var cleanupInterval = jdbcProperties.getCleanupInterval();

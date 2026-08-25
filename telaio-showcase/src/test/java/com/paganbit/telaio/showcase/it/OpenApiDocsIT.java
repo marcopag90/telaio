@@ -19,14 +19,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 class OpenApiDocsIT extends AbstractShowcaseIT {
 
     private static final List<String> DAL_NAMES =
-        List.of("announcements", "employees", "departments", "articles", "products", "translations");
+        List.of("announcements", "employees", "departments", "articles", "products", "translations",
+            "notifications");
 
     /**
      * DALs that expose the full CRUD surface (no {@code @DalService(operations = …)} restriction):
      * {@code POST}/{@code GET} on the collection and {@code GET}/{@code PATCH}/{@code DELETE} on the item.
      */
     private static final List<String> FULL_CRUD_DALS =
-        List.of("announcements", "employees", "departments", "products", "translations");
+        List.of("announcements", "employees", "departments", "products", "translations", "notifications");
 
     @Test
     void telaioGroup_shouldExposeEachDalWithItsConfiguredOperations() {
@@ -72,6 +73,7 @@ class OpenApiDocsIT extends AbstractShowcaseIT {
         assertThat(schemas.has("Department")).isTrue();
         assertThat(schemas.has("Article")).isTrue();
         assertThat(schemas.has("Product")).isTrue();
+        assertThat(schemas.has("Notification")).isTrue();
     }
 
     @Test

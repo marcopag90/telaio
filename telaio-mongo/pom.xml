@@ -61,9 +61,6 @@
             <artifactId>spring-boot-starter-data-mongodb-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- Boot 4 ships no embedded Mongo (flapdoodle support was removed in 3.0): integration
-             tests run against a Testcontainers MongoDBContainer, which boots a single-node
-             replica set — so real multi-document transactions are available to tests. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-testcontainers</artifactId>

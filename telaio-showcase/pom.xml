@@ -55,6 +55,10 @@
             <artifactId>telaio-jpa</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.paganbit</groupId>
+            <artifactId>telaio-mongo</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.turkraft.springfilter</groupId>
             <artifactId>typesafe</artifactId>
         </dependency>
@@ -112,6 +116,11 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers-postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-mongodb</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
