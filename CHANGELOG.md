@@ -12,6 +12,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   filter conversion (`$expr`-based), default sort resolution, and a dedicated qualified
   transaction manager (`telaioMongoTransactionManager`) with a no-op fallback for standalone
   MongoDB — designed to coexist with `telaio-jpa` behind the same `/dal/v1` surface.
+- Metrics: `@TelaioMetricsDataSource` and `@TelaioMetricsTransactionManager` qualifiers select the
+  DataSource (e.g. a dedicated metrics schema) and, optionally, the transaction manager the JDBC store
+  uses in applications with several DataSources or transaction managers.
+
+### 🐞 Bug Fixes
+
+- Metrics: the JDBC store no longer looks up the application's `PlatformTransactionManager` by type — an
+  application with multiple transaction managers failed to start, and a manager over a
+  different DataSource was accepted silently. The store now uses a private JDBC transaction manager bound
+  to its own DataSource; with several unmarked DataSources the context fails fast with guidance instead of
+  persisting metrics into an arbitrary database.
 
 ### ⛔ Deprecations & Removals
 

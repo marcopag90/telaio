@@ -28,6 +28,52 @@ class DalMetricsBucketTest {
     }
 
     @Test
+    void equals_shouldBeReflexiveAndRejectOtherTypesAndNull() {
+        DalMetricsBucket bucket = bucket(new long[]{1, 2, 3, 0});
+        assertThat(bucket)
+            .isNotEqualTo(null);
+    }
+
+    @Test
+    void equals_shouldConsiderEveryComponent() {
+        long[] histogram = {1, 2, 3, 0};
+        DalMetricsBucket reference = new DalMetricsBucket(
+            START, WINDOW, "products", DalOperationType.READ, 10, 1, 2, 5_000, 100, 900, histogram);
+
+        assertThat(reference)
+            // bucketStart
+            .isNotEqualTo(new DalMetricsBucket(
+                START.plusSeconds(60), WINDOW, "products", DalOperationType.READ, 10, 1, 2, 5_000, 100, 900, histogram))
+            // bucketDuration
+            .isNotEqualTo(new DalMetricsBucket(
+                START, Duration.ofMinutes(5), "products", DalOperationType.READ, 10, 1, 2, 5_000, 100, 900, histogram))
+            // dalName
+            .isNotEqualTo(new DalMetricsBucket(
+                START, WINDOW, "orders", DalOperationType.READ, 10, 1, 2, 5_000, 100, 900, histogram))
+            // operation
+            .isNotEqualTo(new DalMetricsBucket(
+                START, WINDOW, "products", DalOperationType.CREATE, 10, 1, 2, 5_000, 100, 900, histogram))
+            // count
+            .isNotEqualTo(new DalMetricsBucket(
+                START, WINDOW, "products", DalOperationType.READ, 11, 1, 2, 5_000, 100, 900, histogram))
+            // errorCount
+            .isNotEqualTo(new DalMetricsBucket(
+                START, WINDOW, "products", DalOperationType.READ, 10, 2, 2, 5_000, 100, 900, histogram))
+            // totalDurationNanos
+            .isNotEqualTo(new DalMetricsBucket(
+                START, WINDOW, "products", DalOperationType.READ, 10, 1, 2, 6_000, 100, 900, histogram))
+            // minDurationNanos
+            .isNotEqualTo(new DalMetricsBucket(
+                START, WINDOW, "products", DalOperationType.READ, 10, 1, 2, 5_000, 50, 900, histogram))
+            // maxDurationNanos
+            .isNotEqualTo(new DalMetricsBucket(
+                START, WINDOW, "products", DalOperationType.READ, 10, 1, 2, 5_000, 100, 950, histogram))
+            // same content, distinct histogram array instance
+            .isEqualTo(new DalMetricsBucket(
+                START, WINDOW, "products", DalOperationType.READ, 10, 1, 2, 5_000, 100, 900, histogram.clone()));
+    }
+
+    @Test
     void hashCode_shouldBeConsistentWithEquals() {
         assertThat(bucket(new long[]{1, 2, 3, 0}))
             .hasSameHashCodeAs(bucket(new long[]{1, 2, 3, 0}));

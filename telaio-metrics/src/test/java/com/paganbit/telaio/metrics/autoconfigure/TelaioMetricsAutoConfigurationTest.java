@@ -4,6 +4,8 @@ import com.paganbit.telaio.core.Dal;
 import com.paganbit.telaio.core.adapter.DalOperationType;
 import com.paganbit.telaio.core.annotation.DalService;
 import com.paganbit.telaio.core.autoconfigure.TelaioCoreAutoConfiguration;
+import com.paganbit.telaio.metrics.annotation.TelaioMetricsDataSource;
+import com.paganbit.telaio.metrics.annotation.TelaioMetricsTransactionManager;
 import com.paganbit.telaio.metrics.collector.*;
 import com.paganbit.telaio.metrics.endpoint.TelaioMetricsEndpoint;
 import com.paganbit.telaio.metrics.model.DalMetricsStats;
@@ -22,17 +24,30 @@ import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.core.convert.support.DefaultConversionService;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
+import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
+import org.springframework.jdbc.support.JdbcTransactionManager;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import javax.sql.DataSource;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -80,6 +95,241 @@ class TelaioMetricsAutoConfigurationTest {
             .run(context -> {
                 assertThat(context.getBean(DalMetricsStore.class)).isInstanceOf(JdbcDalMetricsStore.class);
                 assertThat(context).doesNotHaveBean(InMemoryDalMetricsStore.class);
+            });
+    }
+
+    /**
+     * Regression for the mixed-backend case: two default-candidate transaction managers (e.g. JPA +
+     * Mongo) must not break the JDBC store, which builds its own manager instead of looking one up.
+     */
+    @Test
+    void withTwoTransactionManagers_shouldStillRegisterJdbcStoreWithItsOwnManager() {
+        contextRunner
+            .withConfiguration(AutoConfigurations.of(DataSourceAutoConfiguration.class))
+            .withUserConfiguration(TwoTransactionManagers.class)
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                JdbcDalMetricsStore store = context.getBean(JdbcDalMetricsStore.class);
+                assertThat(transactionManagerOf(store))
+                    .isInstanceOf(JdbcTransactionManager.class)
+                    .isNotIn(context.getBeansOfType(TransactionManager.class).values());
+                assertThat(((JdbcTransactionManager) transactionManagerOf(store)).getDataSource())
+                    .isSameAs(context.getBean(DataSource.class));
+                // The private manager is not a bean: the application's transaction wiring is untouched.
+                assertThat(context.getBeansOfType(TransactionManager.class)).hasSize(2);
+            });
+    }
+
+    @Test
+    void withSingleDataSource_shouldUsePrivateJdbcTransactionManagerAndRegisterNoTransactionManagerBean() {
+        contextRunner
+            .withConfiguration(AutoConfigurations.of(DataSourceAutoConfiguration.class))
+            .run(context -> {
+                JdbcDalMetricsStore store = context.getBean(JdbcDalMetricsStore.class);
+                assertThat(transactionManagerOf(store)).isInstanceOf(JdbcTransactionManager.class);
+                assertThat(context).doesNotHaveBean(TransactionManager.class);
+            });
+    }
+
+    @Test
+    void withMarkedTransactionManager_shouldUseIt() {
+        contextRunner
+            .withConfiguration(AutoConfigurations.of(DataSourceAutoConfiguration.class))
+            .withUserConfiguration(MarkedTransactionManager.class)
+            .run(context -> {
+                JdbcDalMetricsStore store = context.getBean(JdbcDalMetricsStore.class);
+                assertThat(transactionManagerOf(store)).isSameAs(context.getBean("metricsTransactionManager"));
+            });
+    }
+
+    /**
+     * The marked DataSource is declared as a non-default candidate, so it stays invisible to by-type
+     * autowiring while the qualifier still resolves it — for both the store and the schema initializer.
+     */
+    @Test
+    void withTwoDataSources_markedOne_shouldHoldTheMetricsTable() {
+        contextRunner
+            .withUserConfiguration(TwoDataSourcesOneMarked.class)
+            .withPropertyValues("telaio.metrics.jdbc.initialize-schema=always")
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                DataSource metrics = context.getBean("metricsDataSource", DataSource.class);
+                DataSource main = context.getBean("mainDataSource", DataSource.class);
+                JdbcDalMetricsStore store = context.getBean(JdbcDalMetricsStore.class);
+                assertThat(jdbcTemplateOf(store).getDataSource()).isSameAs(metrics);
+                assertThat(((JdbcTransactionManager) transactionManagerOf(store)).getDataSource()).isSameAs(metrics);
+                assertThat(tableExists(metrics)).as("schema created in the marked DataSource").isTrue();
+                assertThat(tableExists(main)).as("main DataSource untouched").isFalse();
+                // Plain by-type resolution still sees a single DataSource: the main one.
+                assertThat(context.getBean(DataSource.class)).isSameAs(main);
+            });
+    }
+
+    /**
+     * The recommended recipe must also work when the marked DataSource is the application's only one:
+     * {@code @ConditionalOnBean} would ignore a non-default candidate and silently leave the JDBC store
+     * unregistered, so the presence guard is a custom condition that sees every DataSource definition.
+     */
+    @Test
+    void withLoneMarkedNonDefaultDataSource_shouldStillActivateJdbcStore() {
+        contextRunner
+            .withUserConfiguration(LoneMarkedDataSource.class)
+            .withPropertyValues("telaio.metrics.jdbc.initialize-schema=always")
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                DataSource metrics = context.getBean("metricsDataSource", DataSource.class);
+                assertThat(context).doesNotHaveBean(InMemoryDalMetricsStore.class);
+                assertThat(jdbcTemplateOf(context.getBean(JdbcDalMetricsStore.class)).getDataSource()).isSameAs(metrics);
+                assertThat(tableExists(metrics)).isTrue();
+            });
+    }
+
+    @Test
+    void withTwoDataSources_primaryOne_shouldUseThePrimary() {
+        contextRunner
+            .withUserConfiguration(TwoDataSourcesOnePrimary.class)
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                JdbcDalMetricsStore store = context.getBean(JdbcDalMetricsStore.class);
+                assertThat(jdbcTemplateOf(store).getDataSource())
+                    .isSameAs(context.getBean("primaryDataSource", DataSource.class));
+            });
+    }
+
+    @Test
+    void withTwoDataSources_noneMarkedOrPrimary_shouldFailFastWithGuidance() {
+        contextRunner
+            .withUserConfiguration(TwoPlainDataSources.class)
+            .run(context -> {
+                assertThat(context).hasFailed();
+                assertThat(context.getStartupFailure())
+                    .rootCause()
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("@TelaioMetricsDataSource")
+                    .hasMessageContaining("firstDataSource")
+                    .hasMessageContaining("secondDataSource");
+            });
+    }
+
+    private static PlatformTransactionManager transactionManagerOf(JdbcDalMetricsStore store) {
+        TransactionTemplate template =
+            (TransactionTemplate) ReflectionTestUtils.getField(store, "transactionTemplate");
+        assertThat(template).as("the autoconfigured store always carries a transaction template").isNotNull();
+        return Objects.requireNonNull(template.getTransactionManager());
+    }
+
+    private static JdbcTemplate jdbcTemplateOf(JdbcDalMetricsStore store) {
+        return Objects.requireNonNull((JdbcTemplate) ReflectionTestUtils.getField(store, "jdbcTemplate"));
+    }
+
+    private static boolean tableExists(DataSource dataSource) {
+        try {
+            new JdbcTemplate(dataSource)
+                .queryForObject("select count(*) from telaio_metrics_bucket", Long.class);
+            return true;
+        } catch (DataAccessException notThere) {
+            return false;
+        }
+    }
+
+    private static DataSource h2() {
+        return new EmbeddedDatabaseBuilder()
+            .setType(EmbeddedDatabaseType.H2)
+            .generateUniqueName(true)
+            .build();
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class TwoTransactionManagers {
+
+        @Bean
+        PlatformTransactionManager firstTransactionManager(DataSource dataSource) {
+            return new JdbcTransactionManager(dataSource);
+        }
+
+        @Bean
+        PlatformTransactionManager secondTransactionManager(DataSource dataSource) {
+            return new JdbcTransactionManager(dataSource);
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class MarkedTransactionManager {
+
+        @Bean(defaultCandidate = false)
+        @TelaioMetricsTransactionManager
+        PlatformTransactionManager metricsTransactionManager(DataSource dataSource) {
+            return new JdbcTransactionManager(dataSource);
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class TwoDataSourcesOneMarked {
+
+        @Bean
+        DataSource mainDataSource() {
+            return h2();
+        }
+
+        @Bean(defaultCandidate = false)
+        @TelaioMetricsDataSource
+        DataSource metricsDataSource() {
+            return h2();
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class LoneMarkedDataSource {
+
+        @Bean(defaultCandidate = false)
+        @TelaioMetricsDataSource
+        DataSource metricsDataSource() {
+            return h2();
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class TwoDataSourcesOnePrimary {
+
+        @Bean
+        @Primary
+        DataSource primaryDataSource() {
+            return h2();
+        }
+
+        @Bean
+        DataSource otherDataSource() {
+            return h2();
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class TwoPlainDataSources {
+
+        @Bean
+        DataSource firstDataSource() {
+            return h2();
+        }
+
+        @Bean
+        DataSource secondDataSource() {
+            return h2();
+        }
+    }
+
+    /**
+     * Micrometer switched on without a {@code MeterRegistry} bean: the recorder factory warns and
+     * yields no recorder, and the in-house path stands aside — DALs run unmeasured rather than failing.
+     */
+    @Test
+    void micrometerEnabled_withoutMeterRegistry_shouldRegisterNoRecorder() {
+        contextRunner
+            .withPropertyValues("telaio.metrics.micrometer.enabled=true")
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                assertThat(context.getBeansOfType(MicrometerDalMetricsRecorder.class)).isEmpty();
+                assertThat(context.getBeansOfType(DalMetricsRecorder.class)).isEmpty();
+                assertThat(context).doesNotHaveBean(DalMetricsAggregator.class);
             });
     }
 
@@ -133,7 +383,9 @@ class TelaioMetricsAutoConfigurationTest {
     @Test
     void withoutSpringJdbc_shouldFallBackToInMemoryStore() {
         contextRunner
-            .withClassLoader(new FilteredClassLoader(JdbcTemplate.class))
+            // Hide the whole spring-jdbc package: the JDBC configuration also references
+            // JdbcTransactionManager, which must stay behind the @ConditionalOnClass guard.
+            .withClassLoader(new FilteredClassLoader("org.springframework.jdbc"))
             .run(context -> assertThat(context.getBean(DalMetricsStore.class))
                 .isInstanceOf(InMemoryDalMetricsStore.class));
     }

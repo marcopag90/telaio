@@ -159,10 +159,10 @@ beans receive the Mongo one, and a mixed jpa+mongo application boots with no amb
 > `TransactionManager`, and Spring Boot's JPA autoconfiguration creates its `JpaTransactionManager` only when no such
 > bean exists (`@ConditionalOnMissingBean(TransactionManager.class)`): the JPA transaction manager would silently
 > never be created and the JPA DALs and repositories would bind to the Mongo one. Should you also declare the JPA
-> manager yourself, the two default candidates break every qualifier-less lookup as well (telaio-metrics' JDBC store
-> resolves an `ObjectProvider<PlatformTransactionManager>`, and `getIfAvailable()` fails on two candidates).
-> Declaring the bean under `MongoDal.TRANSACTION_MANAGER_BEAN_NAME` with `defaultCandidate = false` avoids both: it is
-> invisible to Boot's condition and to by-type autowiring, and visible to the Mongo DALs' qualified setter only:
+> manager yourself, the two default candidates would make every qualifier-less `PlatformTransactionManager`
+> injection point ambiguous — including the JPA DALs' own setter. Declaring the bean under
+> `MongoDal.TRANSACTION_MANAGER_BEAN_NAME` with `defaultCandidate = false` avoids both: it is invisible to Boot's
+> condition and to by-type autowiring, and visible to the Mongo DALs' qualified setter only:
 >
 > ```java
 > @Bean(name = MongoDal.TRANSACTION_MANAGER_BEAN_NAME, defaultCandidate = false)

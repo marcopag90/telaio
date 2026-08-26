@@ -16,8 +16,8 @@ import org.springframework.data.mongodb.MongoTransactionManager;
  * {@code MongoTransactionManager} bean would be a default-candidate {@code TransactionManager}: Spring
  * Boot's JPA autoconfiguration would then skip its {@code JpaTransactionManager} altogether and the
  * JPA DALs would bind to the Mongo manager (and, were the JPA manager declared explicitly as well, the
- * two candidates would break qualifier-less lookups such as the one telaio-metrics' JDBC store
- * performs). The qualified, non-default bean is invisible to Boot's condition and to by-type
+ * two candidates would make the JPA DALs' qualifier-less setter ambiguous). The qualified,
+ * non-default bean is invisible to Boot's condition and to by-type
  * autowiring, and visible only to the Mongo DALs' qualified injection point. The autoconfigured
  * fallback backs off because a bean with that name already exists.</p>
  */

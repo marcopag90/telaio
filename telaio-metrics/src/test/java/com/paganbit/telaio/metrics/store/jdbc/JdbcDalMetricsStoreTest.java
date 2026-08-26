@@ -7,6 +7,8 @@ import com.paganbit.telaio.metrics.model.DalMetricsStats;
 import com.paganbit.telaio.metrics.model.LatencyHistogramScale;
 import com.paganbit.telaio.metrics.store.DalMetricsBucketMerger;
 import com.paganbit.telaio.metrics.store.DefaultDalMetricsBucketMerger;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,6 +17,10 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabase;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.*;
@@ -22,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 class JdbcDalMetricsStoreTest {
 
@@ -223,6 +230,95 @@ class JdbcDalMetricsStoreTest {
         Integer rows = jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM telaio_metrics_bucket", Integer.class);
         assertThat(rows).isEqualTo(1);
+    }
+
+    /**
+     * A caller may force a flush from inside its own transaction (e.g. a JPA one on the same
+     * DataSource). The store must then not start its own transaction on top of it — doing so could
+     * commit the caller's connection halfway — but let the merge statements join the caller's.
+     */
+    @Test
+    void store_insideCallerTransaction_shouldNotStartItsOwnTransaction() {
+        CountingTransactionManager own = new CountingTransactionManager(new DataSourceTransactionManager(database));
+        JdbcDalMetricsStore transactionalStore = new JdbcDalMetricsStore(
+            jdbcTemplate, merger, "telaio_metrics_bucket", Duration.ofDays(7), new TransactionTemplate(own),
+            Duration.ofHours(1), FIXED_CLOCK);
+        transactionalStore.store(List.of(bucket(T0, "products", DalOperationType.READ, 5, 0, 5_000_000)));
+
+        // Simulate a caller's transaction being active on this thread, as JpaTransactionManager flags it.
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            transactionalStore.store(List.of(bucket(T0, "products", DalOperationType.READ, 3, 1, 3_000_000)));
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+            TransactionSynchronizationManager.setActualTransactionActive(false);
+        }
+
+        assertThat(own.begun).as("the store must not open a transaction inside the caller's").isZero();
+        assertThat(transactionalStore.stats("products", DalOperationType.READ, T0, NOW).count()).isEqualTo(8);
+    }
+
+    /**
+     * Delegating manager counting how many transactions the store asked it to begin.
+     */
+    private static final class CountingTransactionManager implements PlatformTransactionManager {
+
+        private final PlatformTransactionManager delegate;
+        private int begun;
+
+        private CountingTransactionManager(PlatformTransactionManager delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public @NonNull TransactionStatus getTransaction(@Nullable TransactionDefinition definition) {
+            begun++;
+            return delegate.getTransaction(definition);
+        }
+
+        @Override
+        public void commit(@NonNull TransactionStatus status) {
+            delegate.commit(status);
+        }
+
+        @Override
+        public void rollback(@NonNull TransactionStatus status) {
+            delegate.rollback(status);
+        }
+    }
+
+    @Test
+    void constructor_shouldRejectUnsafeTableNames() {
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> new JdbcDalMetricsStore(
+                jdbcTemplate, merger, "metrics.telaio_metrics_bucket", Duration.ofDays(7), null,
+                Duration.ofHours(1), FIXED_CLOCK))
+            .withMessageContaining("telaio.metrics.jdbc.table-name");
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> new JdbcDalMetricsStore(
+                jdbcTemplate, merger, "drop table; --", Duration.ofDays(7), null,
+                Duration.ofHours(1), FIXED_CLOCK));
+    }
+
+    /**
+     * Rows written by other tooling may carry an empty histogram column; the mapper must read them as
+     * an empty histogram rather than fail.
+     */
+    @Test
+    void findBuckets_withEmptyHistogramColumn_shouldMapToEmptyHistogram() {
+        jdbcTemplate.update("""
+            INSERT INTO telaio_metrics_bucket (bucket_start, bucket_duration_ms, dal_name, operation, instance_id,
+                invocation_count, error_count, client_error_count, total_duration_nanos, min_duration_nanos,
+                max_duration_nanos, histogram_counts)
+            VALUES (?, 60000, 'products', 'READ', 'external', 4, 0, 0, 4000000, 1000000, 1000000, '')
+            """, LocalDateTime.ofInstant(T0, ZoneOffset.UTC));
+
+        List<DalMetricsBucket> buckets = store.findBuckets("products", DalOperationType.READ, T0, NOW);
+
+        assertThat(buckets).hasSize(1);
+        assertThat(buckets.getFirst().count()).isEqualTo(4);
+        assertThat(buckets.getFirst().histogramCounts()).isEmpty();
     }
 
     @Test

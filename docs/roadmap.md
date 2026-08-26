@@ -89,9 +89,15 @@ optional-transaction-manager mode. Wherever a backend has no real transaction ma
 
 ## 6. telaio-metrics JDBC store and multiple transaction managers
 
-`TelaioMetricsAutoConfiguration.jdbcDalMetricsStore` resolves its optional `PlatformTransactionManager` with
-`ObjectProvider.getIfAvailable()`, which fails the application context when a consumer holds two
-default-candidate transaction managers (e.g. two `DataSource`s, or an explicitly declared JPA manager next to a
-plain Mongo one). The store already tolerates a missing template, so a graceful degradation (`getIfUnique()`, or
-an explicit `telaio.metrics.jdbc.*` transaction-manager selection) is under evaluation — surfaced by the Block 2
-review on 2026-08-25, decision pending. Code anchor: `TODO(roadmap)` in `TelaioMetricsAutoConfiguration`.
+**Done (2026-08-26):** the JDBC store no longer looks up the application's transaction manager or relies on a
+single by-type `DataSource`. Two Batch-style qualifiers were added to telaio-metrics — `@TelaioMetricsDataSource`
+(the DataSource holding the metrics table, e.g. one whose default schema is dedicated to metrics) and
+`@TelaioMetricsTransactionManager` (optional override, JTA/XA) — and the resolution is: marked DataSource → else the
+single/`@Primary` one → else fail fast with the candidate bean names and the fix spelled out (decided over a silent
+in-memory fallback). The transaction manager defaults to a private `JdbcTransactionManager` bound to that
+DataSource, never registered as a bean (single private consumer; a default-candidate bean would also make Boot's
+`JpaTransactionManager` back off); the store writes only on its own flusher thread, so the application's managers
+are irrelevant to it, and a flush forced from inside a caller's transaction joins that transaction. Documented in
+[modules/metrics.md](modules/metrics.md#choosing-the-datasource-and-transaction-manager). Original problem:
+`ObjectProvider.getIfAvailable()` failed the context with two default-candidate transaction managers and silently
+accepted a manager over a different DataSource — surfaced by the Block 2 review on 2026-08-25.

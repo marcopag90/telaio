@@ -26,6 +26,8 @@ class LatencyHistogramScaleTest {
         assertThatIllegalArgumentException()
             .isThrownBy(() -> LatencyHistogramScale.of(Duration.ZERO, 2.0, 4));
         assertThatIllegalArgumentException()
+            .isThrownBy(() -> LatencyHistogramScale.of(Duration.ofMillis(-1), 2.0, 4));
+        assertThatIllegalArgumentException()
             .isThrownBy(() -> LatencyHistogramScale.of(Duration.ofMillis(1), 1.0, 4));
         assertThatIllegalArgumentException()
             .isThrownBy(() -> LatencyHistogramScale.of(Duration.ofMillis(1), 2.0, 1));
