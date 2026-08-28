@@ -21,6 +21,11 @@ import java.util.Objects;
  * through the public single-argument constructor. This mirrors the mechanism Turkraft itself
  * applies to {@code String} {@code @Id} fields.</p>
  *
+ * <p>Every other resolver method — including the reference-field ({@code @DBRef} /
+ * {@code @DocumentReference}) queries that have interface defaults — is forwarded to the delegate:
+ * the decorator is registered as the primary resolver, so relying on the defaults would silently
+ * disable the delegate's behaviour for the whole application.</p>
+ *
  * @author Marco Pagan
  * @since 1.2.0
  */
@@ -46,5 +51,25 @@ public final class ObjectIdAwareFieldTypeResolver implements FieldTypeResolver {
     @Override
     public @Nullable Field getField(Class<?> klass, String path) {
         return delegate.getField(klass, path);
+    }
+
+    @Override
+    public boolean isCollectionDbRefField(Class<?> klass, String path) {
+        return delegate.isCollectionDbRefField(klass, path);
+    }
+
+    @Override
+    public boolean isReferenceDollarField(Class<?> klass, String path) {
+        return delegate.isReferenceDollarField(klass, path);
+    }
+
+    @Override
+    public String storedFieldPath(Class<?> klass, String path) {
+        return delegate.storedFieldPath(klass, path);
+    }
+
+    @Override
+    public boolean hasDollarSegment(String path) {
+        return delegate.hasDollarSegment(path);
     }
 }

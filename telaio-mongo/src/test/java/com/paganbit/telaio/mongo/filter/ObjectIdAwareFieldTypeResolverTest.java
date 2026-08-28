@@ -13,7 +13,8 @@ import static org.mockito.Mockito.mock;
 
 /**
  * Unit tests for {@link ObjectIdAwareFieldTypeResolver}: {@code ObjectId}-typed fields resolve to
- * Turkraft's {@code CustomObjectId} marker, everything else passes through untouched.
+ * Turkraft's {@code CustomObjectId} marker, everything else passes through untouched — including the
+ * reference-field methods that carry interface defaults, which must reach the delegate.
  */
 class ObjectIdAwareFieldTypeResolverTest {
 
@@ -41,6 +42,34 @@ class ObjectIdAwareFieldTypeResolverTest {
         doReturn(field).when(delegate).getField(Widget.class, "name");
 
         assertThat(resolver.getField(Widget.class, "name")).isSameAs(field);
+    }
+
+    @Test
+    void isCollectionDbRefField_delegatesInsteadOfUsingTheInterfaceDefault() {
+        doReturn(true).when(delegate).isCollectionDbRefField(Widget.class, "roles.$id");
+
+        assertThat(resolver.isCollectionDbRefField(Widget.class, "roles.$id")).isTrue();
+    }
+
+    @Test
+    void isReferenceDollarField_delegatesInsteadOfUsingTheInterfaceDefault() {
+        doReturn(true).when(delegate).isReferenceDollarField(Widget.class, "manager.$id");
+
+        assertThat(resolver.isReferenceDollarField(Widget.class, "manager.$id")).isTrue();
+    }
+
+    @Test
+    void storedFieldPath_delegatesInsteadOfUsingTheInterfaceDefault() {
+        doReturn("advisor").when(delegate).storedFieldPath(Widget.class, "advisor.$id");
+
+        assertThat(resolver.storedFieldPath(Widget.class, "advisor.$id")).isEqualTo("advisor");
+    }
+
+    @Test
+    void hasDollarSegment_delegatesInsteadOfUsingTheInterfaceDefault() {
+        doReturn(true).when(delegate).hasDollarSegment("plain.path");
+
+        assertThat(resolver.hasDollarSegment("plain.path")).isTrue();
     }
 
     @SuppressWarnings("unused")

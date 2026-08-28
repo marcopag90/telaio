@@ -114,7 +114,8 @@ expression** (that is what the Turkraft mongo artifact emits), which has two pra
 - **No index use:** `$expr` predicates generally cannot use indexes (except limited equality cases), so filtered reads
   are collection scans. Fine for moderate collections; measure before relying on it at scale.
 - **Temporal values compare as strings:** filter literals pass through JSON, so comparisons against BSON `Date`
-  fields do not match. Known upstream limitation, tracked on the [roadmap](../roadmap.md).
+  fields do not match. Known upstream limitation (fix in progress,
+  [springfilter#524](https://github.com/turkraft/springfilter/issues/524)), tracked on the [roadmap](../roadmap.md).
 
 Also note the Mongo filter function vocabulary is thinner than JPA's (only `size` and `today` beyond the standard
 operators — the upstream `mongo-language` artifact is empty).

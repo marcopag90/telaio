@@ -1,6 +1,7 @@
 package com.paganbit.telaio.mongo.filter;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.turkraft.springfilter.helper.DbRefFieldSupport;
 import com.turkraft.springfilter.helper.FieldTypeResolver;
 import com.turkraft.springfilter.helper.JsonNodeHelper;
 import com.turkraft.springfilter.helper.JsonNodeHelperImpl;
@@ -16,6 +17,8 @@ import tools.jackson.databind.json.JsonMapper;
 import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -41,12 +44,15 @@ class JsonAwareFilterQueryConverterTest {
         private String name;
     }
 
-    private final FieldTypeResolver fieldTypeResolver = mock(FieldTypeResolver.class);
+    // CALLS_REAL_METHODS keeps the interface defaults (storedFieldPath, hasDollarSegment) that
+    // the 4.0.9 transformer relies on; a plain mock would return null for them.
+    private final FieldTypeResolver fieldTypeResolver = mock(FieldTypeResolver.class, CALLS_REAL_METHODS);
 
     private final FilterNodeProcessorFactories processorFactories = mock(FilterNodeProcessorFactories.class);
 
     private final JsonNodeHelper jsonNodeHelper =
-        new JsonNodeHelperImpl(JsonMapper.builder().build(), fieldTypeResolver);
+        new JsonNodeHelperImpl(JsonMapper.builder().build(), fieldTypeResolver,
+            new DbRefFieldSupport(fieldTypeResolver));
 
     private final JsonAwareFilterQueryConverter converter = new JsonAwareFilterQueryConverter(
         new DefaultFormattingConversionService(),
@@ -79,7 +85,8 @@ class JsonAwareFilterQueryConverterTest {
 
     @Test
     void convert_mapsIdAnnotatedFieldToRawIdField() throws NoSuchFieldException {
-        when(fieldTypeResolver.getField(Widget.class, "id")).thenReturn(Widget.class.getDeclaredField("id"));
+        doReturn(Widget.class.getDeclaredField("id"))
+            .when(fieldTypeResolver).getField(Widget.class, "id");
 
         Query query = converter.convert(new FieldNode("id"), Widget.class);
 

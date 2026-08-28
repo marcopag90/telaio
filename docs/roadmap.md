@@ -39,7 +39,7 @@ Residuals:
 
 - **Swagger/springdoc** still uses Jackson 2 internally — nothing actionable until upstream drops it; track
   their releases.
-- The Turkraft `mongo` jar (4.0.7 included) still ships an `application.properties` at its jar root that
+- The Turkraft `mongo` jar (4.0.9 included) still ships an `application.properties` at its jar root that
   enables `MongoTemplate` DEBUG logging on every consumer — remaining upstream PR opportunity. Note that a
   consumer cannot neutralize it from `application.yaml` (at the same location `.properties` takes precedence over
   `.yaml`, and Boot loads a single `classpath:/application.properties` — the first on the classpath): the override
@@ -52,8 +52,9 @@ Residuals:
 - The `mongo-language` artifact is **empty** — the Mongo filter function vocabulary is only `size` / `today`
   beyond the standard operators, versus JPA's ~55 processors. Candidate for an upstream issue.
 - Temporal comparisons are unreliable: filter values pass through `Document.parse`, so date literals become plain
-  strings and never match BSON `Date` fields. Persists in 4.0.7 (the Jackson 3 migration kept the JSON
-  intermediate); would be fixed upstream by transforming straight to `org.bson.Document` — open PR opportunity.
+  strings and never match BSON `Date` fields. Persists in 4.0.9 (the Jackson 3 migration kept the JSON
+  intermediate). Fix in progress upstream — [springfilter#524](https://github.com/turkraft/springfilter/issues/524),
+  approved approach: a BSON-native transformer that emits typed values instead of going through JSON text.
 - `$expr` queries cannot use indexes (except limited equality cases): filtered reads are collection scans — documented
   as a performance characteristic in [modules/mongo.md](modules/mongo.md).
 

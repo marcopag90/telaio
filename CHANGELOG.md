@@ -39,7 +39,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### 🔨 Dependency Upgrades
 
-- Turkraft Spring Filter 4.0.1 → 4.0.8
+- Turkraft Spring Filter 4.0.1 → 4.0.9
 
 ## [1.1.0] - 2026-07-29
 
