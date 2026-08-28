@@ -30,18 +30,17 @@ and a backend implements the `execute*` SPI.
 
 ### Support
 
-| Type                            | Purpose                                                                                                                      |
-|---------------------------------|------------------------------------------------------------------------------------------------------------------------------|
-| `FilterQueryConverter`          | Contract: parsed Turkraft `FilterNode` + entity class → Mongo `Query` (replaceable by a user bean)                           |
-| `JsonAwareFilterQueryConverter` | Default converter: rewrites `@JsonProperty` wire names to Java names, then builds an `$expr` query                           |
-| `EntityDefaultSortResolver`     | Resolves the default sort (ascending by id property) from Spring Data mapping metadata                                       |
+| Type                            | Purpose                                                                                                                        |
+|---------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| `JsonAwareFilterQueryConverter` | Primary decorator of Turkraft's `FilterQueryConverter`: rewrites `@JsonProperty` wire names to Java names, then delegates      |
+| `EntityDefaultSortResolver`     | Resolves the default sort (ascending by id property) from Spring Data mapping metadata                                         |
 | `PassThroughTransactionManager` | No-op transaction manager used as fallback on standalone Mongo — provided by telaio-core (see [Transactions](#transactions)) |
 
 ### Configuration
 
 | Type                           | Purpose                                                                                                                  |
 |--------------------------------|--------------------------------------------------------------------------------------------------------------------------|
-| `TelaioMongoAutoConfiguration` | Spring Boot autoconfiguration (conditional on `MongoOperations` and Turkraft's mongo transformer being on the classpath) |
+| `TelaioMongoAutoConfiguration` | Spring Boot autoconfiguration (conditional on `MongoOperations` and Turkraft's BSON transformer being on the classpath) |
 
 ## How Developers Use It
 
@@ -64,7 +63,7 @@ public class Announcement {
 > (`/dal/v1/announcements/{hexId}`). `org.bson.types.ObjectId` ids are **supported as well**: telaio-mongo
 > contributes the type to the framework's simple-type classification (`SimpleTypeContributor`) and registers a
 > Jackson 3 module (`ObjectIdJacksonModule`), so ObjectId ids also travel as plain hex strings — and `q=` filters on
-> ObjectId fields match via the extended-JSON `$oid` shape. `String` stays the recommended default: remote clients
+> ObjectId fields match as BSON `ObjectId`s. `String` stays the recommended default: remote clients
 > addressing an ObjectId-backed DAL should declare `String` as the client-side id type (wire-identical).
 
 ### 2. Define a Repository Interface
@@ -92,7 +91,7 @@ The framework:
 
 - Autowires `AnnouncementRepository` into the `repository` setter
 - Autowires `MongoOperations` (the `MongoTemplate`) into the `mongoOperations` setter
-- Autowires the `FilterQueryConverter` into the `queryConverter` setter
+- Autowires the primary `FilterQueryConverter` (the JSON-aware decorator of Turkraft's converter) into the `queryConverter` setter
 - Autowires the `telaioMongoTransactionManager` bean into the (qualified) `transactionManager` setter
 - Calls `afterPropertiesSet()` to extract the generic `<E, I>` and validate
 
@@ -113,16 +112,18 @@ expression** (that is what the Turkraft mongo artifact emits), which has two pra
 
 - **No index use:** `$expr` predicates generally cannot use indexes (except limited equality cases), so filtered reads
   are collection scans. Fine for moderate collections; measure before relying on it at scale.
-- **Temporal values compare as strings:** filter literals pass through JSON, so comparisons against BSON `Date`
-  fields do not match. Known upstream limitation (fix in progress,
-  [springfilter#524](https://github.com/turkraft/springfilter/issues/524)), tracked on the [roadmap](../roadmap.md).
+- **Typed literals:** filter values are converted to the field's Java type and emitted as BSON values — temporal
+  literals (`q=createdAt>'2026-01-01T00:00:00Z'`) compare as BSON dates, identifiers as `ObjectId`s, UUIDs as
+  `UUID`s (Turkraft mongo ≥ 4.0.10).
 
 Also note the Mongo filter function vocabulary is thinner than JPA's (only `size` and `today` beyond the standard
 operators — the upstream `mongo-language` artifact is empty).
 
-For `ObjectId`-typed fields, telaio-mongo registers `ObjectIdAwareFieldTypeResolver` as the *primary* Turkraft
-`FieldTypeResolver`. The bean is context-global — in a mixed jpa+mongo application the JPA filter path sees it too —
-but it only rewrites `ObjectId`-typed fields and delegates everything else unchanged.
+`ObjectId`-typed fields (ids and plain fields alike) need no extra wiring: the BSON transformer converts the literal
+to the field's declared type and emits a real `ObjectId`.
+
+To replace the conversion, declare your own `FilterQueryConverter` bean and mark it `@Primary` (Turkraft's own
+implementation stays in the context): the autoconfigured decorator backs off.
 
 ## Transactions
 

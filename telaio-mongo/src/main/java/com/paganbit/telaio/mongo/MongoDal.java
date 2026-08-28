@@ -1,8 +1,8 @@
 package com.paganbit.telaio.mongo;
 
 import com.paganbit.telaio.core.AbstractDal;
-import com.paganbit.telaio.mongo.filter.FilterQueryConverter;
 import com.paganbit.telaio.mongo.sort.EntityDefaultSortResolver;
+import com.turkraft.springfilter.converter.FilterQueryConverter;
 import com.turkraft.springfilter.parser.node.FilterNode;
 import org.bson.Document;
 import org.jspecify.annotations.Nullable;

@@ -1,6 +1,7 @@
 package com.paganbit.telaio.mongo.filter;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.turkraft.springfilter.converter.FilterQueryConverter;
 import com.turkraft.springfilter.converter.FilterStringConverter;
 import com.turkraft.springfilter.parser.node.FilterNode;
 import lombok.Getter;
@@ -21,6 +22,7 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.format.support.DefaultFormattingConversionService;
 import org.testcontainers.mongodb.MongoDBContainer;
 
+import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -91,22 +93,55 @@ class JsonAwareFilterQueryConverterIntegrationTest {
 
     @Test
     void objectIdFieldFilterMatchesPersistedDocuments() {
-        // The ObjectIdAwareFieldTypeResolver decorator maps the ObjectId-typed @Id to Turkraft's
-        // CustomObjectId, whose {"$oid": <hex>} shape parses into a real BSON ObjectId.
+        // Turkraft resolves the ObjectId-typed @Id to its CustomObjectId marker, which the BSON
+        // transformer turns into a real ObjectId.
         mongoOperations.remove(new Query(), Gadget.class);
         Gadget first = new Gadget();
         first.setLabel("first");
+        first.setOwnerId(new ObjectId());
         Gadget second = new Gadget();
         second.setLabel("second");
+        second.setOwnerId(new ObjectId());
         mongoOperations.save(first);
         mongoOperations.save(second);
 
-        FilterNode node = filterStringConverter.convert("id : '" + first.getId().toHexString() + "'");
+        FilterNode byId = filterStringConverter.convert("id : '" + first.getId().toHexString() + "'");
+        List<Gadget> foundById = mongoOperations.find(queryConverter.convert(byId, Gadget.class), Gadget.class);
+        assertThat(foundById).hasSize(1);
+        assertThat(foundById.getFirst().getLabel()).isEqualTo("first");
 
-        List<Gadget> found = mongoOperations.find(queryConverter.convert(node, Gadget.class), Gadget.class);
+        // Plain (non-id) ObjectId fields rely on the same upstream resolution.
+        FilterNode byOwner = filterStringConverter.convert(
+            "ownerId : '" + second.getOwnerId().toHexString() + "'");
+        List<Gadget> foundByOwner =
+            mongoOperations.find(queryConverter.convert(byOwner, Gadget.class), Gadget.class);
+        assertThat(foundByOwner).hasSize(1);
+        assertThat(foundByOwner.getFirst().getLabel()).isEqualTo("second");
+    }
 
-        assertThat(found).hasSize(1);
-        assertThat(found.getFirst().getLabel()).isEqualTo("first");
+    @Test
+    void temporalFilterComparesAsBsonDate() {
+        mongoOperations.remove(new Query(), Event.class);
+        Event old = new Event();
+        old.setName("old");
+        old.setCreatedAt(Instant.parse("2020-06-01T00:00:00Z"));
+        Event recent = new Event();
+        recent.setName("recent");
+        recent.setCreatedAt(Instant.parse("2026-06-01T00:00:00Z"));
+        mongoOperations.save(old);
+        mongoOperations.save(recent);
+
+        assertThat(eventsMatching("createdAt > '2023-01-01T00:00:00Z'")).containsExactly("recent");
+        assertThat(eventsMatching("createdAt < '2023-01-01T00:00:00Z'")).containsExactly("old");
+        assertThat(eventsMatching("createdAt : '2020-06-01T00:00:00Z'")).containsExactly("old");
+        assertThat(eventsMatching("createdAt in ['2020-06-01T00:00:00Z', '1999-01-01T00:00:00Z']"))
+            .containsExactly("old");
+    }
+
+    private List<String> eventsMatching(String filter) {
+        return mongoOperations.find(queryConverter.convert(filter, Event.class), Event.class).stream()
+            .map(Event::getName)
+            .toList();
     }
 
     @Getter
@@ -130,6 +165,20 @@ class JsonAwareFilterQueryConverterIntegrationTest {
         private ObjectId id;
 
         private String label;
+
+        private ObjectId ownerId;
+    }
+
+    @Getter
+    @Setter
+    static class Event {
+
+        @Id
+        private String id;
+
+        private String name;
+
+        private Instant createdAt;
     }
 
     @SpringBootConfiguration

@@ -3,26 +3,22 @@ package com.paganbit.telaio.mongo.autoconfigure;
 import com.paganbit.telaio.core.transaction.PassThroughTransactionManager;
 import com.paganbit.telaio.introspection.SimpleTypeContributor;
 import com.paganbit.telaio.mongo.MongoDal;
-import com.paganbit.telaio.mongo.filter.FilterQueryConverter;
 import com.paganbit.telaio.mongo.filter.JsonAwareFilterQueryConverter;
-import com.paganbit.telaio.mongo.filter.ObjectIdAwareFieldTypeResolver;
 import com.paganbit.telaio.mongo.jackson.ObjectIdJacksonModule;
-import com.turkraft.springfilter.helper.FieldTypeResolver;
-import com.turkraft.springfilter.helper.JsonNodeHelper;
-import com.turkraft.springfilter.transformer.FilterJsonNodeTransformer;
-import com.turkraft.springfilter.transformer.processor.factory.FilterNodeProcessorFactories;
+import com.turkraft.springfilter.converter.FilterQueryConverter;
+import com.turkraft.springfilter.converter.FilterQueryConverterImpl;
+import com.turkraft.springfilter.converter.FilterStringConverter;
 import org.bson.types.ObjectId;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-import org.springframework.core.convert.ConversionService;
-import org.springframework.core.convert.support.DefaultConversionService;
 import org.springframework.data.mongodb.MongoDatabaseFactory;
 import org.springframework.data.mongodb.MongoTransactionManager;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
+import tools.jackson.databind.json.JsonMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -38,57 +34,79 @@ class TelaioMongoAutoConfigurationTest {
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
         .withConfiguration(AutoConfigurations.of(TelaioMongoAutoConfiguration.class));
 
+    private final FilterQueryConverterImpl turkraftConverter = mock(FilterQueryConverterImpl.class);
+
     private ApplicationContextRunner withTurkraftMongoBeans() {
         return runner
-            .withBean(FilterNodeProcessorFactories.class, () -> mock(FilterNodeProcessorFactories.class))
-            .withBean(FieldTypeResolver.class, () -> mock(FieldTypeResolver.class))
-            .withBean(JsonNodeHelper.class, () -> mock(JsonNodeHelper.class));
+            .withBean(FilterQueryConverterImpl.class, () -> turkraftConverter)
+            .withBean(FilterStringConverter.class, () -> mock(FilterStringConverter.class));
     }
 
     @Test
-    void converter_registeredWhenTurkraftMongoBeansPresent() {
+    void converter_decoratesTurkraftConverterAsPrimary() {
         withTurkraftMongoBeans().run(context -> {
-            assertThat(context).hasSingleBean(FilterQueryConverter.class);
+            // Two FilterQueryConverter beans coexist: Turkraft's and the primary decorator.
+            assertThat(context.getBeansOfType(FilterQueryConverter.class)).hasSize(2);
             assertThat(context.getBean(FilterQueryConverter.class))
                 .isInstanceOf(JsonAwareFilterQueryConverter.class);
+            assertThat(ReflectionTestUtils.getField(context.getBean(FilterQueryConverter.class), "delegate"))
+                .isSameAs(turkraftConverter);
         });
     }
 
     @Test
-    void converter_backsOffWithoutTurkraftMongoBeans() {
+    void converter_backsOffWithoutTurkraftConverter() {
         runner.run(context -> assertThat(context).doesNotHaveBean(FilterQueryConverter.class));
     }
 
     /**
-     * Web-application scenario: several {@code ConversionService} beans coexist (Spring MVC's
-     * {@code mvcConversionService}, Turkraft's {@code sfConversionService}). The converter must select
-     * Turkraft's by name — a by-type lookup would be ambiguous and fail the context.
+     * A user-declared decorator replaces the autoconfigured one. Marked primary, as the contract requires:
+     * Turkraft's own converter stays in the context, so a by-type injection point (what {@code MongoDal}
+     * declares) must still resolve unambiguously.
      */
     @Test
-    void converter_selectsTurkraftConversionServiceAmongSeveral() {
-        ConversionService mvc = new DefaultConversionService();
-        ConversionService turkraft = new DefaultConversionService();
+    void converter_backsOffWhenUserDefinesTheDecorator() {
+        JsonAwareFilterQueryConverter custom = new JsonAwareFilterQueryConverter(
+            turkraftConverter, mock(FilterStringConverter.class), JsonMapper.builder().build());
         withTurkraftMongoBeans()
-            .withBean("mvcConversionService", ConversionService.class, () -> mvc)
-            .withBean("sfConversionService", ConversionService.class, () -> turkraft)
+            .withBean("customConverter", JsonAwareFilterQueryConverter.class, () -> custom,
+                definition -> definition.setPrimary(true))
+            .withUserConfiguration(ConverterByTypeConsumer.class)
             .run(context -> {
                 assertThat(context).hasNotFailed();
-                assertThat(context).hasSingleBean(FilterQueryConverter.class);
-                assertThat(ReflectionTestUtils.getField(
-                    context.getBean(FilterQueryConverter.class), "conversionService"))
-                    .isSameAs(turkraft);
+                assertThat(context).hasSingleBean(JsonAwareFilterQueryConverter.class);
+                assertThat(context.getBean(JsonAwareFilterQueryConverter.class)).isSameAs(custom);
+                assertThat(context.getBean(ConverterByTypeConsumer.class).converter).isSameAs(custom);
             });
     }
 
+    /**
+     * Any user-declared converter (not only the decorator type) makes the autoconfigured one back off;
+     * Turkraft's own implementation is ignored by the guard, so the user bean must be primary.
+     */
     @Test
-    void converter_backsOffWhenUserDefinesOne() {
+    void converter_backsOffWhenUserDefinesAnyOtherConverter() {
         FilterQueryConverter custom = mock(FilterQueryConverter.class);
         withTurkraftMongoBeans()
-            .withBean("customFilterQueryConverter", FilterQueryConverter.class, () -> custom)
+            .withBean("customConverter", FilterQueryConverter.class, () -> custom,
+                definition -> definition.setPrimary(true))
+            .withUserConfiguration(ConverterByTypeConsumer.class)
             .run(context -> {
-                assertThat(context).hasSingleBean(FilterQueryConverter.class);
+                assertThat(context).hasNotFailed();
+                assertThat(context).doesNotHaveBean(JsonAwareFilterQueryConverter.class);
                 assertThat(context.getBean(FilterQueryConverter.class)).isSameAs(custom);
+                assertThat(context.getBean(ConverterByTypeConsumer.class).converter).isSameAs(custom);
             });
+    }
+
+    static class ConverterByTypeConsumer {
+
+        FilterQueryConverter converter;
+
+        @Autowired
+        public void setConverter(FilterQueryConverter converter) {
+            this.converter = converter;
+        }
     }
 
     @Test
@@ -185,16 +203,9 @@ class TelaioMongoAutoConfigurationTest {
     }
 
     @Test
-    void fieldTypeResolver_primaryDecoratesTurkraftResolver() {
-        withTurkraftMongoBeans().run(context ->
-            assertThat(context.getBean(FieldTypeResolver.class))
-                .isInstanceOf(ObjectIdAwareFieldTypeResolver.class));
-    }
-
-    @Test
     void autoConfiguration_backsOffWithoutTurkraftMongoOnClasspath() {
         runner
-            .withClassLoader(new FilteredClassLoader(FilterJsonNodeTransformer.class))
+            .withClassLoader(new FilteredClassLoader(FilterQueryConverter.class))
             .run(context -> {
                 assertThat(context).doesNotHaveBean(TelaioMongoAutoConfiguration.class);
                 assertThat(context).doesNotHaveBean(MongoDal.TRANSACTION_MANAGER_BEAN_NAME);

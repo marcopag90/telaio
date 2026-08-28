@@ -9,6 +9,8 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.Instant;
+
 /**
  * A notification stored in MongoDB — the showcase's document-store entity. The {@code String} id is
  * mapped onto {@code _id} (Spring Data generates an ObjectId hex string when unset) and travels
@@ -35,6 +37,8 @@ public class Notification {
 
     @NotNull
     private NotificationChannel channel;
+
+    private Instant createdAt;
 
     @Version
     private Long version;

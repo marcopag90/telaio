@@ -3,6 +3,8 @@ package com.paganbit.telaio.showcase.dal.notification;
 import com.paganbit.telaio.showcase.seed.AbstractDemoSeeder;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+
 /**
  * Demo notifications, one per {@link NotificationChannel}, stored in MongoDB.
  */
@@ -34,6 +36,7 @@ class NotificationSeeder extends AbstractDemoSeeder {
         notification.setSubject(subject);
         notification.setMessage(message);
         notification.setChannel(channel);
+        notification.setCreatedAt(Instant.now());
         return notification;
     }
 }

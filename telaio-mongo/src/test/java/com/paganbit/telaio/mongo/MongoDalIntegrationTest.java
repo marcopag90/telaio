@@ -2,8 +2,8 @@ package com.paganbit.telaio.mongo;
 
 import com.paganbit.telaio.core.beans.DalPropertyMerger;
 import com.paganbit.telaio.core.transaction.DalTransactionPolicy;
-import com.paganbit.telaio.mongo.filter.FilterQueryConverter;
 import com.turkraft.springfilter.builder.FilterBuilder;
+import com.turkraft.springfilter.converter.FilterQueryConverter;
 import com.turkraft.springfilter.converter.FilterStringConverter;
 import com.turkraft.springfilter.parser.node.FilterNode;
 import jakarta.validation.Validator;
@@ -37,6 +37,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
 /**
@@ -141,10 +142,11 @@ class MongoDalIntegrationTest {
         TestEntity firstAlpha = persisted("alpha");
         TestEntity secondAlpha = persisted("alpha");
         persisted("beta");
-        FilterQueryConverter exprConverter =
-            (node, type) -> new BasicQuery("{\"$expr\": {\"$eq\": [\"$name\", \"alpha\"]}}");
-        dal.setQueryConverter(exprConverter);
+        FilterQueryConverter exprConverter = mock(FilterQueryConverter.class);
         FilterNode filter = mock(FilterNode.class);
+        doReturn(new BasicQuery("{\"$expr\": {\"$eq\": [\"$name\", \"alpha\"]}}"))
+            .when(exprConverter).convert(filter, TestEntity.class);
+        dal.setQueryConverter(exprConverter);
 
         // Page size 1 with 2 matches forces the count query to run against the $expr criteria.
         Page<TestEntity> page = dal.executeRead(filter, PageRequest.of(0, 1, Sort.by("id")));
@@ -168,8 +170,10 @@ class MongoDalIntegrationTest {
         FilterNode defaultFilter = mock(FilterNode.class);
         DefaultFilteredMongoDal filteredDal = new DefaultFilteredMongoDal(repository, mongoOperations, defaultFilter);
         wireAbstractDalCollaborators(filteredDal);
-        filteredDal.setQueryConverter(
-            (node, type) -> new BasicQuery("{\"$expr\": {\"$eq\": [\"$name\", \"alpha\"]}}"));
+        FilterQueryConverter alphaOnly = mock(FilterQueryConverter.class);
+        doReturn(new BasicQuery("{\"$expr\": {\"$eq\": [\"$name\", \"alpha\"]}}"))
+            .when(alphaOnly).convert(defaultFilter, TestEntity.class);
+        filteredDal.setQueryConverter(alphaOnly);
         filteredDal.afterPropertiesSet();
 
         assertThat(filteredDal.executeReadOne(visible.getId())).isPresent();

@@ -4,30 +4,22 @@ import com.paganbit.telaio.core.autoconfigure.TelaioCoreAutoConfiguration;
 import com.paganbit.telaio.core.transaction.PassThroughTransactionManager;
 import com.paganbit.telaio.introspection.SimpleTypeContributor;
 import com.paganbit.telaio.mongo.MongoDal;
-import com.paganbit.telaio.mongo.filter.FilterQueryConverter;
 import com.paganbit.telaio.mongo.filter.JsonAwareFilterQueryConverter;
-import com.paganbit.telaio.mongo.filter.ObjectIdAwareFieldTypeResolver;
 import com.paganbit.telaio.mongo.jackson.ObjectIdJacksonModule;
-import com.turkraft.springfilter.helper.FieldTypeResolver;
-import com.turkraft.springfilter.helper.JsonNodeHelper;
-import com.turkraft.springfilter.helper.JsonNodeHelperImpl;
-import com.turkraft.springfilter.transformer.FilterJsonNodeTransformer;
-import com.turkraft.springfilter.transformer.processor.factory.FilterNodeProcessorFactories;
-import com.turkraft.springfilter.transformer.processor.factory.FilterNodeProcessorFactoriesImpl;
+import com.turkraft.springfilter.converter.FilterQueryConverter;
+import com.turkraft.springfilter.converter.FilterQueryConverterImpl;
+import com.turkraft.springfilter.converter.FilterStringConverter;
 import org.bson.types.ObjectId;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.convert.ApplicationConversionService;
 import org.springframework.boot.data.mongodb.autoconfigure.DataMongoAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
-import org.springframework.core.convert.ConversionService;
 import org.springframework.data.mongodb.MongoTransactionManager;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -45,12 +37,12 @@ import java.util.Set;
  * ({@code @ConditionalOnClass(MongoOperations.class)}) that must be satisfied before any Mongo DAL is
  * processed, and contributes the Mongo-specific beans below.</p>
  *
- * <p>It registers a {@link JsonAwareFilterQueryConverter} as the default {@link FilterQueryConverter},
- * built on Turkraft's mongo transformer beans. This lets filter queries reference {@code @JsonProperty}
- * wire names; {@code MongoDal} picks it up automatically through its {@code @Autowired} setter. It also
- * registers the {@link PlatformTransactionManager} routed to every {@link MongoDal} under the
- * {@link MongoDal#TRANSACTION_MANAGER_BEAN_NAME} qualifier. All beans are purely additive
- * and overridable — define your own {@link FilterQueryConverter}, or your own
+ * <p>It decorates Turkraft's {@link FilterQueryConverter} with a {@link JsonAwareFilterQueryConverter},
+ * marked primary so it is the converter injected into {@code MongoDal}. This lets filter queries
+ * reference {@code @JsonProperty} wire names. It also registers the {@link PlatformTransactionManager}
+ * routed to every {@link MongoDal} under the {@link MongoDal#TRANSACTION_MANAGER_BEAN_NAME} qualifier.
+ * All beans are purely additive and overridable — declare your own {@link FilterQueryConverter} bean (marked
+ * {@code @Primary}, since the framework's own converter stays in the context), or your own
  * {@link PlatformTransactionManager} named {@link MongoDal#TRANSACTION_MANAGER_BEAN_NAME}, and the
  * corresponding autoconfigured bean backs off.</p>
  *
@@ -61,21 +53,13 @@ import java.util.Set;
     after = {
         TelaioCoreAutoConfiguration.class,
         DataMongoAutoConfiguration.class,
-        FilterNodeProcessorFactoriesImpl.class,
-        JsonNodeHelperImpl.class
-    },
-    afterName = "com.turkraft.springfilter.helper.FieldTypeResolverImpl"
+        FilterQueryConverterImpl.class
+    }
 )
-@ConditionalOnClass({MongoOperations.class, FilterJsonNodeTransformer.class})
+@ConditionalOnClass({MongoOperations.class, FilterQueryConverter.class})
 public class TelaioMongoAutoConfiguration {
 
     private static final org.slf4j.Logger log = LoggerFactory.getLogger(TelaioMongoAutoConfiguration.class);
-
-    /**
-     * Name of the {@link ConversionService} bean Turkraft's {@code FilterConversionServiceConfiguration}
-     * registers for its filter pipeline.
-     */
-    private static final String TURKRAFT_CONVERSION_SERVICE_BEAN_NAME = "sfConversionService";
 
     /**
      * Jackson 3 module mapping {@link ObjectId} to its hexadecimal string form.
@@ -96,50 +80,29 @@ public class TelaioMongoAutoConfiguration {
     }
 
     /**
-     * Primary {@link FieldTypeResolver} decorating Turkraft's resolver so that
-     * {@link org.bson.types.ObjectId}-typed fields filter through the extended-JSON
-     * {@code {"$oid": …}} shape. Primary because Turkraft's helper and node processors — where
-     * filter-value target types are computed — inject the resolver by plain type.
+     * Decorates Turkraft's converter so JSON wire names resolve to their underlying Java properties.
+     * Conditional on Turkraft's converter being present and on no other {@link FilterQueryConverter}
+     * bean being declared (Turkraft's own is ignored), and marked {@link Primary @Primary} so it is the
+     * converter injected into {@code MongoDal}.
+     *
+     * @param delegate              Turkraft's autoconfigured converter to delegate the actual conversion to
+     * @param filterStringConverter Turkraft's parser, used for the string form of a filter
+     * @param objectMapper          provider of the application {@link ObjectMapper} (falls back to a default
+     *                              mapper if none is defined), used to introspect {@code @JsonProperty} renames
+     * @return the JSON-aware primary converter
      */
     @Bean
     @Primary
-    @ConditionalOnBean(FieldTypeResolver.class)
-    @ConditionalOnMissingBean(ObjectIdAwareFieldTypeResolver.class)
-    FieldTypeResolver telaioObjectIdAwareFieldTypeResolver(FieldTypeResolver fieldTypeResolver) {
-        return new ObjectIdAwareFieldTypeResolver(fieldTypeResolver);
-    }
-
-    /**
-     * Default {@link FilterQueryConverter}, built on Turkraft's mongo transformer beans. The
-     * {@link ConversionService} is Turkraft's own {@code sfConversionService} — the one its filter
-     * pipeline and {@code sfConverterRegistry} customizations target — selected by name because a
-     * web application holds several {@code ConversionService} beans (e.g. {@code mvcConversionService})
-     * and a plain by-type lookup would be ambiguous. It and the Jackson 3 {@link ObjectMapper} fall
-     * back to defaults in contexts that define none.
-     */
-    @Bean
-    @ConditionalOnMissingBean(FilterQueryConverter.class)
-    @ConditionalOnBean({FilterNodeProcessorFactories.class, FieldTypeResolver.class, JsonNodeHelper.class})
+    @ConditionalOnBean(FilterQueryConverterImpl.class)
+    @ConditionalOnMissingBean(value = FilterQueryConverter.class, ignored = FilterQueryConverterImpl.class)
     FilterQueryConverter jsonAwareFilterQueryConverter(
-        @Qualifier(TURKRAFT_CONVERSION_SERVICE_BEAN_NAME)
-        ObjectProvider<ConversionService> conversionService,
-        FilterNodeProcessorFactories processorFactories,
-        FieldTypeResolver fieldTypeResolver,
-        JsonNodeHelper jsonNodeHelper,
+        FilterQueryConverterImpl delegate,
+        FilterStringConverter filterStringConverter,
         ObjectProvider<ObjectMapper> objectMapper
     ) {
-        ConversionService resolvedConversionService = conversionService.getIfAvailable();
-        if (resolvedConversionService == null) {
-            log.debug("No '{}' bean found: Mongo filter conversion falls back to the shared "
-                    + "ApplicationConversionService (custom Turkraft converters would not apply)",
-                TURKRAFT_CONVERSION_SERVICE_BEAN_NAME);
-            resolvedConversionService = ApplicationConversionService.getSharedInstance();
-        }
         return new JsonAwareFilterQueryConverter(
-            resolvedConversionService,
-            processorFactories,
-            fieldTypeResolver,
-            jsonNodeHelper,
+            delegate,
+            filterStringConverter,
             objectMapper.getIfAvailable(() -> JsonMapper.builder().build())
         );
     }

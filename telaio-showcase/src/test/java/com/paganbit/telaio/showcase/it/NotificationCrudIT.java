@@ -29,7 +29,9 @@ class NotificationCrudIT extends AbstractShowcaseIT {
 
     private static final String DAL = "notifications";
 
-    /** A well-formed ObjectId hex string that no document carries. */
+    /**
+     * A well-formed ObjectId hex string that no document carries.
+     */
     private static final String UNKNOWN_ID = "000000000000000000000000";
 
     @Autowired
@@ -104,6 +106,31 @@ class NotificationCrudIT extends AbstractShowcaseIT {
         assertThat(containsId(tree(nonMatching), id)).as("filtered out by channel").isFalse();
 
         assertThat(delete(USER, DAL, id).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+    }
+
+    @Test
+    void temporalFilterComparesAsBsonDate() {
+        Map<String, Object> old = validNotification();
+        old.put("createdAt", "2020-06-01T00:00:00Z");
+        String oldId = tree(create(USER, DAL, body(old))).get("id").asString();
+        Map<String, Object> recent = validNotification();
+        recent.put("createdAt", "2026-06-01T00:00:00Z");
+        String recentId = tree(create(USER, DAL, body(recent))).get("id").asString();
+
+        JsonNode later = tree(list(USER, DAL, "q=createdAt>'2023-01-01T00:00:00Z'&size=100"));
+        assertThat(containsId(later, recentId)).as("later document matches >").isTrue();
+        assertThat(containsId(later, oldId)).as("earlier document filtered out by >").isFalse();
+
+        JsonNode earlier = tree(list(USER, DAL, "q=createdAt<'2023-01-01T00:00:00Z'&size=100"));
+        assertThat(containsId(earlier, oldId)).as("earlier document matches <").isTrue();
+        assertThat(containsId(earlier, recentId)).as("later document filtered out by <").isFalse();
+
+        JsonNode exact = tree(list(USER, DAL, "q=createdAt:'2020-06-01T00:00:00Z'&size=100"));
+        assertThat(containsId(exact, oldId)).as("exact instant matches").isTrue();
+        assertThat(containsId(exact, recentId)).as("other instant filtered out by :").isFalse();
+
+        assertThat(delete(USER, DAL, oldId).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(delete(USER, DAL, recentId).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
     }
 
     @Test

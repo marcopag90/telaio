@@ -39,7 +39,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### 🔨 Dependency Upgrades
 
-- Turkraft Spring Filter 4.0.1 → 4.0.9
+- Turkraft Spring Filter 4.0.1 → 4.0.10 (BSON-native mongo filter conversion, `FilterQueryConverter` bean,
+  `@DBRef`/`@DocumentReference` filtering, xor fix)
 
 ## [1.1.0] - 2026-07-29
 
