@@ -69,7 +69,7 @@ public interface DalRestApiV1 {
     @ApiResponse(responseCode = "200", description = "Page of entities")
     @ApiResponse(
         responseCode = "400",
-        description = "Malformed filter or pagination parameters",
+        description = "Malformed or inapplicable filter, or invalid pagination parameters",
         content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     @ApiResponse(
         responseCode = "403",

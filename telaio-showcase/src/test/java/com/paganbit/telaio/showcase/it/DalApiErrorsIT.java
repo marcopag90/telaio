@@ -8,8 +8,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Cross-cutting — generic REST API error handling that is independent of any single DAL: authentication
- * is required, an unknown DAL name is a 404, and a malformed filter is rejected rather than silently
- * ignored (which would otherwise leak every row).
+ * is required, an unknown DAL name is a 404, a malformed filter is rejected rather than silently
+ * ignored (which would otherwise leak every row), a filter the entity cannot honor (unknown field or
+ * function) is a 400 and an unconvertible literal a 500 — on the JPA and the Mongo backend alike.
  */
 class DalApiErrorsIT extends AbstractShowcaseIT {
 
@@ -32,5 +33,49 @@ class DalApiErrorsIT extends AbstractShowcaseIT {
             .as("a malformed filter must never be treated as 'no filter' and return rows")
             .isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(tree(response).path("detail").asString()).isEqualTo("Malformed filter expression");
+    }
+
+    @Test
+    void unknownFilterFieldIsRejectedWithBadRequestOnEveryBackend() {
+        // Same well-formed filter, same answer on a JPA DAL and on a Mongo DAL: a field the entity does
+        // not expose is a client fault (previously a 500 on JPA and a silently empty page on Mongo).
+        assertInvalidFilter(list(USER, "products", "q=nope:1"));
+        assertInvalidFilter(list(USER, "notifications", "q=nope:'x'"));
+    }
+
+    @Test
+    void unconvertibleFilterLiteralIsAServerFaultOnEveryBackend() {
+        // By decision a literal that does not convert to the field's type is NOT a client fault: it fails
+        // inside the persistence layer and surfaces as a 500 — the same way on a JPA and on a Mongo DAL.
+        assertThat(list(USER, "products", "q=price:'abc'").getStatusCode())
+            .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        assertThat(list(USER, "notifications", "q=createdAt:'yesterday'").getStatusCode())
+            .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @Test
+    void unknownFilterFunctionIsRejectedWithBadRequestOnEveryBackend() {
+        // Rejected by the parser (no definition for the function) before any backend is reached.
+        assertInvalidFilter(list(USER, "products", "q=nosuchfn(price)>1"));
+        assertInvalidFilter(list(USER, "notifications", "q=nosuchfn(channel):'x'"));
+    }
+
+    @Test
+    void renamedFieldStillFiltersThroughTheStrictResolver() {
+        // The strict field check must not break the wire-name (or Java-name) resolution it sits on top of:
+        // both spellings select the same, non-empty set of rows.
+        ResponseEntity<String> byWireName = list(DEVELOPER, "products", "q=cost_price>0");
+        ResponseEntity<String> byJavaName = list(DEVELOPER, "products", "q=costPrice>0");
+
+        assertThat(byWireName.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(byJavaName.getStatusCode()).isEqualTo(HttpStatus.OK);
+        long matched = tree(byWireName).path("page").path("totalElements").asLong();
+        assertThat(matched).isPositive();
+        assertThat(tree(byJavaName).path("page").path("totalElements").asLong()).isEqualTo(matched);
+    }
+
+    private void assertInvalidFilter(ResponseEntity<String> response) {
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(tree(response).path("detail").asString()).isEqualTo("Invalid filter expression");
     }
 }

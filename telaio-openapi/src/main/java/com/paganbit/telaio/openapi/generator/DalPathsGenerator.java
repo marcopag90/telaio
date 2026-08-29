@@ -49,7 +49,7 @@ public class DalPathsGenerator {
     private static final String CONCURRENT_MODIFICATION_MESSAGE =
         "Concurrent modification of a versioned entity — re-read and retry";
     private static final String DAL_SERVICE_OR_ENTITY_NOT_FOUND_MESSAGE = "DAL service or entity not found";
-    private static final String MALFORMED_READ_REQUEST_MESSAGE = "Malformed filter or pagination parameters";
+    private static final String MALFORMED_READ_REQUEST_MESSAGE = "Malformed or inapplicable filter, or invalid pagination parameters";
     private static final String UNEXPECTED_ERROR_MESSAGE = "Unexpected error";
 
     public DalPathsGenerator(

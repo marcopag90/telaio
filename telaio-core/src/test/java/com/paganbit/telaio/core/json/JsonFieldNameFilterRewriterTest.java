@@ -1,6 +1,7 @@
 package com.paganbit.telaio.core.json;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.paganbit.telaio.core.exception.DalInvalidFilterException;
 import com.turkraft.springfilter.definition.FilterFunction;
 import com.turkraft.springfilter.definition.FilterInfixOperator;
 import com.turkraft.springfilter.definition.FilterPrefixOperator;
@@ -12,14 +13,17 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
 /**
  * Unit tests for {@link JsonFieldNameFilterRewriter}: only {@code FieldNode} names are translated from
  * their JSON wire name to the Java property name; the tree shape, operators, functions, and literals are
- * preserved. Operators/functions are mocked since their identity, not behavior, is what must survive.
+ * preserved, and a field the entity does not expose is rejected. Operators/functions are mocked since
+ * their identity, not behavior, is what must survive.
  */
 class JsonFieldNameFilterRewriterTest {
 
@@ -39,6 +43,43 @@ class JsonFieldNameFilterRewriterTest {
         // A filter already using the Java attribute name must keep working.
         assertThat(((FieldNode) rewriter.rewrite(new FieldNode("costPrice"), Product.class)).getName())
             .isEqualTo("costPrice");
+    }
+
+    @Test
+    void rejectsUnknownRootField() {
+        FieldNode unknown = new FieldNode("not_a_field");
+
+        assertThatThrownBy(() -> rewriter.rewrite(unknown, Product.class))
+            .isInstanceOf(DalInvalidFilterException.class)
+            .hasMessageContaining("not_a_field");
+    }
+
+    @Test
+    void rejectsUnknownNestedFieldButNamesTheOffendingSegment() {
+        FieldNode unknownNested = new FieldNode("dims.depth");
+
+        assertThatThrownBy(() -> rewriter.rewrite(unknownNested, Product.class))
+            .isInstanceOf(DalInvalidFilterException.class)
+            .hasMessageContaining("'depth'")
+            .hasMessageContaining("'dims.depth'");
+    }
+
+    @Test
+    void passesThroughMapKeysAndDollarSegments() {
+        // Map keys are dynamic, "$id" is a backend accessor: neither is checked against the bean.
+        assertThat(((FieldNode) rewriter.rewrite(new FieldNode("attributes.color"), Product.class)).getName())
+            .isEqualTo("attributes.color");
+        assertThat(((FieldNode) rewriter.rewrite(new FieldNode("dims.$id"), Product.class)).getName())
+            .isEqualTo("dims.$id");
+    }
+
+    @Test
+    void rejectsUnknownFieldInsideFunctionArguments() {
+        FilterFunction function = mock(FilterFunction.class);
+        FunctionNode node = new FunctionNode(function, List.of(new FieldNode("nope")));
+
+        assertThatThrownBy(() -> rewriter.rewrite(node, Product.class))
+            .isInstanceOf(DalInvalidFilterException.class);
     }
 
     @Test
@@ -96,5 +137,13 @@ class JsonFieldNameFilterRewriterTest {
         private String name;
         @JsonProperty("cost_price")
         private BigDecimal costPrice;
+        private Dimensions dims;
+        private Map<String, String> attributes;
+    }
+
+    @Getter
+    @Setter
+    private static class Dimensions {
+        private int width;
     }
 }

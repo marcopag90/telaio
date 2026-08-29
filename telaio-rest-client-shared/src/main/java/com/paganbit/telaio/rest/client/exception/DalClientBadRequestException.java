@@ -5,7 +5,8 @@ import org.springframework.http.ProblemDetail;
 
 /**
  * {@code 400 Bad Request} without the {@code errors} problem extension — typically a malformed
- * {@code q} filter expression or invalid pagination parameters.
+ * {@code q} filter expression, a filter the entity cannot honor (unknown field or function), or invalid
+ * pagination parameters.
  *
  * @author Marco Pagan
  * @since 1.1.0

@@ -41,20 +41,18 @@ Residuals:
 
 - **Swagger/springdoc** still uses Jackson 2 internally — nothing actionable until upstream drops it; track
   their releases.
-- The Turkraft `mongo` jar (up to 4.0.9) ships an `application.properties` at its jar root that
-  enables `MongoTemplate` DEBUG logging on every consumer — **removed upstream on the #524 branch (2026-08-28),
-  pending release**; until then the note below still applies. Note that a
-  consumer cannot neutralize it from `application.yaml` (at the same location `.properties` takes precedence over
-  `.yaml`, and Boot loads a single `classpath:/application.properties` — the first on the classpath): the override
-  must live in the consumer's own `application.properties`, which then shadows the jar's file entirely (this is what
-  telaio-showcase does). telaio-mongo deliberately ships no `application.properties` of its own — it would be the
-  same anti-pattern.
+- The Turkraft `mongo` jar up to 4.0.9 shipped an `application.properties` at its jar root that enabled
+  `MongoTemplate` DEBUG logging on every consumer — **removed upstream in 4.1.0 (2026-08-29, #527)**. The showcase's
+  own `application.properties` override (the only way to neutralize it: at the same location `.properties` takes
+  precedence over `.yaml`, and Boot loads a single `classpath:/application.properties` — the first on the classpath)
+  is now redundant and can be dropped. telaio-mongo deliberately never shipped an `application.properties` of its
+  own — it would be the same anti-pattern.
 
 ## 3. Turkraft mongo functional gaps (document-only for now)
 
 - The `mongo-language` artifact is **empty** — the Mongo filter function vocabulary is only `size` / `today`
   beyond the standard operators, versus JPA's ~55 processors. Candidate for an upstream issue.
-- **Done (2026-08-28, pending the upstream release):** temporal comparisons now work — filter values used to pass
+- **Done (2026-08-28, shipped in Turkraft 4.1.0):** temporal comparisons now work — filter values used to pass
   through `Document.parse`, so date literals became plain strings and never matched BSON `Date` fields. Fixed upstream
   by this repo's maintainer ([springfilter#524](https://github.com/turkraft/springfilter/issues/524)): the `mongo`
   artifact gained a BSON-native `FilterBsonTransformer` and the `FilterQueryConverter` bean its README always
@@ -63,7 +61,7 @@ Residuals:
   SPI, and dropped `ObjectIdAwareFieldTypeResolver` (the BSON transformer converts literals to the field's
   declared type, so `ObjectId` fields need no marker). Verified by
   `JsonAwareFilterQueryConverterIntegrationTest.temporalFilterComparesAsBsonDate` and the showcase
-  `NotificationCrudIT`. Ships with the Turkraft release that includes the fix (4.0.10 expected).
+  `NotificationCrudIT`. Shipped in Turkraft 4.1.0 (2026-08-29).
 - `$expr` queries cannot use indexes (except limited equality cases): filtered reads are collection scans — documented
   as a performance characteristic in [modules/mongo.md](modules/mongo.md).
 
@@ -112,33 +110,82 @@ are irrelevant to it, and a flush forced from inside a caller's transaction join
 `ObjectProvider.getIfAvailable()` failed the context with two default-candidate transaction managers and silently
 accepted a manager over a different DataSource — surfaced by the Block 2 review on 2026-08-25.
 
-## 7. Filter-language conformance suite (JPA vs Mongo)
+## 7. Filter-language integration tests per backend + aligned invalid-filter errors
 
-**Open — next feature branch, to start from `feature/mongo-dal` once the upstream release lands.**
+**Done (2026-08-28, branch `feature/filter-language-conformance`; verified against Turkraft 4.1.0, which shipped
+#524/#527 on 2026-08-29).**
 
-**Why.** Telaio's promise is "the same `q=` works on every backend", but nobody verifies it systematically. Turkraft's
-own suites (checked on 4.0.9, 2026-08-28) do not guarantee runtime behaviour: `core` tests only parse; `mongo` tests
-compare the *shape* of the generated expression, not its execution (a test stays green even when MongoDB would reject
-the query); `mongo-example` executes only map/DBRef cases against embedded Mongo; `jpa` executes on H2 but covers a
-subset of operators (no `~`, `~~`, `in`, `not in`, `is not null`, `not`, no temporal/enum/UUID literals). Empirical
-proof: four latent defects surfaced while implementing #524 — temporals compared as strings (for years), placeholder
-processors never injected on any backend, `~~` emitting syntax invalid inside `$expr`, `xor` emitting a non-existent
-`$xor` and missing from the imports until 4.0.9. Telaio's coverage is real but sample-based (wire-name rewriting,
-ObjectId, temporals, one showcase `channel:'WEBHOOK'` case).
+**Why.** Turkraft's own suites (checked on 4.0.9) do not guarantee runtime behaviour: `core` tests only parse;
+`mongo` tests compare the *shape* of the generated expression, not its execution; `jpa` executes on H2 but covers a
+subset of operators. Four latent defects surfaced while implementing #524 (temporals compared as strings, placeholder
+processors never injected, `~~` invalid inside `$expr`, a non-existent `$xor`). Telaio's coverage was sample-based.
 
-**What.** A `FilterLanguageConformanceIT` in telaio-showcase (failsafe: real Postgres + Mongo replica set, one DAL per
-backend behind `/dal/v1`): a `@ParameterizedTest` table of `filter → expected ids`, run twice against a JPA DAL and a
-Mongo DAL seeded with the **same dataset** (twin entities with string, integer, decimal, boolean, enum,
-`Instant`/`LocalDate`, UUID, nested object, collection, one `@JsonProperty`-renamed field). Cover every operator
-(`:` `!` `>` `>=` `<` `<=` `~` `~~` `in` `not in` `is null` `is not null` `is empty` `is not empty` `and` `or` `not`
-`xor`, parentheses), literals per type, nested paths, the `*` wildcard, `size()`/`today()` where both backends support
-them. Keep an explicit list of **expected divergences** (JPA-only functions, `~` semantics if they differ) so
-differences become documentation, not surprises. Estimate: ~150 lines of IT plus the two entities/seeders, 1–2 days
-including the divergence list. Turkraft's tests are not to be touched — this lives in telaio only.
+**What was delivered** (re-scoped from the original "twin entities behind `/dal/v1`" idea: the goal is to verify that
+each backend *executes* the Turkraft vocabulary it supports, not cross-backend equivalence; test code only, surefire,
+no user-facing docs):
 
-**Context to resume.** Upstream PR for #524 opened from the fork branch `feature/524-bson-transformer` (single
-squashed commit); telaio's `feature/mongo-dal` holds the uncommitted port (BOM on `4.0.10-SNAPSHOT`, decorator of
-Turkraft's `FilterQueryConverter`, `ObjectIdAwareFieldTypeResolver` removed, jpa autoconfig aligned with the same
-`@ConditionalOnMissingBean(..., ignored = ...)` back-off). Wait for the upstream release, set the BOM to the real
-version (also `CHANGELOG.md`, `CLAUDE.md` versions and item 2 above), commit, then merge to `development` and branch
-the conformance work from there.
+- `JpaDalFilterLanguageIntegrationTest` (telaio-jpa, H2, 133 cases) and `MongoDalFilterLanguageIntegrationTest`
+  (telaio-mongo, Testcontainers, 105 cases): a six-row fixture with every field kind, a `filter → expected codes`
+  table run through the public `JpaDal`/`MongoDal.read()` (autoconfigured `@Primary` converter, real `FilterBuilder`,
+  real transaction manager). JPA covers the 21 core definitions plus 43 of the 45 `jpa-language` functions
+  (`jsonText` is Postgres-only, `countDistinct` has no processor — asserted as rejected); Mongo covers the 21 core
+  definitions plus `Map` keys, `@DBRef` `$id`/`$ref`, `ObjectId` and `UUID` fields. Each module pins its own
+  semantics (`today()` = day name vs BSON date; `~` with live SQL `%`/`_` vs regex-escaped; array-vs-scalar `$eq`;
+  `is empty` array-only on Mongo). The class Javadoc of each test lists the pinned semantics and fixture rules.
+- **Aligned errors:** core's `JsonFieldNameFilterRewriter` is strict on bean-typed paths (`JsonPropertyPathResolver
+  .resolveJavaPath`; unchecked after `Map`/`Object`/`JsonNode` and on the `$id`/`$ref`/`$db` reference keys; JSON
+  names, Java names and the Java names of Jackson-hidden fields accepted, so default filters keep working) and throws
+  `DalInvalidFilterException`; both decorators wrap `UnsupportedOperationException` (function without processor)
+  into it; the web controller wraps the parser's `UnsupportedOperationException` for an unknown function name the
+  same way; `TelaioWebExceptionHandler` maps it to 400 `"Invalid filter expression"`; `DalFailureKind` classifies it
+  as `VALIDATION`. **Decision (2026-08-29): a literal that does not convert to the field's type stays a server fault
+  (500) — uniformly on both backends** (JPA: `DataAccessException` from the SQL `CAST` or from Hibernate's enum check;
+  Mongo: `ConversionFailedException`/IAE from the BSON transformer; the decorators deliberately do not intercept
+  them). Pinned by `unconvertibleLiteralIsAServerFaultOnThisBackend` in both ITs and end-to-end by `DalApiErrorsIT`.
+- Latent gap fixed: library modules run surefire only, so `JsonAwareFilterSpecificationConverterIT` had never
+  executed — renamed `*IntegrationTest`.
+
+**Turkraft findings (upstream candidates; #527 shipped in 4.1.0 without them):** (1) JPA
+`FilterExpressionTransformer.transformInput` swallows `ConversionFailedException` and falls back to the raw literal,
+turning a bad literal into a SQL `CAST` failing at execution — a fork rethrow was tried and **dropped** (2026-08-29):
+telaio keeps unconvertible literals as a uniform 500 instead; (2) multi-pattern like `f ~ ['a','b']` uses raw SQL patterns on JPA (no `*`
+translation, no `%…%` wrap) but `*` regexes on Mongo; (3) `countDistinct` has a definition but no JPA processor;
+(4) `locate()` requires all three arguments although the README shows two; (5) Mongo embeds string literals raw in
+the `$expr` (`q=name:'$code'` compares two fields) — `{$literal: …}` would be safer.
+
+**Residual.** A property Jackson sees but the store does not persist still diverges (JPA 500 / Mongo 200 empty) —
+tracked as item 9. Write-only (`@JsonProperty(access = WRITE_ONLY)`) and `@JsonIgnore`d properties remain filterable by
+name (pre-existing behaviour, kept so default filters and in-process callers do not break) — see item 8.
+
+## 8. Field-level authorization of `q=` filters
+
+**Open.** Field-level RBAC prunes *output* (`DalRbacAdapter.filterOutput`), but nothing inspects the `FieldNode`s of a
+filter: a principal with READ can filter on a property the adapter hides from them (`cost_price > 100`, bisection) and
+infer its value from the narrowed page. Surfaced by the security review of item 7 (2026-08-28). Candidate design: a
+`DalRbacAdapter` hook receiving the referenced JSON paths (after the JSON-name rewrite), applied in
+`DalSecurityInterceptor` before the read, rejecting references outside the role's readable set with
+`DalInvalidFilterException` (same 400 as an unknown field, so nothing is disclosed).
+
+## 9. Reject filters on serialized-but-not-persisted properties (JPA vs Mongo)
+
+**Open — next commit.** The strict field check of item 7 resolves `q=` paths against the entity's *Jackson* view (it
+lives in telaio-core, which knows nothing about persistence). A property that is serialized but not stored —
+`@Transient` with `USE_TRANSIENT_ANNOTATION` disabled, or a computed getter; e.g. showcase `Product.profit` — therefore
+passes the check and fails only inside the backend, differently: JPA → Hibernate `IllegalArgumentException` on
+`root.get("profit")` → `InvalidDataAccessApiUsageException` → **500**; Mongo → `{$expr: {$gt: ["$profit", 10]}}` on a
+missing path → **200, empty page**. Last JPA/Mongo divergence in error classification.
+
+**Decision (2026-08-29): both → 400** (`DalInvalidFilterException`, same message as an unknown field, so nothing is
+disclosed that OpenAPI does not already publish). The check has to be **per backend**, in the two converter decorators,
+after the JSON-name rewrite:
+
+- telaio-jpa `JsonAwareFilterSpecificationConverter.toPredicate`: walk every `FieldNode` path against the JPA metamodel
+  (`root.getModel()`, `ManagedType#getAttribute` per segment; unwrap `PluralAttribute` element types; stop at
+  `Map`-valued attributes — `key`/`value` accessors — and at basic types).
+- telaio-mongo `JsonAwareFilterQueryConverter.convert`: walk against the Spring Data
+  `MappingContext`/`MongoPersistentEntity` (`getPersistentProperty` per segment; unwrap collections; stop at `Map`
+  properties, `@DBRef` targets (`$id/$ref/$db`) and simple types; `id` → `_id` is Turkraft's job).
+- Tests: `profit > 10`-style cases in both filter-language ITs (a `@Transient` field in the JPA fixture, a getter-only
+  property in the Mongo fixture) asserting `DalInvalidFilterException`; end-to-end `q=profit>10` → 400 on `products`
+  in `DalApiErrorsIT`; unit tests for the two walkers (opaque segments, plural paths, unknown nested attribute).
+- Docs: drop the "known limitation" sentence from `CHANGELOG.md` and the residual note above.

@@ -2,6 +2,7 @@ package com.paganbit.telaio.audit.event;
 
 import com.paganbit.telaio.core.exception.DalEntityNotFoundException;
 import com.paganbit.telaio.core.exception.DalEntityValidationException;
+import com.paganbit.telaio.core.exception.DalInvalidFilterException;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
@@ -51,6 +52,14 @@ class DalAuditOutcomeClassifierTest {
     void validationFailure_shouldBeClassifiedAsValidation_byBothClassifiers() {
         DalEntityValidationException failure = new DalEntityValidationException(List.of(
             new FieldError("product", "name", "", false, null, null, "must not be blank")));
+
+        assertThat(defaultClassifier.classify(failure)).isEqualTo(DalAuditOutcome.VALIDATION);
+        assertThat(securityClassifier.classify(failure)).isEqualTo(DalAuditOutcome.VALIDATION);
+    }
+
+    @Test
+    void invalidFilter_shouldBeClassifiedAsValidation_byBothClassifiers() {
+        DalInvalidFilterException failure = DalInvalidFilterException.unknownField("nope", "nope");
 
         assertThat(defaultClassifier.classify(failure)).isEqualTo(DalAuditOutcome.VALIDATION);
         assertThat(securityClassifier.classify(failure)).isEqualTo(DalAuditOutcome.VALIDATION);

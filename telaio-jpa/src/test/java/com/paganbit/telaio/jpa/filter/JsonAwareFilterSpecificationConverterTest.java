@@ -1,6 +1,7 @@
 package com.paganbit.telaio.jpa.filter;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.paganbit.telaio.core.exception.DalInvalidFilterException;
 import com.turkraft.springfilter.converter.FilterSpecification;
 import com.turkraft.springfilter.converter.FilterSpecificationConverter;
 import com.turkraft.springfilter.parser.node.FieldNode;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.convert.ConversionFailedException;
 import org.springframework.core.convert.TypeDescriptor;
 import org.springframework.core.convert.converter.GenericConverter.ConvertiblePair;
 import tools.jackson.databind.ObjectMapper;
@@ -26,6 +28,7 @@ import java.math.BigDecimal;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -34,7 +37,7 @@ import static org.mockito.Mockito.*;
  * {@link FilterSpecificationConverter} method either delegates verbatim or wraps the delegate's result,
  * and that the lazy {@code toPredicate} rewrite translates a JSON wire name to its Java property name
  * before delegating. The end-to-end resolution against a real JPA metamodel lives in
- * {@link JsonAwareFilterSpecificationConverterIT}.
+ * {@link JsonAwareFilterSpecificationConverterIntegrationTest}.
  */
 @ExtendWith(MockitoExtension.class)
 class JsonAwareFilterSpecificationConverterTest {
@@ -166,25 +169,52 @@ class JsonAwareFilterSpecificationConverterTest {
     }
 
     @Test
-    void toPredicateLeavesUnknownFieldNameUntouched() {
+    void toPredicateRejectsUnknownFieldName() {
         FieldNode unknownNode = new FieldNode("not_a_field");
 
+        Root<Widget> root = mock();
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        CriteriaBuilder criteriaBuilder = mock(CriteriaBuilder.class);
+        doReturn(Widget.class).when(root).getJavaType();
+
+        FilterSpecification<Widget> spec = converter.convert(unknownNode);
+
+        // A field the entity does not expose is a client fault, rejected before the delegate is asked.
+        assertThatThrownBy(() -> spec.toPredicate(root, query, criteriaBuilder))
+            .isInstanceOf(DalInvalidFilterException.class)
+            .hasMessageContaining("not_a_field");
+        verify(delegate, never()).convert(any(FilterNode.class));
+    }
+
+    @Test
+    void toPredicateWrapsOnlyUnsupportedFunctionsAsInvalidFilter() {
         FilterSpecification<Widget> rewrittenSpec = mock();
         Root<Widget> root = mock();
         CriteriaQuery<?> query = mock(CriteriaQuery.class);
         CriteriaBuilder criteriaBuilder = mock(CriteriaBuilder.class);
-
         doReturn(Widget.class).when(root).getJavaType();
         when(delegate.<Widget>convert(any(FilterNode.class))).thenReturn(rewrittenSpec);
-        when(rewrittenSpec.toPredicate(root, query, criteriaBuilder)).thenReturn(null);
 
-        converter.<Widget>convert(unknownNode).toPredicate(root, query, criteriaBuilder);
+        FilterSpecification<Widget> spec = converter.convert(new FieldNode("cost_price"));
 
-        // A name that maps to no JSON property passes through unchanged (rewrite is purely additive).
-        ArgumentCaptor<FilterNode> captor = ArgumentCaptor.forClass(FilterNode.class);
-        verify(delegate).convert(captor.capture());
-        assertThat(captor.getValue()).isInstanceOfSatisfying(FieldNode.class,
-            field -> assertThat(field.getName()).isEqualTo("not_a_field"));
+        // A function the backend has no processor for is a client fault...
+        UnsupportedOperationException unsupported = new UnsupportedOperationException("No transformer");
+        doThrow(unsupported).when(rewrittenSpec).toPredicate(root, query, criteriaBuilder);
+        assertThatThrownBy(() -> spec.toPredicate(root, query, criteriaBuilder))
+            .isInstanceOf(DalInvalidFilterException.class)
+            .hasCause(unsupported);
+
+        // ...whereas a literal the ConversionService cannot convert, or a criteria-building argument
+        // failure, propagate unchanged (server faults, consistently with the other backends).
+        ConversionFailedException conversion = new ConversionFailedException(
+            TypeDescriptor.valueOf(String.class), TypeDescriptor.valueOf(BigDecimal.class), "abc",
+            new NumberFormatException("abc"));
+        doThrow(conversion).when(rewrittenSpec).toPredicate(root, query, criteriaBuilder);
+        assertThatThrownBy(() -> spec.toPredicate(root, query, criteriaBuilder)).isSameAs(conversion);
+
+        IllegalArgumentException argument = new IllegalArgumentException("Unable to locate Attribute");
+        doThrow(argument).when(rewrittenSpec).toPredicate(root, query, criteriaBuilder);
+        assertThatThrownBy(() -> spec.toPredicate(root, query, criteriaBuilder)).isSameAs(argument);
     }
 
     @Test

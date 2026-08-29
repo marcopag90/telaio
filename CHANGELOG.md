@@ -15,9 +15,21 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Metrics: `@TelaioMetricsDataSource` and `@TelaioMetricsTransactionManager` qualifiers select the
   DataSource (e.g. a dedicated metrics schema) and, optionally, the transaction manager the JDBC store
   uses in applications with several DataSources or transaction managers.
+- Core: `DalInvalidFilterException` (a `DalFailureKind.VALIDATION` client fault) for a well-formed `q=`
+  filter the entity cannot honour, and `JsonPropertyPathResolver.resolveJavaPath` reporting the first
+  unresolvable segment of a field path.
 
 ### 🐞 Bug Fixes
 
+- Filtering: a well-formed `q=` filter that references a field the entity does not expose, or a function
+  that is unknown or unsupported by the backend, is now a **400** (`"Invalid filter expression"`) on both
+  the JPA and the Mongo backend. Before, an unknown field was a 500 on JPA and a silently empty page on
+  Mongo, and an unknown function a 500. Field paths are resolved against the entity's properties (JSON
+  wire names and Java names, including fields Jackson does not expose, so server-side default filters keep
+  working); dynamic `Map`/`Object` keys and the `$id`/`$ref`/`$db` reference keys are not checked. A literal
+  that does not convert to the field's type (`quantity:'abc'`) is a server fault (500) on both backends.
+  **Known limitation:** a property that is serialized but not persisted (`@Transient`, computed getter) still
+  passes the check and fails inside the backend — 500 on JPA, empty page on Mongo (see roadmap item 9).
 - Metrics: the JDBC store no longer looks up the application's `PlatformTransactionManager` by type — an
   application with multiple transaction managers failed to start, and a manager over a
   different DataSource was accepted silently. The store now uses a private JDBC transaction manager bound
@@ -39,7 +51,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### 🔨 Dependency Upgrades
 
-- Turkraft Spring Filter 4.0.1 → 4.0.10 (BSON-native mongo filter conversion, `FilterQueryConverter` bean,
+- Turkraft Spring Filter 4.0.1 → 4.1.0 (BSON-native mongo filter conversion, `FilterQueryConverter` bean,
   `@DBRef`/`@DocumentReference` filtering, xor fix)
 
 ## [1.1.0] - 2026-07-29

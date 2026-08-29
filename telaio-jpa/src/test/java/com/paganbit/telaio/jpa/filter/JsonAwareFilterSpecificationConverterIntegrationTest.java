@@ -46,10 +46,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Turkraft's auto-configurations, which this test needs.</p>
  */
 @SpringBootTest(
-    classes = JsonAwareFilterSpecificationConverterIT.TestApp.class,
-    webEnvironment = SpringBootTest.WebEnvironment.NONE)
+    classes = JsonAwareFilterSpecificationConverterIntegrationTest.TestApp.class,
+    webEnvironment = SpringBootTest.WebEnvironment.NONE
+)
 @Transactional
-class JsonAwareFilterSpecificationConverterIT {
+class JsonAwareFilterSpecificationConverterIntegrationTest {
 
     @Autowired
     private TestApp.ProductRepository repository;

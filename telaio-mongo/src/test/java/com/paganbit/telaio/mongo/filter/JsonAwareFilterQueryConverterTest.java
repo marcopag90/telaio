@@ -1,6 +1,7 @@
 package com.paganbit.telaio.mongo.filter;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.paganbit.telaio.core.exception.DalInvalidFilterException;
 import com.turkraft.springfilter.converter.FilterQueryConverter;
 import com.turkraft.springfilter.converter.FilterStringConverter;
 import com.turkraft.springfilter.parser.node.FieldNode;
@@ -9,6 +10,8 @@ import org.bson.Document;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.core.convert.ConversionFailedException;
+import org.springframework.core.convert.TypeDescriptor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.query.BasicQuery;
 import org.springframework.data.mongodb.core.query.Query;
@@ -16,8 +19,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatNullPointerException;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -80,12 +82,42 @@ class JsonAwareFilterQueryConverterTest {
     }
 
     @Test
-    void convert_leavesUnknownFieldNameUntouched() {
-        doReturn(delegateQuery).when(delegate).convert(any(FilterNode.class), eq(Widget.class));
+    void convert_rejectsUnknownFieldName() {
+        // A field the entity does not expose is a client fault, rejected before the delegate is asked.
+        FieldNode unknown = new FieldNode("unknown");
 
-        converter.convert(new FieldNode("unknown"), Widget.class);
+        assertThatThrownBy(() -> converter.convert(unknown, Widget.class))
+            .isInstanceOf(DalInvalidFilterException.class)
+            .hasMessageContaining("unknown");
+        verify(delegate, never()).convert(any(FilterNode.class), any());
+    }
 
-        assertThat(fieldNamePassedToDelegate()).isEqualTo("unknown");
+    @Test
+    void convert_wrapsOnlyUnsupportedFunctionsAsInvalidFilter() {
+        FieldNode node = new FieldNode("cost_price");
+
+        // A function the backend has no processor for is a client fault (both overloads)...
+        UnsupportedOperationException unsupported = new UnsupportedOperationException("No transformer");
+        doThrow(unsupported).when(delegate).convert(any(FilterNode.class), eq(Widget.class));
+        assertThatThrownBy(() -> converter.convert(node, Widget.class))
+            .isInstanceOf(DalInvalidFilterException.class)
+            .hasCause(unsupported);
+        doThrow(unsupported).when(delegate).convertToDocument(any(FilterNode.class), eq(Widget.class));
+        assertThatThrownBy(() -> converter.convertToDocument(node, Widget.class))
+            .isInstanceOf(DalInvalidFilterException.class)
+            .hasCause(unsupported);
+
+        // ...whereas a literal that does not convert propagates unchanged (a server fault, consistently
+        // with the other backends) — e.g. new ObjectId("zzz") inside the BSON transformer.
+        ConversionFailedException conversion = new ConversionFailedException(
+            TypeDescriptor.valueOf(String.class), TypeDescriptor.valueOf(BigDecimal.class), "abc",
+            new NumberFormatException("abc"));
+        doThrow(conversion).when(delegate).convert(any(FilterNode.class), eq(Widget.class));
+        assertThatThrownBy(() -> converter.convert(node, Widget.class)).isSameAs(conversion);
+
+        IllegalArgumentException argument = new IllegalArgumentException("invalid hexadecimal representation");
+        doThrow(argument).when(delegate).convertToDocument(any(FilterNode.class), eq(Widget.class));
+        assertThatThrownBy(() -> converter.convertToDocument(node, Widget.class)).isSameAs(argument);
     }
 
     @Test
