@@ -114,7 +114,7 @@ expression** (that is what the Turkraft mongo artifact emits), which has two pra
   are collection scans. Fine for moderate collections; measure before relying on it at scale.
 - **Typed literals:** filter values are converted to the field's Java type and emitted as BSON values — temporal
   literals (`q=createdAt>'2026-01-01T00:00:00Z'`) compare as BSON dates, identifiers as `ObjectId`s, UUIDs as
-  `UUID`s (Turkraft mongo ≥ 4.0.10).
+  `UUID`s (Turkraft mongo ≥ 4.1.0).
 
 Also note the Mongo filter function vocabulary is thinner than JPA's (only `size` and `today` beyond the standard
 operators — the upstream `mongo-language` artifact is empty).
