@@ -64,7 +64,8 @@ import static org.mockito.Mockito.mock;
  * access, {@code @DBRef} reference keys ({@code $id}/{@code $ref}), {@code ObjectId} identifiers and
  * {@code UUID} fields. Backend-specific semantics are pinned as they are — {@code today()} is a BSON date
  * at local midnight, {@code ~} escapes everything but {@code *}, an array compared with a scalar never
- * matches ({@code 'red' in tags} is the portable form), {@code is empty} applies to arrays only — so a
+ * matches ({@code 'red' in tags} is the portable form), {@code is empty} applies to arrays only, a
+ * {@code @DBRef} is addressed through its {@code $id}/{@code $ref} keys and never dereferenced — so a
  * change in Turkraft's behavior fails here first. Error classification is pinned too: unknown fields and
  * unknown functions are client faults, unconvertible literals are server faults, the same way on every
  * backend.</p>
@@ -220,6 +221,13 @@ class MongoDalFilterLanguageIntegrationTest {
             c("attributes is empty", 2, 6),
             c("attributes is not empty", 1, 3, 4, 5),
             c("counts.stock > 5", 1, 5),
+            // --- schemaless sub-documents (Object / List<Map>): paths below them are forwarded unchecked ---
+            c("payload.kind : 'alpha'", 1),
+            c("payload.nested.tag : 'deep'", 1),
+            c("payload.missing : 'x'"),
+            c("'boot' in events.type", 1),
+            // --- renamed field with a multi-pattern like (CollectionLikeNode) ---
+            c("address.zip_code ~ ['101*', '787*']", 5, 6),
             // --- null / empty ---
             c("description is null", 2, 6),
             c("description is not null", 1, 3, 4, 5),
@@ -252,7 +260,6 @@ class MongoDalFilterLanguageIntegrationTest {
             c("categories.$id : '{category:C2}'", 1, 3, 4),
             c("categories.$id in ['{category:C1}', '{category:C3}']", 1, 4, 5),
             c("categories.$id not in ['{category:C1}', '{category:C2}']", 2, 5, 6),
-            c("owner.name : 'Acme'"),
             // --- placeholder ---
             c("greeting : `hello`", 1, 3, 6)
         );
@@ -266,7 +273,15 @@ class MongoDalFilterLanguageIntegrationTest {
             Arguments.of("owner.$x : 1"),
             Arguments.of("name.length : 3"),
             Arguments.of("externalId.leastSignificantBits : 1"),
-            Arguments.of("createdAt.nano : 0")
+            Arguments.of("createdAt.nano : 0"),
+            // properties the wire exposes but the document does not store (computed getters), root and nested
+            Arguments.of("profit > 10"),
+            Arguments.of("lines.subtotal > 1"),
+            // a stored reference is never dereferenced: only its $id/$ref/$db keys can be addressed
+            Arguments.of("owner.name : 'Acme'"),
+            Arguments.of("owner.$id.x : 1"),
+            // a map key must not look like an operator or a reference key
+            Arguments.of("attributes.$id : 'x'")
         );
     }
 
@@ -343,6 +358,8 @@ class MongoDalFilterLanguageIntegrationTest {
             acme, List.of(c1, c2), Map.of("color", "red", "size", "small"), Map.of("stock", 10));
         g1.getLines().add(line(100, "shipped"));
         g1.getLines().add(line(50, "pending"));
+        g1.setPayload(Map.of("kind", "alpha", "nested", Map.of("tag", "deep", "level", 2)));
+        g1.getEvents().add(Map.of("type", "boot"));
         Gizmo g2 = gizmo("G2", "alpha nut", null, 0, 100.00, 3.0, false, GizmoStatus.PENDING,
             "2099-12-31T23:00:00Z", 60.00, address("Rome", "00184"), List.of(), null, twoDaysAgo,
             acme, List.of(), Map.of(), Map.of());
@@ -506,6 +523,21 @@ class MongoDalFilterLanguageIntegrationTest {
 
         @DBRef
         private List<Category> categories = new ArrayList<>();
+
+        /**
+         * Schemaless sub-document: the mapping context cannot describe its keys, so any path below it is
+         * forwarded unchecked.
+         */
+        private Object payload = Map.of();
+
+        private List<Map<String, Object>> events = new ArrayList<>();
+
+        /**
+         * Serialized but not stored: visible to Jackson as {@code profit}, absent from the document.
+         */
+        public double getProfit() {
+            return price - costPrice;
+        }
     }
 
     @Getter
@@ -525,6 +557,10 @@ class MongoDalFilterLanguageIntegrationTest {
         private double amount;
 
         private String status;
+
+        public double getSubtotal() {
+            return amount;
+        }
     }
 
     @Document("filter_owners")

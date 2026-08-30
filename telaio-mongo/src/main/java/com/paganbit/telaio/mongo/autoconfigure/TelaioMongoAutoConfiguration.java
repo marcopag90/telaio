@@ -80,15 +80,20 @@ public class TelaioMongoAutoConfiguration {
     }
 
     /**
-     * Decorates Turkraft's converter so JSON wire names resolve to their underlying Java properties.
+     * Decorates Turkraft's converter so JSON wire names resolve to their underlying Java properties and
+     * filters on fields the document does not expose or store are rejected as client faults.
      * Conditional on Turkraft's converter being present and on no other {@link FilterQueryConverter}
      * bean being declared (Turkraft's own is ignored), and marked {@link Primary @Primary} so it is the
-     * converter injected into {@code MongoDal}.
+     * converter injected into {@code MongoDal}. An application declaring its own converter takes over
+     * both concerns: the framework's field checks are not applied around a replacement.
      *
      * @param delegate              Turkraft's autoconfigured converter to delegate the actual conversion to
      * @param filterStringConverter Turkraft's parser, used for the string form of a filter
      * @param objectMapper          provider of the application {@link ObjectMapper} (falls back to a default
      *                              mapper if none is defined), used to introspect {@code @JsonProperty} renames
+     * @param mongoOperations       the template every {@code MongoDal} persists through; its converter's
+     *                              mapping context is the authority on which properties a document stores,
+     *                              so filters on non-persistent properties are rejected
      * @return the JSON-aware primary converter
      */
     @Bean
@@ -98,12 +103,14 @@ public class TelaioMongoAutoConfiguration {
     FilterQueryConverter jsonAwareFilterQueryConverter(
         FilterQueryConverterImpl delegate,
         FilterStringConverter filterStringConverter,
-        ObjectProvider<ObjectMapper> objectMapper
+        ObjectProvider<ObjectMapper> objectMapper,
+        MongoOperations mongoOperations
     ) {
         return new JsonAwareFilterQueryConverter(
             delegate,
             filterStringConverter,
-            objectMapper.getIfAvailable(() -> JsonMapper.builder().build())
+            objectMapper.getIfAvailable(() -> JsonMapper.builder().build()),
+            mongoOperations.getConverter().getMappingContext()
         );
     }
 

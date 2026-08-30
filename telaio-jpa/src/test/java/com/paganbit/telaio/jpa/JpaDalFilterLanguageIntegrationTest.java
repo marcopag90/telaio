@@ -277,6 +277,9 @@ class JpaDalFilterLanguageIntegrationTest {
             Arguments.of("name.length : 3"),
             Arguments.of("externalId.leastSignificantBits : 1"),
             Arguments.of("createdAt.nano : 0"),
+            // properties the wire exposes but the persistence unit does not map (@Transient), root and nested
+            Arguments.of("profit > 10"),
+            Arguments.of("lines.subtotal > 1"),
             // a function the parser knows but the JPA backend has no processor for
             Arguments.of("countDistinct(lines.status) > 1")
         );
@@ -497,6 +500,13 @@ class JpaDalFilterLanguageIntegrationTest {
 
         @OneToMany(mappedBy = "widget", cascade = CascadeType.ALL, orphanRemoval = true)
         private List<Line> lines = new ArrayList<>();
+
+        /**
+         * Serialized but not persisted: visible to Jackson, unknown to the metamodel.
+         */
+        @Transient
+        @Nullable
+        private BigDecimal profit;
     }
 
     @Embeddable
@@ -542,6 +552,10 @@ class JpaDalFilterLanguageIntegrationTest {
         private BigDecimal amount;
 
         private String status;
+
+        @Transient
+        @Nullable
+        private BigDecimal subtotal;
     }
 
     @SpringBootConfiguration

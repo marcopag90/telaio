@@ -10,17 +10,22 @@ import com.turkraft.springfilter.converter.FilterQueryConverterImpl;
 import com.turkraft.springfilter.converter.FilterStringConverter;
 import org.bson.types.ObjectId;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.data.mongodb.MongoDatabaseFactory;
 import org.springframework.data.mongodb.MongoTransactionManager;
+import org.springframework.data.mongodb.core.MongoOperations;
+import org.springframework.data.mongodb.core.convert.MongoConverter;
+import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import tools.jackson.databind.json.JsonMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
 /**
@@ -39,7 +44,35 @@ class TelaioMongoAutoConfigurationTest {
     private ApplicationContextRunner withTurkraftMongoBeans() {
         return runner
             .withBean(FilterQueryConverterImpl.class, () -> turkraftConverter)
-            .withBean(FilterStringConverter.class, () -> mock(FilterStringConverter.class));
+            .withBean(FilterStringConverter.class, () -> mock(FilterStringConverter.class))
+            .withBean(MongoOperations.class, TelaioMongoAutoConfigurationTest::mongoOperations);
+    }
+
+    /**
+     * A template whose converter exposes a real (empty) mapping context — the authority the
+     * JSON-aware converter checks filtered fields against.
+     */
+    private static MongoOperations mongoOperations() {
+        MongoConverter mongoConverter = mock(MongoConverter.class);
+        doReturn(new MongoMappingContext()).when(mongoConverter).getMappingContext();
+        MongoOperations mongoOperations = mock(MongoOperations.class);
+        doReturn(mongoConverter).when(mongoOperations).getConverter();
+        return mongoOperations;
+    }
+
+    @Test
+    void converter_failsFastWithoutMongoOperations() {
+        // The persistent-field check is not optional: without the template's mapping context the
+        // decorator must not silently degrade to name-only validation.
+        runner
+            .withBean(FilterQueryConverterImpl.class, () -> turkraftConverter)
+            .withBean(FilterStringConverter.class, () -> mock(FilterStringConverter.class))
+            .run(context -> {
+                assertThat(context).hasFailed();
+                assertThat(context.getStartupFailure()).rootCause()
+                    .isInstanceOf(NoSuchBeanDefinitionException.class)
+                    .hasMessageContaining(MongoOperations.class.getName());
+            });
     }
 
     @Test
@@ -67,7 +100,8 @@ class TelaioMongoAutoConfigurationTest {
     @Test
     void converter_backsOffWhenUserDefinesTheDecorator() {
         JsonAwareFilterQueryConverter custom = new JsonAwareFilterQueryConverter(
-            turkraftConverter, mock(FilterStringConverter.class), JsonMapper.builder().build());
+            turkraftConverter, mock(FilterStringConverter.class), JsonMapper.builder().build(),
+            new MongoMappingContext());
         withTurkraftMongoBeans()
             .withBean("customConverter", JsonAwareFilterQueryConverter.class, () -> custom,
                 definition -> definition.setPrimary(true))

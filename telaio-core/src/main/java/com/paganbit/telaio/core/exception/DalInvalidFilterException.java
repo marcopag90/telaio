@@ -2,8 +2,8 @@ package com.paganbit.telaio.core.exception;
 
 /**
  * Exception thrown when a syntactically valid filter cannot be applied to the target entity: it
- * references a field the entity does not expose, or uses a function that is unknown or unsupported by the
- * persistence backend.
+ * references a field the entity does not expose or does not persist, or uses a function that is unknown
+ * or unsupported by the persistence backend.
  *
  * <p>This is a <em>client fault</em> ({@link DalFailureKind#VALIDATION}): the request cannot be satisfied
  * as-is and must be corrected by the caller. The message may name the offending field, never a literal

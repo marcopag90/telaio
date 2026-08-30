@@ -33,8 +33,10 @@ import java.util.Set;
  * work too.</p>
  *
  * <p>A filter that cannot be applied because of its <em>shape</em> — an unknown field (rejected by the
- * rewriter) or a function this backend has no processor for — surfaces as a
- * {@link DalInvalidFilterException}, a client fault. A literal that does not convert to the field's type
+ * rewriter), a field the wire exposes but the persistence unit does not map (rejected by
+ * {@link JpaFilterFieldValidator} against the metamodel), or a function this backend has no processor
+ * for — surfaces as a {@link DalInvalidFilterException}, a client fault.
+ * A literal that does not convert to the field's type
  * is deliberately <em>not</em> intercepted: the persistence layer reports it (as a data-access failure)
  * exactly as it would for any other query, and the same holds on every backend.</p>
  *
@@ -46,6 +48,12 @@ public class JsonAwareFilterSpecificationConverter implements FilterSpecificatio
     private final FilterSpecificationConverter delegate;
     private final JsonFieldNameFilterRewriter rewriter;
 
+    /**
+     * Creates the decorator.
+     *
+     * @param delegate     the converter performing the actual conversion
+     * @param objectMapper the application mapper, used to introspect {@code @JsonProperty} renames
+     */
     public JsonAwareFilterSpecificationConverter(FilterSpecificationConverter delegate, ObjectMapper objectMapper) {
         this.delegate = delegate;
         this.rewriter = new JsonFieldNameFilterRewriter(new JsonPropertyPathResolver(objectMapper));
@@ -105,6 +113,7 @@ public class JsonAwareFilterSpecificationConverter implements FilterSpecificatio
                 CriteriaBuilder criteriaBuilder
             ) {
                 FilterNode filterNode = rewriter.rewrite(node, root.getJavaType());
+                JpaFilterFieldValidator.validate(filterNode, root.getModel());
                 try {
                     return delegate.<T>convert(filterNode).toPredicate(root, query, criteriaBuilder);
                 } catch (UnsupportedOperationException e) {

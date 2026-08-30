@@ -13,6 +13,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.core.convert.ConversionFailedException;
 import org.springframework.core.convert.TypeDescriptor;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
 import org.springframework.data.mongodb.core.query.BasicQuery;
 import org.springframework.data.mongodb.core.query.Query;
 import tools.jackson.databind.json.JsonMapper;
@@ -43,6 +44,13 @@ class JsonAwareFilterQueryConverterTest {
 
         @Nullable
         private String name;
+
+        /**
+         * Serialized but not stored: Jackson sees a {@code label} property, the mapping context does not.
+         */
+        public @Nullable String getLabel() {
+            return name;
+        }
     }
 
     private final FilterQueryConverter delegate = mock(FilterQueryConverter.class);
@@ -54,7 +62,7 @@ class JsonAwareFilterQueryConverterTest {
     private final Document delegateDocument = new Document("$expr", "$costPrice");
 
     private final JsonAwareFilterQueryConverter converter = new JsonAwareFilterQueryConverter(
-        delegate, filterStringConverter, JsonMapper.builder().build());
+        delegate, filterStringConverter, JsonMapper.builder().build(), new MongoMappingContext());
 
     private String fieldNamePassedToDelegate() {
         ArgumentCaptor<FilterNode> captor = ArgumentCaptor.forClass(FilterNode.class);
@@ -89,6 +97,18 @@ class JsonAwareFilterQueryConverterTest {
         assertThatThrownBy(() -> converter.convert(unknown, Widget.class))
             .isInstanceOf(DalInvalidFilterException.class)
             .hasMessageContaining("unknown");
+        verify(delegate, never()).convert(any(FilterNode.class), any());
+    }
+
+    @Test
+    void convert_rejectsPropertyTheDocumentDoesNotStore() {
+        // Jackson exposes the computed getter, so the name rewrite passes; the mapping context has no such
+        // property, so the filter is a client fault — never a silently empty $expr match.
+        FieldNode computed = new FieldNode("label");
+
+        assertThatThrownBy(() -> converter.convert(computed, Widget.class))
+            .isInstanceOf(DalInvalidFilterException.class)
+            .hasMessageContaining("label");
         verify(delegate, never()).convert(any(FilterNode.class), any());
     }
 
@@ -149,14 +169,18 @@ class JsonAwareFilterQueryConverterTest {
     @Test
     void constructor_rejectsNullCollaborators() {
         JsonMapper mapper = JsonMapper.builder().build();
+        MongoMappingContext mappingContext = new MongoMappingContext();
         assertThatNullPointerException()
-            .isThrownBy(() -> new JsonAwareFilterQueryConverter(null, filterStringConverter, mapper))
+            .isThrownBy(() -> new JsonAwareFilterQueryConverter(delegate, filterStringConverter, mapper, null))
+            .withMessageContaining("MappingContext");
+        assertThatNullPointerException()
+            .isThrownBy(() -> new JsonAwareFilterQueryConverter(null, filterStringConverter, mapper, mappingContext))
             .withMessageContaining("delegate");
         assertThatNullPointerException()
-            .isThrownBy(() -> new JsonAwareFilterQueryConverter(delegate, null, mapper))
+            .isThrownBy(() -> new JsonAwareFilterQueryConverter(delegate, null, mapper, mappingContext))
             .withMessageContaining("FilterStringConverter");
         assertThatNullPointerException()
-            .isThrownBy(() -> new JsonAwareFilterQueryConverter(delegate, filterStringConverter, null))
+            .isThrownBy(() -> new JsonAwareFilterQueryConverter(delegate, filterStringConverter, null, mappingContext))
             .withMessageContaining("ObjectMapper");
     }
 }

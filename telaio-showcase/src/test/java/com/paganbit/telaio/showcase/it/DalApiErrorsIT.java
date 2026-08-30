@@ -44,6 +44,13 @@ class DalApiErrorsIT extends AbstractShowcaseIT {
     }
 
     @Test
+    void filterOnSerializedButNotPersistedPropertyIsRejectedWithBadRequest() {
+        // Product.profit is @Transient (computed by the DAL hooks) yet serialized in every response: the
+        // name resolves on the wire, but the persistence unit cannot filter on it — a 400, not a 500.
+        assertInvalidFilter(list(USER, "products", "q=profit>10"));
+    }
+
+    @Test
     void unconvertibleFilterLiteralIsAServerFaultOnEveryBackend() {
         // By decision a literal that does not convert to the field's type is NOT a client fault: it fails
         // inside the persistence layer and surfaces as a 500 — the same way on a JPA and on a Mongo DAL.

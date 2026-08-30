@@ -17,9 +17,6 @@ import java.util.Objects;
  * {@link JsonPropertyPathResolver#resolveJavaPath}; literals ({@code InputNode}), placeholders, operators,
  * and functions are preserved verbatim, and the tree shape is unchanged.</p>
  *
- * <p>This operates purely on the Turkraft <em>core</em> parse tree and Jackson introspection, so it lives
- * in telaio-core; the wiring that applies it lives in each persistence backend module.</p>
- *
  * <p>Field paths are checked strictly (since 1.2.0): a field the entity does not expose — checked segment
  * by segment while the path runs through bean types, see {@link JsonPropertyPathResolver#resolveJavaPath} —
  * is rejected with a {@link DalInvalidFilterException}, uniformly on every backend, instead of failing
@@ -59,6 +56,8 @@ public class JsonFieldNameFilterRewriter {
             case FunctionNode function -> new FunctionNode(
                 function.getFunction(), rewriteAll(function.getArguments(), entityType));
             case CollectionNode collection -> new CollectionNode(rewriteAll(collection.getItems(), entityType));
+            case CollectionLikeNode like -> new CollectionLikeNode(
+                rewrite(like.getLeft(), entityType), like.getOperator(), rewriteAll(like.getPatterns(), entityType));
             case PriorityNode priority -> new PriorityNode(rewrite(priority.getNode(), entityType));
             // InputNode, PlaceholderNode and any other leaf carry no field reference.
             default -> node;

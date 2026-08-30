@@ -10,6 +10,9 @@ import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+import jakarta.persistence.metamodel.EntityType;
+import jakarta.persistence.metamodel.SingularAttribute;
+import jakarta.persistence.metamodel.Type;
 import lombok.Getter;
 import lombok.Setter;
 import org.junit.jupiter.api.BeforeEach;
@@ -143,17 +146,38 @@ class JsonAwareFilterSpecificationConverterTest {
         assertThat(result).isEqualTo("fallback");
     }
 
+    /**
+     * A metamodel type mapping exactly one persistent attribute, {@code costPrice} (basic). The stubs are
+     * lenient because a filter rejected by the name rewrite never reaches the metamodel.
+     */
+    private static EntityType<Widget> widgetModel() {
+        EntityType<Widget> model = mock();
+        SingularAttribute<?, ?> costPrice = mock();
+        Type<?> basic = mock();
+        lenient().doThrow(new IllegalArgumentException("Unable to locate Attribute"))
+            .when(model).getAttribute(argThat(name -> !"costPrice".equals(name)));
+        lenient().doReturn(costPrice).when(model).getAttribute("costPrice");
+        lenient().doReturn(basic).when(costPrice).getType();
+        return model;
+    }
+
+    private static Root<Widget> widgetRoot(EntityType<Widget> model) {
+        Root<Widget> root = mock();
+        doReturn(Widget.class).when(root).getJavaType();
+        lenient().doReturn(model).when(root).getModel();
+        return root;
+    }
+
     @Test
     void toPredicateRewritesJsonFieldNameToJavaNameThenDelegates() {
         FieldNode jsonNamedNode = new FieldNode("cost_price");
 
         FilterSpecification<Widget> rewrittenSpec = mock();
         Predicate predicate = mock(Predicate.class);
-        Root<Widget> root = mock();
+        Root<Widget> root = widgetRoot(widgetModel());
         CriteriaQuery<?> query = mock(CriteriaQuery.class);
         CriteriaBuilder criteriaBuilder = mock(CriteriaBuilder.class);
 
-        doReturn(Widget.class).when(root).getJavaType();
         when(delegate.<Widget>convert(any(FilterNode.class))).thenReturn(rewrittenSpec);
         when(rewrittenSpec.toPredicate(root, query, criteriaBuilder)).thenReturn(predicate);
 
@@ -172,10 +196,9 @@ class JsonAwareFilterSpecificationConverterTest {
     void toPredicateRejectsUnknownFieldName() {
         FieldNode unknownNode = new FieldNode("not_a_field");
 
-        Root<Widget> root = mock();
+        Root<Widget> root = widgetRoot(widgetModel());
         CriteriaQuery<?> query = mock(CriteriaQuery.class);
         CriteriaBuilder criteriaBuilder = mock(CriteriaBuilder.class);
-        doReturn(Widget.class).when(root).getJavaType();
 
         FilterSpecification<Widget> spec = converter.convert(unknownNode);
 
@@ -187,12 +210,29 @@ class JsonAwareFilterSpecificationConverterTest {
     }
 
     @Test
-    void toPredicateWrapsOnlyUnsupportedFunctionsAsInvalidFilter() {
-        FilterSpecification<Widget> rewrittenSpec = mock();
-        Root<Widget> root = mock();
+    void toPredicateRejectsPropertyTheMetamodelDoesNotMap() {
+        // Jackson exposes "name", so the name rewrite passes; the metamodel has no such attribute
+        // (@Transient-like), so the filter is a client fault — not a Hibernate failure at query time.
+        FieldNode transientNode = new FieldNode("name");
+
+        Root<Widget> root = widgetRoot(widgetModel());
         CriteriaQuery<?> query = mock(CriteriaQuery.class);
         CriteriaBuilder criteriaBuilder = mock(CriteriaBuilder.class);
-        doReturn(Widget.class).when(root).getJavaType();
+
+        FilterSpecification<Widget> spec = converter.convert(transientNode);
+
+        assertThatThrownBy(() -> spec.toPredicate(root, query, criteriaBuilder))
+            .isInstanceOf(DalInvalidFilterException.class)
+            .hasMessageContaining("name");
+        verify(delegate, never()).convert(any(FilterNode.class));
+    }
+
+    @Test
+    void toPredicateWrapsOnlyUnsupportedFunctionsAsInvalidFilter() {
+        FilterSpecification<Widget> rewrittenSpec = mock();
+        Root<Widget> root = widgetRoot(widgetModel());
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        CriteriaBuilder criteriaBuilder = mock(CriteriaBuilder.class);
         when(delegate.<Widget>convert(any(FilterNode.class))).thenReturn(rewrittenSpec);
 
         FilterSpecification<Widget> spec = converter.convert(new FieldNode("cost_price"));
@@ -241,5 +281,10 @@ class JsonAwareFilterSpecificationConverterTest {
 
         @JsonProperty("cost_price")
         private BigDecimal costPrice;
+
+        /**
+         * Exposed on the wire but not mapped by the (stubbed) metamodel — the {@code @Transient} case.
+         */
+        private String name;
     }
 }

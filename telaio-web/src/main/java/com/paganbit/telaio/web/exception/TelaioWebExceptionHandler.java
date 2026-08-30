@@ -59,8 +59,8 @@ public class TelaioWebExceptionHandler {
     }
 
     /**
-     * Maps a well-formed {@code q} filter that cannot be applied to the target entity — an unknown
-     * field, or a function that is unknown or unsupported by the persistence backend — to
+     * Maps a well-formed {@code q} filter that cannot be applied to the target entity — an unknown or
+     * non-persistent field, or a function that is unknown or unsupported by the persistence backend — to
      * {@code 400 Bad Request}. Raised uniformly by every backend's filter converter,
      * so the same request fails the same way on JPA and Mongo instead of surfacing as a server error or
      * silently matching nothing. The body carries a stable, generic detail; the field name stays in the

@@ -2,9 +2,7 @@ package com.paganbit.telaio.core.json;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.paganbit.telaio.core.exception.DalInvalidFilterException;
-import com.turkraft.springfilter.definition.FilterFunction;
-import com.turkraft.springfilter.definition.FilterInfixOperator;
-import com.turkraft.springfilter.definition.FilterPrefixOperator;
+import com.turkraft.springfilter.definition.*;
 import com.turkraft.springfilter.parser.node.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -120,6 +118,21 @@ class JsonFieldNameFilterRewriterTest {
     }
 
     @Test
+    void rewritesFieldsInsideCollectionLikeNodes() {
+        // `field ~ ['a', 'b']` parses to a CollectionLikeNode, not to an InfixOperationNode.
+        FilterInfixOperator like = mock(FilterInfixOperator.class);
+        CollectionLikeNode node = new CollectionLikeNode(
+            new FieldNode("cost_price"), like, List.of(new InputNode("1*"), new FieldNode("name")));
+
+        CollectionLikeNode result = (CollectionLikeNode) rewriter.rewrite(node, Product.class);
+
+        assertThat(result.getOperator()).isSameAs(like);
+        assertThat(((FieldNode) result.getLeft()).getName()).isEqualTo("costPrice");
+        assertThat(((InputNode) result.getPatterns().get(0)).getValue()).isEqualTo("1*");
+        assertThat(((FieldNode) result.getPatterns().get(1)).getName()).isEqualTo("name");
+    }
+
+    @Test
     void rewritesFieldsInsidePrefixAndPriorityWrappers() {
         FilterPrefixOperator not = mock(FilterPrefixOperator.class);
         PrefixOperationNode node = new PrefixOperationNode(not, new PriorityNode(new FieldNode("cost_price")));
@@ -129,6 +142,43 @@ class JsonFieldNameFilterRewriterTest {
         assertThat(result.getOperator()).isSameAs(not);
         PriorityNode priority = (PriorityNode) result.getRight();
         assertThat(((FieldNode) priority.getNode()).getName()).isEqualTo("costPrice");
+    }
+
+    @Test
+    void rewritesFieldInsidePostfixOperations() {
+        // `field is null` parses to a PostfixOperationNode.
+        FilterPostfixOperator isNull = mock(FilterPostfixOperator.class);
+        PostfixOperationNode node = new PostfixOperationNode(new FieldNode("cost_price"), isNull);
+
+        PostfixOperationNode result = (PostfixOperationNode) rewriter.rewrite(node, Product.class);
+
+        assertThat(result.getOperator()).isSameAs(isNull);
+        assertThat(((FieldNode) result.getLeft()).getName()).isEqualTo("costPrice");
+    }
+
+    @Test
+    void rewritesFieldsInsideCollectionNodes() {
+        // `field in [1, other]` parses to an InfixOperationNode whose right operand is a CollectionNode.
+        FilterInfixOperator in = mock(FilterInfixOperator.class);
+        InfixOperationNode node = new InfixOperationNode(new FieldNode("cost_price"), in,
+            new CollectionNode(List.of(new InputNode(1), new FieldNode("name"))));
+
+        InfixOperationNode result = (InfixOperationNode) rewriter.rewrite(node, Product.class);
+
+        assertThat(result.getOperator()).isSameAs(in);
+        assertThat(((FieldNode) result.getLeft()).getName()).isEqualTo("costPrice");
+        CollectionNode items = (CollectionNode) result.getRight();
+        assertThat(((InputNode) items.getItems().get(0)).getValue()).isEqualTo(1);
+        assertThat(((FieldNode) items.getItems().get(1)).getName()).isEqualTo("name");
+    }
+
+    @Test
+    void returnsLeavesWithoutFieldReferenceAsIs() {
+        InputNode literal = new InputNode(42);
+        PlaceholderNode placeholder = new PlaceholderNode(mock(FilterPlaceholder.class));
+
+        assertThat(rewriter.rewrite(literal, Product.class)).isSameAs(literal);
+        assertThat(rewriter.rewrite(placeholder, Product.class)).isSameAs(placeholder);
     }
 
     @Getter

@@ -151,10 +151,11 @@ turning a bad literal into a SQL `CAST` failing at execution — a fork rethrow 
 telaio keeps unconvertible literals as a uniform 500 instead; (2) multi-pattern like `f ~ ['a','b']` uses raw SQL patterns on JPA (no `*`
 translation, no `%…%` wrap) but `*` regexes on Mongo; (3) `countDistinct` has a definition but no JPA processor;
 (4) `locate()` requires all three arguments although the README shows two; (5) Mongo embeds string literals raw in
-the `$expr` (`q=name:'$code'` compares two fields) — `{$literal: …}` would be safer.
+the `$expr` (`q=name:'$code'` compares two fields) — `{$literal: …}` would be safer; (6) under an `Object`-typed
+(schemaless) property a numeric literal does not match on Mongo (`payload.nested.level : 2` → no rows, while
+`payload.nested.tag : 'deep'` matches — the target type is unresolvable, literal handling to be investigated upstream).
 
-**Residual.** A property Jackson sees but the store does not persist still diverges (JPA 500 / Mongo 200 empty) —
-tracked as item 9. Write-only (`@JsonProperty(access = WRITE_ONLY)`) and `@JsonIgnore`d properties remain filterable by
+**Residual.** Write-only (`@JsonProperty(access = WRITE_ONLY)`) and `@JsonIgnore`d properties remain filterable by
 name (pre-existing behaviour, kept so default filters and in-process callers do not break) — see item 8.
 
 ## 8. Field-level authorization of `q=` filters
@@ -168,16 +169,23 @@ infer its value from the narrowed page. Surfaced by the security review of item 
 
 ## 9. Reject filters on serialized-but-not-persisted properties (JPA vs Mongo)
 
-**Open — next commit.** The strict field check of item 7 resolves `q=` paths against the entity's *Jackson* view (it
+**Done (2026-08-29).** The strict field check of item 7 resolves `q=` paths against the entity's *Jackson* view (it
 lives in telaio-core, which knows nothing about persistence). A property that is serialized but not stored —
 `@Transient` with `USE_TRANSIENT_ANNOTATION` disabled, or a computed getter; e.g. showcase `Product.profit` — therefore
 passes the check and fails only inside the backend, differently: JPA → Hibernate `IllegalArgumentException` on
 `root.get("profit")` → `InvalidDataAccessApiUsageException` → **500**; Mongo → `{$expr: {$gt: ["$profit", 10]}}` on a
-missing path → **200, empty page**. Last JPA/Mongo divergence in error classification.
+missing path → **200, empty page**. Was the last JPA/Mongo divergence in error classification.
 
-**Decision (2026-08-29): both → 400** (`DalInvalidFilterException`, same message as an unknown field, so nothing is
-disclosed that OpenAPI does not already publish). The check has to be **per backend**, in the two converter decorators,
-after the JSON-name rewrite:
+**Delivered: both → 400** (`DalInvalidFilterException`, same generic body as an unknown field; the only extra bit a
+client learns is "stored vs computed" for a property already visible on the wire — the wider field-existence oracle
+through Java names is item 8's concern). The check is **per backend**, in the two converter decorators, after the
+JSON-name rewrite — `JpaFilterFieldValidator` (metamodel, incl. Hibernate's subtype attributes; `Map` attributes only
+through `key(s)`/`value(s)`) and `MongoFilterFieldValidator` (the mapping context of the `MongoOperations` the DALs
+persist through; `Map`/`Object` sub-documents are schemaless and unchecked, a `@DBRef` only through `$id/$ref/$db`),
+both walking the `FieldNode`s collected by core's `FilterNodes.fieldNodes`. Covered by `JpaFilterFieldValidatorTest` /
+`MongoFilterFieldValidatorTest`, `profit > 10` / `lines.subtotal > 1` in both filter-language ITs, unit cases in the two
+converter tests, and `q=profit>10` → 400 on showcase `products`. Side fix: `JsonFieldNameFilterRewriter` now rewrites
+`CollectionLikeNode` (`field ~ ['a*','b*']`), which it previously skipped. Original design notes:
 
 - telaio-jpa `JsonAwareFilterSpecificationConverter.toPredicate`: walk every `FieldNode` path against the JPA metamodel
   (`root.getModel()`, `ManagedType#getAttribute` per segment; unwrap `PluralAttribute` element types; stop at
@@ -188,4 +196,4 @@ after the JSON-name rewrite:
 - Tests: `profit > 10`-style cases in both filter-language ITs (a `@Transient` field in the JPA fixture, a getter-only
   property in the Mongo fixture) asserting `DalInvalidFilterException`; end-to-end `q=profit>10` → 400 on `products`
   in `DalApiErrorsIT`; unit tests for the two walkers (opaque segments, plural paths, unknown nested attribute).
-- Docs: drop the "known limitation" sentence from `CHANGELOG.md` and the residual note above.
+- Docs: the "known limitation" sentence in `CHANGELOG.md` and the residual note of item 7 were dropped.
