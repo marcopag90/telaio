@@ -41,13 +41,13 @@ class ObjectIdJacksonModuleTest {
     @Test
     void rejectsInvalidHexRepresentation() {
         assertThatThrownBy(() -> mapper.readValue("\"not-an-object-id\"", ObjectId.class))
-            .hasMessageContaining("ObjectId");
+            .hasMessageContaining("Not a valid ObjectId hexadecimal representation");
     }
 
     @Test
     void rejectsNonTextualToken() {
         assertThatThrownBy(() -> mapper.readValue("{}", ObjectId.class))
-            .hasMessageContaining("ObjectId");
+            .hasMessageContaining("Not a valid ObjectId hexadecimal representation");
     }
 
     @Test

@@ -166,6 +166,17 @@ class JdbcDalMetricsStoreTest {
     }
 
     @Test
+    void topSlowest_shouldSkipDalsWithoutInvocations() {
+        // A window with no invocations has no mean to rank by: it must not appear in the ranking.
+        store.store(List.of(
+            bucket(T0, "idle", DalOperationType.READ, 0, 0, 0),
+            bucket(T0, "products", DalOperationType.READ, 10, 0, 20_000_000)));
+
+        List<DalMetricsStats> ranked = store.topSlowest(5, T0, NOW);
+        assertThat(ranked).extracting(DalMetricsStats::dalName).containsExactly("products");
+    }
+
+    @Test
     void findBuckets_shouldFilterByRange() {
         Instant before = T0.minus(Duration.ofHours(1));
         store.store(List.of(

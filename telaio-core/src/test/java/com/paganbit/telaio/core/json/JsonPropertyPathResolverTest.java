@@ -186,6 +186,31 @@ class JsonPropertyPathResolverTest {
         assertEquals("firstName", snakeResolver.toJavaPath(Person.class, "first_name"));
     }
 
+    @Test
+    void translatesNestedPathThroughArray() {
+        // pastContacts is a Contact[]: arrays unwrap to their element type like collections do.
+        assertEquals("pastContacts.email_address",
+            resolver.toJsonPath(Person.class, "pastContacts.emailAddress", false));
+        assertEquals("pastContacts.emailAddress", resolver.toJavaPath(Person.class, "pastContacts.email_address"));
+    }
+
+    @Test
+    void resolveJavaPathIgnoresStaticFields() {
+        // A static constant is neither a Jackson property nor a per-instance field: it never resolves.
+        JsonPropertyPathResolver.JavaPathResolution constant = resolver.resolveJavaPath(Person.class, "KIND_PREFIX");
+        assertFalse(constant.resolved());
+        assertEquals("KIND_PREFIX", constant.unresolvedSegment());
+    }
+
+    @Test
+    void resolveJavaPathSeesInheritedProperties() {
+        // Jackson-exposed and @JsonIgnore'd fields declared on a superclass are both addressable.
+        assertEquals("fullName", resolver.resolveJavaPath(Employee.class, "full_name").javaPath());
+        assertEquals("secret", resolver.resolveJavaPath(Employee.class, "secret").javaPath());
+        assertEquals("badge", resolver.resolveJavaPath(Employee.class, "badge").javaPath());
+        assertEquals("home.zipCode", resolver.toJavaPath(Employee.class, "home.zip_code"));
+    }
+
     @Getter
     @Setter
     private static class Person {
@@ -195,6 +220,7 @@ class JsonPropertyPathResolverTest {
         private int age;
         private Address home;
         private List<Contact> contacts;
+        private Contact[] pastContacts;
         private Map<String, String> attributes;
         @JsonProperty("extra_attributes")
         private Map<String, Object> extraAttributes;
@@ -205,9 +231,16 @@ class JsonPropertyPathResolverTest {
         private Kind kind;
         @JsonIgnore
         private String secret;
+        private static final String KIND_PREFIX = "kind-";
     }
 
     enum Kind {A, B}
+
+    @Getter
+    @Setter
+    private static class Employee extends Person {
+        private String badge;
+    }
 
     @Getter
     @Setter
