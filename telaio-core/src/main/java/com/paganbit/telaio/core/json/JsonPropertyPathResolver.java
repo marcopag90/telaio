@@ -85,8 +85,9 @@ public class JsonPropertyPathResolver {
      *
      * @param rootType         the type the path is rooted at
      * @param javaPath         the dot-notation path of Java property names (e.g. {@code address.zipCode})
-     * @param forSerialization {@code true} to use the serialization view (output), {@code false} for the
-     *                         deserialization view (input)
+     * @param forSerialization {@code true} to use the serialization view (output) — a property Jackson never
+     *                         writes (e.g. {@code @JsonProperty(access = WRITE_ONLY)}) does not resolve in
+     *                         it; {@code false} for the deserialization view (input)
      * @return the translated JSON-name path, or {@code null} if any segment cannot be resolved
      */
     public @Nullable String toJsonPath(Class<?> rootType, String javaPath, boolean forSerialization) {
@@ -147,7 +148,7 @@ public class JsonPropertyPathResolver {
         for (String part : jsonPath.split("\\.")) {
             if (checking) {
                 JavaType element = unwrapElements(currentType);
-                if (REFERENCE_KEY_SEGMENTS.contains(part) || isOpaque(element)) {
+                if (isReferenceKeySegment(part) || isOpaque(element)) {
                     // Dynamic keys or a reference accessor: this and every remaining segment pass through.
                     checking = false;
                 } else if (isLeaf(element)) {
@@ -206,9 +207,14 @@ public class JsonPropertyPathResolver {
     }
 
     private Map<String, PropertyMeta> introspectJsonNames(Class<?> beanClass, boolean forSerialization) {
-        // Forward: Java internal name -> JSON name.
+        // Forward: Java internal name -> JSON name. Only properties Jackson would actually write (getter or
+        // field left after access filtering) belong to the serialization view: a WRITE_ONLY property is
+        // still listed by the introspector but never appears in the output.
         Map<String, PropertyMeta> names = new HashMap<>();
         for (BeanPropertyDefinition property : introspect(beanClass, forSerialization)) {
+            if (forSerialization && !property.couldSerialize()) {
+                continue;
+            }
             names.put(property.getInternalName(), new PropertyMeta(property.getName(), property.getPrimaryType()));
         }
         return names;
@@ -282,11 +288,33 @@ public class JsonPropertyPathResolver {
         return current.getRawClass();
     }
 
+    // ------------------------------------------------------------------------
+    // Path-walking rules, shared with every component that walks a field path segment by segment
+    // (the strict filter rewrite, the RBAC filter-field checks) so that they cannot drift apart.
+    // ------------------------------------------------------------------------
+
+    /**
+     * Whether {@code segment} is a reference accessor a backend may append to a property path — the keys
+     * of a stored document reference ({@code $id}, {@code $ref}, {@code $db}). Such a segment, and every
+     * segment after it, is never checked against the bean.
+     *
+     * @param segment one dot-separated segment of a field path
+     * @return {@code true} for a reference accessor segment
+     * @since 1.2.0
+     */
+    public static boolean isReferenceKeySegment(String segment) {
+        return REFERENCE_KEY_SEGMENTS.contains(segment);
+    }
+
     /**
      * Unwraps collections and arrays (not maps) to their element type, so a path through a
      * {@code List<Contact>} resolves against {@code Contact}.
+     *
+     * @param type the declared type of the current property
+     * @return the element type, or {@code type} itself when it is not a collection or array
+     * @since 1.2.0
      */
-    private static JavaType unwrapElements(JavaType type) {
+    public static JavaType unwrapElements(JavaType type) {
         JavaType current = type;
         while (current.isCollectionLikeType() || current.isArrayType()) {
             current = current.getContentType();
@@ -297,8 +325,12 @@ public class JsonPropertyPathResolver {
     /**
      * Whether the segments applied to {@code element} cannot be checked against declared properties: maps
      * (dynamic keys), {@code Object} (unknown shape) and raw JSON trees.
+     *
+     * @param element the (element-unwrapped) type a segment is applied to
+     * @return {@code true} when the type has no introspectable properties
+     * @since 1.2.0
      */
-    private static boolean isOpaque(JavaType element) {
+    public static boolean isOpaque(JavaType element) {
         Class<?> raw = element.getRawClass();
         return element.isMapLikeType() || Object.class.equals(raw) || JsonNode.class.isAssignableFrom(raw);
     }
@@ -306,8 +338,12 @@ public class JsonPropertyPathResolver {
     /**
      * Whether {@code element} is a scalar (primitive, wrapper, string, number, temporal, enum, ...) that
      * has no addressable sub-properties, even though reflection would expose getters on it.
+     *
+     * @param element the (element-unwrapped) type a segment is applied to
+     * @return {@code true} for a scalar type
+     * @since 1.2.0
      */
-    private static boolean isLeaf(JavaType element) {
+    public static boolean isLeaf(JavaType element) {
         return SIMPLE_TYPES.test(element.getRawClass());
     }
 

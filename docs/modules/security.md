@@ -28,12 +28,12 @@ operations. It requires Spring Security on the classpath.
 
 ### RBAC (Field-Level)
 
-| Type                          | Purpose                                                                                                                                                                                  |
-|-------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `DalRbacAdapter<T>`           | SPI: `Map<String,Object> filterInput(DalOperationType, Map<String,Object>, Authentication)` and `Object filterOutput(DalOperationType, T, Authentication)` (both `default` pass-through) |
-| `NoopDalRbacAdapter`          | Built-in: no filtering (default when `@DalSecurity` is absent or omitted)                                                                                                                |
-| `PropertyBasedDalRbacAdapter` | Built-in: abstract base class defining readable/writable fields per role via property name maps                                                                                          |
-| `JsonViewDalRbacAdapter`      | Built-in: abstract base class delegating to Jackson `@JsonView` annotations on the entity                                                                                                |
+| Type                          | Purpose                                                                                                                                                                                                                                                                                                     |
+|-------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `DalRbacAdapter<T>`           | SPI: `Map<String,Object> filterInput(DalOperationType, Map<String,Object>, Authentication)`, `Object filterOutput(DalOperationType, T, Authentication)` and `boolean canFilterOn(String fieldPath, Authentication)` — may the principal reference this field in a `q=` filter? (all `default` pass-through) |
+| `NoopDalRbacAdapter`          | Built-in: no filtering (default when `@DalSecurity` is absent or omitted)                                                                                                                                                                                                                                   |
+| `PropertyBasedDalRbacAdapter` | Built-in: abstract base class defining readable/writable fields per role via property name maps                                                                                                                                                                                                             |
+| `JsonViewDalRbacAdapter`      | Built-in: abstract base class delegating to Jackson `@JsonView` annotations on the entity                                                                                                                                                                                                                   |
 
 ### Support
 
@@ -49,6 +49,7 @@ operations. It requires Spring Security on the classpath.
 **No `@DalSecurity` annotation:**
 
 ```java
+
 @DalService(name = "announcements")
 public class AnnouncementDalService extends JpaDal<Announcement, Long> {
 }
@@ -59,6 +60,7 @@ public class AnnouncementDalService extends JpaDal<Announcement, Long> {
 **Bare `@DalSecurity` annotation:**
 
 ```java
+
 @DalService(name = "bulletins")
 @DalSecurity
 public class BulletinDalService extends JpaDal<Bulletin, Long> {
@@ -72,6 +74,7 @@ public class BulletinDalService extends JpaDal<Bulletin, Long> {
 Implement `DalAuthAdapter` to control which operations each role can perform:
 
 ```java
+
 @Component
 public class ProductAuthAdapter implements DalAuthAdapter<Long> {
 
@@ -114,6 +117,7 @@ public class ProductAuthAdapter implements DalAuthAdapter<Long> {
 Then wire it:
 
 ```java
+
 @DalService(name = "products")
 @DalSecurity(authAdapterClass = ProductAuthAdapter.class)
 public class ProductDalService extends JpaDal<Product, Long> {
@@ -122,9 +126,12 @@ public class ProductDalService extends JpaDal<Product, Long> {
 
 ### Strategy 2: Field-Level RBAC via Property Maps
 
-Extend `PropertyBasedDalRbacAdapter` to define readable/writable fields per role:
+Extend `PropertyBasedDalRbacAdapter` to define readable/writable fields per role. The readable map also decides which
+fields a `q=` filter may reference: a field pruned from the response is rejected as a filter criterion with the same 400
+as an unknown field (whether spelled by its wire name or its Java name).
 
 ```java
+
 @Component
 public class ProductRbacAdapter extends PropertyBasedDalRbacAdapter<Product> {
 
@@ -155,6 +162,7 @@ public class ProductRbacAdapter extends PropertyBasedDalRbacAdapter<Product> {
 Wire it:
 
 ```java
+
 @DalService(name = "products")
 @DalSecurity(
     authAdapterClass = ProductAuthAdapter.class,
@@ -172,7 +180,8 @@ When a USER requests `PATCH /dal/v1/products/1` with `{ "costPrice": 50 }`, the 
 
 ### Strategy 3: Field-Level RBAC via Jackson `@JsonView`
 
-Use `@JsonView` annotations on the entity for hierarchical role-based visibility:
+Use `@JsonView` annotations on the entity for hierarchical role-based visibility. The read view also governs the `q=`
+filter: only properties visible in the view may be referenced (a property with no `@JsonView` is never filterable):
 
 ```java
 public interface EmployeeView {
@@ -206,6 +215,7 @@ public class Employee {
 Extend `JsonViewDalRbacAdapter` to map roles to views:
 
 ```java
+
 @Component
 public class EmployeeRbacAdapter extends JsonViewDalRbacAdapter<Employee> {
 
@@ -228,6 +238,7 @@ public class EmployeeRbacAdapter extends JsonViewDalRbacAdapter<Employee> {
 Wire it:
 
 ```java
+
 @DalService(name = "employees")
 @DalSecurity(
     authAdapterClass = PermitAllDalAuthAdapter.class,

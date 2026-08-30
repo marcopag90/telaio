@@ -16,6 +16,8 @@ import tools.jackson.databind.json.JsonMapper;
 import java.util.List;
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 /**
  * Base class for the showcase end-to-end integration tests. Boots the whole application on a random
  * port against a real PostgreSQL (Testcontainers) and drives it over genuine HTTP through the full
@@ -113,5 +115,17 @@ abstract class AbstractShowcaseIT {
      */
     protected String body(Map<String, ?> map) {
         return JSON.writeValueAsString(map);
+    }
+
+    // --- Assertions ---------------------------------------------------------------------------
+
+    /**
+     * Asserts the generic client fault for a well-formed {@code q=} filter the request cannot honor —
+     * unknown, non-persistent or non-readable field, unknown function — which is deliberately the same
+     * body in every case.
+     */
+    protected void assertInvalidFilter(ResponseEntity<String> response) {
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(tree(response).path("detail").asString()).isEqualTo("Invalid filter expression");
     }
 }

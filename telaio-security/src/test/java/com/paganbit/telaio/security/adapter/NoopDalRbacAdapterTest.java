@@ -11,8 +11,7 @@ import org.springframework.security.core.Authentication;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(MockitoExtension.class)
 class NoopDalRbacAdapterTest {
@@ -65,6 +64,12 @@ class NoopDalRbacAdapterTest {
     @Test
     void shouldNotFilterUpdateOutput() {
         assertSame(testDto, adapter.filterOutput(DalOperationType.UPDATE, testDto, mockAuthentication));
+    }
+
+    @Test
+    void shouldAllowFilteringOnAnyField() {
+        assertTrue(adapter.canFilterOn("name", mockAuthentication));
+        assertTrue(adapter.canFilterOn("nested.secret", mockAuthentication));
     }
 
     record TestDto(String name) {

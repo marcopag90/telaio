@@ -21,6 +21,7 @@ import tools.jackson.databind.json.JsonMapper;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.doReturn;
@@ -302,6 +303,128 @@ class JsonViewDalRbacAdapterTest {
         assertThrows(IllegalStateException.class, RawJsonViewAdapter::new);
     }
 
+    // ------------------------------------------------------------------------
+    // Filter-field check (reads)
+    // ------------------------------------------------------------------------
+
+    @Test
+    void filter_publicRole_mayReferenceOnlyPublicProperties() {
+        doReturn(List.of(Roles.PUBLIC)).when(auth).getAuthorities();
+
+        assertTrue(adapter.canFilterOn("title", auth));
+        assertFalse(adapter.canFilterOn("secret", auth), "Internal-only: filtering is denied");
+        assertFalse(adapter.canFilterOn("hidden", auth), "no @JsonView: visible in no view, like on output");
+    }
+
+    @Test
+    void filter_internalRole_inheritsPublicAndAddsInternal() {
+        doReturn(List.of(Roles.INTERNAL)).when(auth).getAuthorities();
+
+        assertTrue(adapter.canFilterOn("title", auth));
+        assertTrue(adapter.canFilterOn("secret", auth));
+        assertFalse(adapter.canFilterOn("hidden", auth));
+    }
+
+    @Test
+    void filter_withoutView_deniesEveryField() {
+        doReturn(List.of()).when(auth).getAuthorities();
+
+        assertFalse(adapter.canFilterOn("title", auth));
+    }
+
+    @Test
+    void filter_nestedPath_isCheckedAgainstTheElementBean() {
+        NestedAdapter nested = new NestedAdapter();
+        nested.setObjectMapper(JsonMapper.builder().build());
+        doReturn(List.of(Roles.PUBLIC)).when(auth).getAuthorities();
+
+        assertTrue(nested.canFilterOn("child.visible", auth));
+        assertFalse(nested.canFilterOn("child.secret", auth));
+        assertTrue(nested.canFilterOn("members.visible", auth), "collections resolve against their element type");
+        assertFalse(nested.canFilterOn("members.hidden", auth));
+        assertTrue(nested.canFilterOn("tags", auth));
+        assertFalse(nested.canFilterOn("tags.length", auth), "a segment applied to a scalar never resolves");
+        assertFalse(nested.canFilterOn("child.nope", auth));
+        assertFalse(nested.canFilterOn("nope", auth));
+    }
+
+    @Test
+    void filter_renamedProperty_acceptsWireAndJavaNameAlike() {
+        // A filter may spell a property by its @JsonProperty wire name or by its Java name (the backends
+        // accept both), so the view must be enforced under both spellings — or the Java name would bypass it.
+        AliasedAdapter aliased = new AliasedAdapter();
+        aliased.setObjectMapper(JsonMapper.builder().build());
+        doReturn(List.of(Roles.PUBLIC)).when(auth).getAuthorities();
+
+        assertTrue(aliased.canFilterOn("full_name", auth));
+        assertTrue(aliased.canFilterOn("name", auth));
+        assertFalse(aliased.canFilterOn("secret_code", auth));
+        assertFalse(aliased.canFilterOn("secret", auth));
+    }
+
+    @Test
+    void filter_writeOnlyPropertyInTheView_isDeniedLikeOnOutput() {
+        // In the view, yet never serialized: the response does not carry it, so neither may a filter.
+        AliasedAdapter aliased = new AliasedAdapter();
+        aliased.setObjectMapper(JsonMapper.builder().build());
+        doReturn(List.of(Roles.PUBLIC)).when(auth).getAuthorities();
+        AliasedDoc doc = new AliasedDoc();
+        doc.setToken("t");
+
+        JsonNode output = (JsonNode) aliased.filterOutput(DalOperationType.READ, doc, auth);
+
+        assertFalse(output.has("token"));
+        assertFalse(aliased.canFilterOn("token", auth));
+    }
+
+    @Test
+    void filter_belowAMapProperty_acceptsAnyKeyWhenTheMapIsInView() {
+        BagAdapter bag = new BagAdapter();
+        bag.setObjectMapper(JsonMapper.builder().build());
+        doReturn(List.of(Roles.PUBLIC)).when(auth).getAuthorities();
+
+        assertTrue(bag.canFilterOn("attributes.any.key", auth), "map keys are not declared properties");
+        assertFalse(bag.canFilterOn("hiddenAttributes.key", auth), "the map itself is out of view");
+    }
+
+    @Test
+    void filter_perAccessorViews_followTheGetterLikeSerialization() {
+        // ssn: writable by Public (setter), visible to Internal only (getter) — the filter must follow the
+        // getter, exactly like the response does, or Public could bisect ssn through `ssn ~ '123*'`.
+        // note: the reverse split — readable by Public (getter), writable by Internal (setter).
+        AccessorAdapter accessor = new AccessorAdapter();
+        accessor.setObjectMapper(JsonMapper.builder().build());
+        doReturn(List.of(Roles.PUBLIC)).when(auth).getAuthorities();
+        AccessorDoc doc = new AccessorDoc();
+        doc.setSsn("123-45-6789");
+        doc.setNote("n");
+
+        JsonNode output = (JsonNode) accessor.filterOutput(DalOperationType.READ, doc, auth);
+        Map<String, Object> input = accessor.filterInput(
+            DalOperationType.UPDATE, new HashMap<>(Map.of("ssn", "x", "note", "y")), auth);
+
+        assertFalse(output.has("ssn"), "the response follows the getter view (Internal)");
+        assertFalse(accessor.canFilterOn("ssn", auth), "so must the filter");
+        assertTrue(output.has("note"));
+        assertTrue(accessor.canFilterOn("note", auth));
+        assertEquals(Set.of("ssn"), input.keySet(), "input follows the setter view: ssn writable, note not");
+    }
+
+    @Test
+    void filter_belowAMapOfBeans_checksTheValueBeanAgainstTheView() {
+        // Jackson applies the view to map values too: a hidden property of the value bean is pruned from
+        // the response, so it must not be reachable through `members.<key>.secret` either.
+        BagAdapter bag = new BagAdapter();
+        bag.setObjectMapper(JsonMapper.builder().build());
+        doReturn(List.of(Roles.PUBLIC)).when(auth).getAuthorities();
+
+        assertTrue(bag.canFilterOn("members.alice.visible", auth));
+        assertFalse(bag.canFilterOn("members.alice.secret", auth));
+        assertFalse(bag.canFilterOn("members.alice.hidden", auth));
+        assertFalse(bag.canFilterOn("members.alice.nope", auth));
+        assertTrue(bag.canFilterOn("members.alice", auth), "the key alone addresses the visible value");
+    }
+
     private static Map<String, Object> member(String visible, String secret, String hidden) {
         Map<String, Object> map = new HashMap<>();
         map.put("visible", visible);
@@ -361,6 +484,27 @@ class JsonViewDalRbacAdapterTest {
         }
     }
 
+    private static class AliasedAdapter extends JsonViewDalRbacAdapter<AliasedDoc> {
+        @Override
+        protected Class<?> resolveView(DalOperationType operation, Authentication authentication) {
+            return authentication.getAuthorities().contains(Roles.PUBLIC) ? Views.Public.class : null;
+        }
+    }
+
+    private static class AccessorAdapter extends JsonViewDalRbacAdapter<AccessorDoc> {
+        @Override
+        protected Class<?> resolveView(DalOperationType operation, Authentication authentication) {
+            return authentication.getAuthorities().contains(Roles.PUBLIC) ? Views.Public.class : null;
+        }
+    }
+
+    private static class BagAdapter extends JsonViewDalRbacAdapter<Bag> {
+        @Override
+        protected Class<?> resolveView(DalOperationType operation, Authentication authentication) {
+            return authentication.getAuthorities().contains(Roles.PUBLIC) ? Views.Public.class : null;
+        }
+    }
+
     @SuppressWarnings("rawtypes")
     private static class RawJsonViewAdapter extends JsonViewDalRbacAdapter {
         @Override
@@ -416,6 +560,61 @@ class JsonViewDalRbacAdapterTest {
         @JsonView(Views.Internal.class)
         private String secret;
         private String hidden;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    static class AliasedDoc {
+        @JsonView(Views.Public.class)
+        @JsonProperty("full_name")
+        private String name;
+        @JsonView(Views.Internal.class)
+        @JsonProperty("secret_code")
+        private String secret;
+        @JsonView(Views.Public.class)
+        @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+        private String token;
+    }
+
+    /**
+     * Views declared per accessor: {@code ssn} is Public on the setter and Internal on the getter,
+     * {@code note} the other way round.
+     */
+    static class AccessorDoc {
+        private String ssn;
+        private String note;
+
+        @JsonView(Views.Internal.class)
+        public String getSsn() {
+            return ssn;
+        }
+
+        @JsonView(Views.Public.class)
+        public void setSsn(String ssn) {
+            this.ssn = ssn;
+        }
+
+        @JsonView(Views.Public.class)
+        public String getNote() {
+            return note;
+        }
+
+        @JsonView(Views.Internal.class)
+        public void setNote(String note) {
+            this.note = note;
+        }
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    static class Bag {
+        @JsonView(Views.Public.class)
+        private Map<String, Object> attributes;
+        private Map<String, Object> hiddenAttributes;
+        @JsonView(Views.Public.class)
+        private Map<String, Member> members;
     }
 
     static class ExplodingDoc {
