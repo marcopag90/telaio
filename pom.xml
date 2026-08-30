@@ -58,6 +58,7 @@
         <testcontainers.image.mariadb>mariadb:11.4</testcontainers.image.mariadb>
         <testcontainers.image.sqlserver>mcr.microsoft.com/mssql/server:2022-latest</testcontainers.image.sqlserver>
         <testcontainers.image.oracle>gvenzl/oracle-xe:21-slim</testcontainers.image.oracle>
+        <testcontainers.image.mongodb>mongo:8</testcontainers.image.mongodb>
     </properties>
 
     <modules>
@@ -70,6 +71,7 @@
         <module>telaio-web</module>
         <module>telaio-openapi</module>
         <module>telaio-jpa</module>
+        <module>telaio-mongo</module>
         <module>telaio-rest-client-shared</module>
         <module>telaio-rest-client</module>
         <module>telaio-bom</module>
@@ -103,6 +105,7 @@
                             <testcontainers.image.mariadb>${testcontainers.image.mariadb}</testcontainers.image.mariadb>
                             <testcontainers.image.sqlserver>${testcontainers.image.sqlserver}</testcontainers.image.sqlserver>
                             <testcontainers.image.oracle>${testcontainers.image.oracle}</testcontainers.image.oracle>
+                            <testcontainers.image.mongodb>${testcontainers.image.mongodb}</testcontainers.image.mongodb>
                         </systemPropertyVariables>
                         <!--@formatter:on-->
                     </configuration>

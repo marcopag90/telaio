@@ -2,12 +2,14 @@ package com.paganbit.telaio.openapi.autoconfigure;
 
 import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import com.paganbit.telaio.core.registry.DalManager;
+import com.paganbit.telaio.introspection.DefaultSimpleTypePredicate;
 import com.paganbit.telaio.openapi.customizer.DalOpenApiCustomizer;
 import com.paganbit.telaio.openapi.generator.DalPathsGenerator;
 import com.paganbit.telaio.openapi.generator.FilterParameterDescriber;
 import com.paganbit.telaio.openapi.introspection.DalEntitySchemaResolver;
 import com.paganbit.telaio.web.autoconfigure.TelaioWebAutoConfiguration;
 import org.springdoc.core.customizers.OpenApiCustomizer;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.*;
@@ -50,9 +52,14 @@ public class TelaioOpenApiAutoConfiguration {
     @ConditionalOnMissingBean
     FilterParameterDescriber dalFilterParameterDescriber(
         JsonPropertyPathResolver jsonPathResolver,
+        ObjectProvider<DefaultSimpleTypePredicate> simpleTypePredicate,
         TelaioOpenApiProperties properties
     ) {
-        return new FilterParameterDescriber(jsonPathResolver, properties.isIncludeExamples());
+        return new FilterParameterDescriber(
+            jsonPathResolver,
+            simpleTypePredicate.getIfAvailable(DefaultSimpleTypePredicate::new),
+            properties.isIncludeExamples()
+        );
     }
 
     @Bean
@@ -61,9 +68,14 @@ public class TelaioOpenApiAutoConfiguration {
         DalEntitySchemaResolver schemaResolver,
         FilterParameterDescriber filterDescriber,
         ObjectMapper objectMapper,
+        ObjectProvider<DefaultSimpleTypePredicate> simpleTypePredicate,
         TelaioOpenApiProperties properties
     ) {
-        return new DalPathsGenerator(schemaResolver, filterDescriber, objectMapper, properties.isTagPerDal());
+        return new DalPathsGenerator(
+            schemaResolver, filterDescriber, objectMapper,
+            simpleTypePredicate.getIfAvailable(DefaultSimpleTypePredicate::new),
+            properties.isTagPerDal()
+        );
     }
 
     @Bean

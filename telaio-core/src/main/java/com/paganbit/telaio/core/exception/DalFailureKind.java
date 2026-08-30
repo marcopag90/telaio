@@ -25,7 +25,8 @@ import org.springframework.dao.OptimisticLockingFailureException;
 public enum DalFailureKind {
 
     /**
-     * The request payload failed validation ({@link DalEntityValidationException}).
+     * The request payload failed validation ({@link DalEntityValidationException}) or the filter cannot
+     * be applied to the target entity ({@link DalInvalidFilterException}).
      */
     VALIDATION,
 
@@ -54,7 +55,7 @@ public enum DalFailureKind {
      * recognized client faults
      */
     public static DalFailureKind of(Throwable failure) {
-        if (failure instanceof DalEntityValidationException) {
+        if (failure instanceof DalEntityValidationException || failure instanceof DalInvalidFilterException) {
             return VALIDATION;
         }
         if (failure instanceof DalEntityNotFoundException) {

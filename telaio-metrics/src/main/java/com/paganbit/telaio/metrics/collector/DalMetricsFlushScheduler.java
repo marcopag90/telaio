@@ -18,7 +18,8 @@ public interface DalMetricsFlushScheduler extends SmartLifecycle {
 
     /**
      * Drains completed buckets and stores them immediately. Invoked by the scheduler; public so
-     * tests and callers needing fresh data can force a flush.
+     * tests and callers needing fresh data can force a flush. When invoked from within a caller's
+     * transaction, store writes take part in that transaction instead of opening their own.
      */
     void flushNow();
 }

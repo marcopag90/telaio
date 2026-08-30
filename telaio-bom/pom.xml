@@ -35,7 +35,7 @@
     </licenses>
 
     <properties>
-        <turkraft-springfilter.version>4.0.6</turkraft-springfilter.version>
+        <turkraft-springfilter.version>4.1.0</turkraft-springfilter.version>
         <springdoc-openapi-starter-webmvc-ui.version>3.1.0</springdoc-openapi-starter-webmvc-ui.version>
         <swagger-bom.version>2.2.53</swagger-bom.version>
         <central-publishing-maven-plugin.version>0.11.0</central-publishing-maven-plugin.version>
@@ -91,6 +91,11 @@
             </dependency>
             <dependency>
                 <groupId>com.paganbit</groupId>
+                <artifactId>telaio-mongo</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.paganbit</groupId>
                 <artifactId>telaio-rest-client-shared</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -107,6 +112,11 @@
             <dependency>
                 <groupId>com.turkraft.springfilter</groupId>
                 <artifactId>jpa</artifactId>
+                <version>${turkraft-springfilter.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.turkraft.springfilter</groupId>
+                <artifactId>mongo</artifactId>
                 <version>${turkraft-springfilter.version}</version>
             </dependency>
             <dependency>

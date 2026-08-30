@@ -6,6 +6,55 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### ⭐ New Features
+
+- MongoDB DAL backend (`telaio-mongo`): `MongoDal` built on Spring Data MongoDB with Turkraft
+  filter conversion (`$expr`-based), default sort resolution, and a dedicated qualified
+  transaction manager (`telaioMongoTransactionManager`) with a no-op fallback for standalone
+  MongoDB — designed to coexist with `telaio-jpa` behind the same `/dal/v1` surface.
+- Metrics: `@TelaioMetricsDataSource` and `@TelaioMetricsTransactionManager` qualifiers select the
+  DataSource (e.g. a dedicated metrics schema) and, optionally, the transaction manager the JDBC store
+  uses in applications with several DataSources or transaction managers.
+- Core: `DalInvalidFilterException` (a `DalFailureKind.VALIDATION` client fault) for a well-formed `q=`
+  filter the entity cannot honour, `JsonPropertyPathResolver.resolveJavaPath` reporting the first
+  unresolvable segment of a field path, and `FilterNodes.fieldNodes` collecting the field references of a
+  parsed filter.
+
+### 🐞 Bug Fixes
+
+- Filtering: a well-formed `q=` filter that references a field the entity does not expose or does not
+  persist (`@Transient`, computed getter), or a function that is unknown or unsupported by the backend, is
+  now a **400** (`"Invalid filter expression"`) on both the JPA and the Mongo backend — before, such
+  filters were a 500 on JPA and a silently empty page on Mongo. Field paths are resolved against the
+  entity's properties (JSON wire names and Java names, so server-side default filters keep working) and
+  checked against the backend's mapping (JPA metamodel, Mongo mapping context); keys below a
+  `Map`/`Object` property and the `$id`/`$ref`/`$db` keys of a stored reference are not checked. A literal
+  that does not convert to the field's type (`quantity:'abc'`) stays a server fault (500) on both
+  backends. Multi-pattern likes (`field ~ ['a*', 'b*']`) now honour `@JsonProperty` wire names too.
+- Metrics: the JDBC store no longer looks up the application's `PlatformTransactionManager` by type — an
+  application with multiple transaction managers failed to start, and a manager over a
+  different DataSource was accepted silently. The store now uses a private JDBC transaction manager bound
+  to its own DataSource; with several unmarked DataSources the context fails fast with guidance instead of
+  persisting metrics into an arbitrary database.
+
+### ⛔ Deprecations & Removals
+
+- **Breaking:** `TypeUtil` (telaio-introspection) removed. The simple-type classification is now
+  carried by the `DefaultSimpleTypePredicate` instance (aggregating `SimpleTypeContributor`
+  beans). Internal-use class: consumers should inject the predicate bean instead. For the same
+  reason the constructors of the framework-wiring classes `DalIdArgumentResolver`,
+  `DalPathsGenerator` and `FilterParameterDescriber` now take the predicate.
+
+### 📔 Documentation
+
+- Showcase: `notifications`, a MongoDB-backed DAL running next to the JPA DALs with its own transaction
+  manager — jpa+mongo coexistence on one `/dal/v1` surface.
+
+### 🔨 Dependency Upgrades
+
+- Turkraft Spring Filter 4.0.1 → 4.1.0 (BSON-native mongo filter conversion, `FilterQueryConverter` bean,
+  `@DBRef`/`@DocumentReference` filtering, xor fix)
+
 ## [1.1.0] - 2026-07-29
 
 Telaio DALs can now be consumed remotely: three new modules add a typed, blocking REST client

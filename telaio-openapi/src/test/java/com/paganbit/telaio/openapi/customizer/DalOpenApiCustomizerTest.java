@@ -6,6 +6,7 @@ import com.paganbit.telaio.core.adapter.DalOperationType;
 import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import com.paganbit.telaio.core.registry.DalDefinitionEntry;
 import com.paganbit.telaio.core.registry.DalManager;
+import com.paganbit.telaio.introspection.DefaultSimpleTypePredicate;
 import com.paganbit.telaio.openapi.generator.DalPathsGenerator;
 import com.paganbit.telaio.openapi.generator.FilterParameterDescriber;
 import com.paganbit.telaio.openapi.introspection.DalEntitySchemaResolver;
@@ -44,10 +45,12 @@ class DalOpenApiCustomizerTest {
     private final ObjectMapper objectMapper = JsonMapper.builder().build();
 
     private DalOpenApiCustomizer customizer(DalManager dalManager) {
-        DalEntitySchemaResolver schemaResolver = new DalEntitySchemaResolver();
-        FilterParameterDescriber describer =
-            new FilterParameterDescriber(new JsonPropertyPathResolver(objectMapper), true);
-        DalPathsGenerator generator = new DalPathsGenerator(schemaResolver, describer, objectMapper, true);
+        final var schemaResolver = new DalEntitySchemaResolver();
+        final var jsonPathResolver = new JsonPropertyPathResolver(objectMapper);
+        final var simpleTypePredicate = new DefaultSimpleTypePredicate();
+        final var describer = new FilterParameterDescriber(jsonPathResolver, simpleTypePredicate, true);
+        DalPathsGenerator generator = new DalPathsGenerator(
+            schemaResolver, describer, objectMapper, simpleTypePredicate, true);
         return new DalOpenApiCustomizer(dalManager, generator, schemaResolver);
     }
 

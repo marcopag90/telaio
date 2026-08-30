@@ -1,18 +1,22 @@
 package com.paganbit.telaio.core.json;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.Setter;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 class JsonPropertyPathResolverTest {
 
@@ -83,6 +87,90 @@ class JsonPropertyPathResolverTest {
     }
 
     @Test
+    void resolveJavaPathReportsUnknownSegmentOnBeanTypes() {
+        JsonPropertyPathResolver.JavaPathResolution root = resolver.resolveJavaPath(Person.class, "bogus");
+        assertFalse(root.resolved());
+        assertEquals("bogus", root.unresolvedSegment());
+        assertEquals("bogus", root.javaPath());
+
+        JsonPropertyPathResolver.JavaPathResolution nested = resolver.resolveJavaPath(Person.class, "home.nope");
+        assertFalse(nested.resolved());
+        assertEquals("nope", nested.unresolvedSegment());
+        // The resolvable prefix is still translated; the unknown tail passes through verbatim.
+        assertEquals("home.nope", nested.javaPath());
+
+        JsonPropertyPathResolver.JavaPathResolution element =
+            resolver.resolveJavaPath(Person.class, "contacts.phone.number");
+        assertEquals("phone", element.unresolvedSegment());
+    }
+
+    @Test
+    void resolveJavaPathAcceptsJsonAndJavaNames() {
+        assertEquals("fullName", resolver.resolveJavaPath(Person.class, "full_name").javaPath());
+        JsonPropertyPathResolver.JavaPathResolution javaName = resolver.resolveJavaPath(Person.class, "fullName");
+        assertTrue(javaName.resolved());
+        assertEquals("fullName", javaName.javaPath());
+        assertEquals("home.zipCode", resolver.resolveJavaPath(Person.class, "home.zipCode").javaPath());
+    }
+
+    @Test
+    void resolveJavaPathStopsCheckingAfterMapObjectOrJsonNode() {
+        // Map keys are dynamic: anything after the map passes through unchecked.
+        JsonPropertyPathResolver.JavaPathResolution map = resolver.resolveJavaPath(Person.class, "attributes.color");
+        assertTrue(map.resolved());
+        assertEquals("attributes.color", map.javaPath());
+        assertTrue(resolver.resolveJavaPath(Person.class, "attributes.color.shade").resolved());
+        // Object and JsonNode carry no introspectable shape either.
+        assertTrue(resolver.resolveJavaPath(Person.class, "payload.anything").resolved());
+        assertTrue(resolver.resolveJavaPath(Person.class, "raw.deep.key").resolved());
+        // A renamed map property is still translated before the opaque part.
+        assertEquals("extraAttributes.k", resolver.resolveJavaPath(Person.class, "extra_attributes.k").javaPath());
+    }
+
+    @Test
+    void resolveJavaPathPassesReferenceKeySegmentsThroughButRejectsOtherDollarSegments() {
+        // Reference accessors (the keys of a stored document reference) are never checked against the bean.
+        for (String key : List.of("$id", "$ref", "$db")) {
+            JsonPropertyPathResolver.JavaPathResolution ref = resolver.resolveJavaPath(Person.class, "home." + key);
+            assertTrue(ref.resolved());
+            assertEquals("home." + key, ref.javaPath());
+        }
+        // Any other $-segment is just an unknown field.
+        assertEquals("$x", resolver.resolveJavaPath(Person.class, "home.$x").unresolvedSegment());
+    }
+
+    @Test
+    void resolveJavaPathRejectsSegmentOnScalar() {
+        JsonPropertyPathResolver.JavaPathResolution scalar = resolver.resolveJavaPath(Person.class, "age.digits");
+        assertFalse(scalar.resolved());
+        assertEquals("digits", scalar.unresolvedSegment());
+        assertEquals("length", resolver.resolveJavaPath(Person.class, "full_name.length").unresolvedSegment());
+        // JDK value types expose getters (UUID#getLeastSignificantBits, Instant#getNano) but are leaves.
+        assertEquals("leastSignificantBits",
+            resolver.resolveJavaPath(Person.class, "externalId.leastSignificantBits").unresolvedSegment());
+        assertEquals("nano", resolver.resolveJavaPath(Person.class, "createdAt.nano").unresolvedSegment());
+        assertEquals("declaringClass",
+            resolver.resolveJavaPath(Person.class, "kind.declaringClass").unresolvedSegment());
+    }
+
+    @Test
+    void resolveJavaPathAcceptsJavaNameOfPropertiesJacksonDoesNotExpose() {
+        // A @JsonIgnore'd field has no wire name, but server-side filters may still address it by Java name.
+        JsonPropertyPathResolver.JavaPathResolution ignored = resolver.resolveJavaPath(Person.class, "secret");
+        assertTrue(ignored.resolved());
+        assertEquals("secret", ignored.javaPath());
+    }
+
+    @Test
+    void resolveJavaPathLetsWireNamesWinOverJavaNamesThatSpellTheSame() {
+        // "id" is the wire name of externalRef and, at the same time, the Java name of the renamed id field:
+        // the wire name must win regardless of Jackson's property iteration order.
+        assertEquals("externalRef", resolver.resolveJavaPath(Aliased.class, "id").javaPath());
+        assertEquals("id", resolver.resolveJavaPath(Aliased.class, "internal_id").javaPath());
+        assertEquals("externalRef", resolver.resolveJavaPath(Aliased.class, "externalRef").javaPath());
+    }
+
+    @Test
     void toJavaPathTranslatesNestedPathThroughObjectAndCollection() {
         assertEquals("home.zipCode", resolver.toJavaPath(Person.class, "home.zip_code"));
         assertEquals("contacts.emailAddress", resolver.toJavaPath(Person.class, "contacts.email_address"));
@@ -98,6 +186,31 @@ class JsonPropertyPathResolverTest {
         assertEquals("firstName", snakeResolver.toJavaPath(Person.class, "first_name"));
     }
 
+    @Test
+    void translatesNestedPathThroughArray() {
+        // pastContacts is a Contact[]: arrays unwrap to their element type like collections do.
+        assertEquals("pastContacts.email_address",
+            resolver.toJsonPath(Person.class, "pastContacts.emailAddress", false));
+        assertEquals("pastContacts.emailAddress", resolver.toJavaPath(Person.class, "pastContacts.email_address"));
+    }
+
+    @Test
+    void resolveJavaPathIgnoresStaticFields() {
+        // A static constant is neither a Jackson property nor a per-instance field: it never resolves.
+        JsonPropertyPathResolver.JavaPathResolution constant = resolver.resolveJavaPath(Person.class, "KIND_PREFIX");
+        assertFalse(constant.resolved());
+        assertEquals("KIND_PREFIX", constant.unresolvedSegment());
+    }
+
+    @Test
+    void resolveJavaPathSeesInheritedProperties() {
+        // Jackson-exposed and @JsonIgnore'd fields declared on a superclass are both addressable.
+        assertEquals("fullName", resolver.resolveJavaPath(Employee.class, "full_name").javaPath());
+        assertEquals("secret", resolver.resolveJavaPath(Employee.class, "secret").javaPath());
+        assertEquals("badge", resolver.resolveJavaPath(Employee.class, "badge").javaPath());
+        assertEquals("home.zipCode", resolver.toJavaPath(Employee.class, "home.zip_code"));
+    }
+
     @Getter
     @Setter
     private static class Person {
@@ -107,6 +220,35 @@ class JsonPropertyPathResolverTest {
         private int age;
         private Address home;
         private List<Contact> contacts;
+        private Contact[] pastContacts;
+        private Map<String, String> attributes;
+        @JsonProperty("extra_attributes")
+        private Map<String, Object> extraAttributes;
+        private Object payload;
+        private JsonNode raw;
+        private UUID externalId;
+        private Instant createdAt;
+        private Kind kind;
+        @JsonIgnore
+        private String secret;
+        private static final String KIND_PREFIX = "kind-";
+    }
+
+    enum Kind {A, B}
+
+    @Getter
+    @Setter
+    private static class Employee extends Person {
+        private String badge;
+    }
+
+    @Getter
+    @Setter
+    private static class Aliased {
+        @JsonProperty("internal_id")
+        private Long id;
+        @JsonProperty("id")
+        private String externalRef;
     }
 
     @Getter

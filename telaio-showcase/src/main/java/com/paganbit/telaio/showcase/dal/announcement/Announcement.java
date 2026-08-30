@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.jspecify.annotations.Nullable;
 
 import java.time.LocalDateTime;
 
@@ -39,5 +40,5 @@ public class Announcement {
     private LocalDateTime publishedAt;
 
     @Column
-    private LocalDateTime expiresAt;
+    private @Nullable LocalDateTime expiresAt;
 }

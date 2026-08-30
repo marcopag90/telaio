@@ -4,6 +4,7 @@ import com.paganbit.telaio.core.adapter.DalAdapterInterceptorProvider;
 import com.paganbit.telaio.core.autoconfigure.TelaioCoreAutoConfiguration;
 import com.paganbit.telaio.core.registry.DalManager;
 import com.paganbit.telaio.core.version.TelaioVersionProvider;
+import com.paganbit.telaio.introspection.DefaultSimpleTypePredicate;
 import com.paganbit.telaio.web.DalRestApiV1;
 import com.paganbit.telaio.web.DalRestApiV1Controller;
 import com.paganbit.telaio.web.TelaioOpenApiGroupCustomizer;
@@ -77,9 +78,11 @@ public class TelaioWebAutoConfiguration {
     @Bean
     DalIdArgumentResolver dalIdArgumentResolver(
         DalManager dalManager,
-        ObjectMapper objectMapper
+        ObjectMapper objectMapper,
+        ObjectProvider<DefaultSimpleTypePredicate> simpleTypePredicate
     ) {
-        return new DalIdArgumentResolver(dalManager, objectMapper);
+        final var providedTypePredicate = simpleTypePredicate.getIfAvailable(DefaultSimpleTypePredicate::new);
+        return new DalIdArgumentResolver(dalManager, objectMapper, providedTypePredicate);
     }
 
     /**

@@ -1,6 +1,5 @@
 package com.paganbit.telaio.metrics.autoconfigure;
 
-import org.jspecify.annotations.NonNull;
 import org.springframework.context.annotation.Condition;
 import org.springframework.context.annotation.ConditionContext;
 import org.springframework.core.type.AnnotatedTypeMetadata;
@@ -32,7 +31,7 @@ public class OnInHouseMetricsCondition implements Condition {
     static final String METER_REGISTRY_CLASS = "io.micrometer.core.instrument.MeterRegistry";
 
     @Override
-    public boolean matches(ConditionContext context, @NonNull AnnotatedTypeMetadata metadata) {
+    public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
         String explicit = context.getEnvironment().getProperty(IN_HOUSE_ENABLED);
         if (explicit != null) {
             return Boolean.parseBoolean(explicit);

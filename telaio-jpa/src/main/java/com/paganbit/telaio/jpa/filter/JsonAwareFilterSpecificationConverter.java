@@ -1,5 +1,6 @@
 package com.paganbit.telaio.jpa.filter;
 
+import com.paganbit.telaio.core.exception.DalInvalidFilterException;
 import com.paganbit.telaio.core.json.JsonFieldNameFilterRewriter;
 import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import com.turkraft.springfilter.converter.FilterSpecification;
@@ -27,9 +28,17 @@ import java.util.Set;
  *
  * <p>The rewrite is performed lazily inside {@link FilterSpecification#toPredicate}, where the entity
  * type is known from {@link Root#getJavaType()} — the single-argument {@code convert(FilterNode)} carries
- * no type information on its own. Field names that are already Java names (or unknown) pass through
- * untouched (see {@link JsonFieldNameFilterRewriter}), so the behavior is purely additive: queries that
- * worked before keep working, and renamed fields now work too.</p>
+ * no type information on its own. Field names that are already Java names pass through untouched (see
+ * {@link JsonFieldNameFilterRewriter}), so queries that worked before keep working and renamed fields now
+ * work too.</p>
+ *
+ * <p>A filter that cannot be applied because of its <em>shape</em> — an unknown field (rejected by the
+ * rewriter), a field the wire exposes but the persistence unit does not map (rejected by
+ * {@link JpaFilterFieldValidator} against the metamodel), or a function this backend has no processor
+ * for — surfaces as a {@link DalInvalidFilterException}, a client fault.
+ * A literal that does not convert to the field's type
+ * is deliberately <em>not</em> intercepted: the persistence layer reports it (as a data-access failure)
+ * exactly as it would for any other query, and the same holds on every backend.</p>
  *
  * @author Marco Pagan
  * @since 1.0.0
@@ -39,6 +48,12 @@ public class JsonAwareFilterSpecificationConverter implements FilterSpecificatio
     private final FilterSpecificationConverter delegate;
     private final JsonFieldNameFilterRewriter rewriter;
 
+    /**
+     * Creates the decorator.
+     *
+     * @param delegate     the converter performing the actual conversion
+     * @param objectMapper the application mapper, used to introspect {@code @JsonProperty} renames
+     */
     public JsonAwareFilterSpecificationConverter(FilterSpecificationConverter delegate, ObjectMapper objectMapper) {
         this.delegate = delegate;
         this.rewriter = new JsonFieldNameFilterRewriter(new JsonPropertyPathResolver(objectMapper));
@@ -98,7 +113,12 @@ public class JsonAwareFilterSpecificationConverter implements FilterSpecificatio
                 CriteriaBuilder criteriaBuilder
             ) {
                 FilterNode filterNode = rewriter.rewrite(node, root.getJavaType());
-                return delegate.<T>convert(filterNode).toPredicate(root, query, criteriaBuilder);
+                JpaFilterFieldValidator.validate(filterNode, root.getModel());
+                try {
+                    return delegate.<T>convert(filterNode).toPredicate(root, query, criteriaBuilder);
+                } catch (UnsupportedOperationException e) {
+                    throw new DalInvalidFilterException("Invalid filter expression", e);
+                }
             }
         };
     }

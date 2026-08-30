@@ -1,6 +1,8 @@
 package com.paganbit.telaio.metrics.autoconfigure;
 
 import com.paganbit.telaio.core.autoconfigure.TelaioCoreAutoConfiguration;
+import com.paganbit.telaio.metrics.annotation.TelaioMetricsDataSource;
+import com.paganbit.telaio.metrics.annotation.TelaioMetricsTransactionManager;
 import com.paganbit.telaio.metrics.collector.*;
 import com.paganbit.telaio.metrics.model.LatencyHistogramScale;
 import com.paganbit.telaio.metrics.store.DalMetricsBucketMerger;
@@ -13,6 +15,8 @@ import io.micrometer.core.instrument.MeterRegistry;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.BeanFactoryUtils;
+import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -25,11 +29,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.JdbcTransactionManager;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.sql.DataSource;
 import java.time.Clock;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -43,9 +49,8 @@ import java.util.List;
  * {@code telaio.metrics.enabled=false}.</p>
  *
  * <p>Set {@code telaio.metrics.micrometer.enabled=true} (with Micrometer on the classpath and a
- * {@link MeterRegistry} bean available) to record into Micrometer instead.
- * The Micrometer recorder then <em>supersedes</em>
- * the in-house path ({@link OnInHouseMetricsCondition}); set
+ * {@link MeterRegistry} bean available) to record into Micrometer instead. The Micrometer recorder
+ * then <em>supersedes</em> the in-house path ({@link OnInHouseMetricsCondition}); set
  * {@code telaio.metrics.in-house.enabled=true} to run both during a transition.</p>
  *
  * @author Marco Pagan
@@ -140,28 +145,46 @@ public class TelaioMetricsAutoConfiguration {
      * JDBC store, selected when Spring JDBC and a {@link DataSource} are available. Nested
      * configuration classes are processed before the enclosing class's bean methods, so this
      * store is registered ahead of — and wins over — the in-memory fallback above.
+     *
+     * <p>The DataSource is the one marked {@link TelaioMetricsDataSource}, else the application's
+     * single or {@code @Primary} one; several unmarked candidates fail fast (see
+     * {@link #resolveMetricsDataSource}). The presence guard ({@link OnMetricsDataSourceCondition})
+     * also accepts a DataSource declared with {@code defaultCandidate = false}, the recommended way to
+     * declare a dedicated metrics DataSource. The transaction manager is never looked up by type: the
+     * store writes on its own background thread, so it gets a private JDBC transaction manager bound
+     * to that very DataSource — unless a {@link TelaioMetricsTransactionManager}-marked bean is
+     * declared. That manager has a single private consumer and nothing else should ever enlist in
+     * it, so it is not registered as a bean (a default-candidate bean would also make Spring Boot's
+     * JPA transaction manager back off); consequently Boot's {@code TransactionManagerCustomizers}
+     * and {@code spring.transaction.*} properties do not apply to it. The DataSource is only
+     * resolved, never re-registered.</p>
      */
     @Configuration(proxyBeanMethods = false)
-    @Conditional(OnInHouseMetricsCondition.class)
+    @Conditional({OnInHouseMetricsCondition.class, OnMetricsDataSourceCondition.class})
     @ConditionalOnClass(JdbcTemplate.class)
-    @ConditionalOnBean(DataSource.class)
     @ConditionalOnProperty(name = "telaio.metrics.jdbc.enabled", matchIfMissing = true)
     static class JdbcStoreConfiguration {
 
         @Bean
         @ConditionalOnMissingBean(DalMetricsStore.class)
         JdbcDalMetricsStore jdbcDalMetricsStore(
-            DataSource dataSource,
+            @TelaioMetricsDataSource
+            ObjectProvider<DataSource> markedDataSourceProvider,
+            ObjectProvider<DataSource> dataSourceProvider,
+            @TelaioMetricsTransactionManager
+            ObjectProvider<PlatformTransactionManager> markedTransactionManagerProvider,
+            ListableBeanFactory beanFactory,
             DalMetricsBucketMerger merger,
-            TelaioMetricsProperties properties,
-            ObjectProvider<PlatformTransactionManager> txManagerProvider
+            TelaioMetricsProperties properties
         ) {
             final var jdbcProperties = properties.getJdbc();
+            final var dataSource = resolveMetricsDataSource(markedDataSourceProvider, dataSourceProvider, beanFactory);
             final var jdbcTemplate = new JdbcTemplate(dataSource);
             final var tableName = jdbcProperties.getTableName();
             final var retention = jdbcProperties.getRetention();
-            final var txManager = txManagerProvider.getIfAvailable();
-            final var tx = txManager != null ? new TransactionTemplate(txManager) : null;
+            final var transactionManager =
+                markedTransactionManagerProvider.getIfAvailable(() -> new JdbcTransactionManager(dataSource));
+            final var tx = new TransactionTemplate(transactionManager);
             final var cleanupInterval = jdbcProperties.getCleanupInterval();
             return new JdbcDalMetricsStore(
                 jdbcTemplate, merger, tableName, retention, tx, cleanupInterval, Clock.systemUTC());
@@ -170,10 +193,45 @@ public class TelaioMetricsAutoConfiguration {
         @Bean
         @ConditionalOnMissingBean
         JdbcDalMetricsSchemaInitializer jdbcDalMetricsSchemaInitializer(
-            DataSource dataSource,
+            @TelaioMetricsDataSource ObjectProvider<DataSource> markedDataSourceProvider,
+            ObjectProvider<DataSource> dataSourceProvider,
+            ListableBeanFactory beanFactory,
             TelaioMetricsProperties properties
         ) {
+            final var dataSource = resolveMetricsDataSource(markedDataSourceProvider, dataSourceProvider, beanFactory);
             return new JdbcDalMetricsSchemaInitializer(dataSource, properties.getJdbc());
+        }
+
+        /**
+         * Selects the DataSource the metrics table lives in: the {@link TelaioMetricsDataSource}-marked
+         * bean when present, otherwise the application's single or {@code @Primary} DataSource
+         * ({@code getIfUnique()} is primary-aware). With several unmarked, non-primary DataSources
+         * there is no safe default — persisting metrics into an arbitrary database is worse than a
+         * clear startup failure — so the context fails with the candidates listed and the fix spelled
+         * out.
+         */
+        private static DataSource resolveMetricsDataSource(
+            ObjectProvider<DataSource> markedDataSourceProvider,
+            ObjectProvider<DataSource> dataSourceProvider,
+            ListableBeanFactory beanFactory
+        ) {
+            final var marked = markedDataSourceProvider.getIfAvailable();
+            if (marked != null) {
+                return marked;
+            }
+            final var unique = dataSourceProvider.getIfUnique();
+            if (unique != null) {
+                return unique;
+            }
+            final var candidates =
+                BeanFactoryUtils.beanNamesForTypeIncludingAncestors(beanFactory, DataSource.class);
+            throw new IllegalStateException(
+                "telaio-metrics cannot choose the DataSource for its JDBC store: several DataSource beans "
+                    + "are defined " + Arrays.toString(candidates) + " and none is @Primary (or otherwise "
+                    + "uniquely resolvable). Mark the "
+                    + "one that must hold the metrics table with @TelaioMetricsDataSource (declaring it with "
+                    + "defaultCandidate = false keeps it out of the application's own autowiring), or disable "
+                    + "the JDBC store with telaio.metrics.jdbc.enabled=false.");
         }
     }
 

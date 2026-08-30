@@ -1,6 +1,7 @@
 package com.paganbit.telaio.web;
 
 import com.paganbit.telaio.core.adapter.DalOperationAdapter;
+import com.paganbit.telaio.core.exception.DalInvalidFilterException;
 import com.paganbit.telaio.web.registry.WebDalOperationAdapterRegistry;
 import com.turkraft.springfilter.converter.FilterStringConverter;
 import com.turkraft.springfilter.parser.node.FilterNode;
@@ -40,10 +41,22 @@ public class DalRestApiV1Controller implements DalRestApiV1 {
 
     @Override
     public PagedModel<Object> read(String dalName, String filter, Pageable pageable) {
-        FilterNode filterNode = StringUtils.hasText(filter)
-            ? filterStringConverter.convert(filter)
-            : null;
+        FilterNode filterNode = StringUtils.hasText(filter) ? parseFilter(filter) : null;
         return new PagedModel<>(adapter(dalName).read(filterNode, pageable));
+    }
+
+    /**
+     * Parses the {@code q} parameter. A syntax error propagates as the parser's
+     * {@code InvalidSyntaxException}; a function name the parser has no definition for surfaces from
+     * Turkraft as an {@link UnsupportedOperationException}, which is client input rather than a server
+     * fault and is therefore reported as a {@link DalInvalidFilterException}.
+     */
+    private FilterNode parseFilter(String filter) {
+        try {
+            return filterStringConverter.convert(filter);
+        } catch (UnsupportedOperationException e) {
+            throw new DalInvalidFilterException("Invalid filter expression", e);
+        }
     }
 
     @Override

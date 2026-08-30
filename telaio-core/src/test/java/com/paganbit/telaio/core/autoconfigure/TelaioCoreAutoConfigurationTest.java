@@ -5,12 +5,16 @@ import com.paganbit.telaio.core.beans.DefaultDalPropertyMerger;
 import com.paganbit.telaio.core.transaction.DalTransactionPolicy;
 import com.paganbit.telaio.core.transaction.DefaultDalTransactionPolicy;
 import com.paganbit.telaio.core.version.TelaioVersionProvider;
+import com.paganbit.telaio.introspection.DefaultSimpleTypePredicate;
+import com.paganbit.telaio.introspection.SimpleTypeContributor;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.core.convert.support.DefaultConversionService;
+
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -69,6 +73,37 @@ class TelaioCoreAutoConfigurationTest {
                 assertEquals("customDalTransactionPolicy", context.getBeanNamesForType(DalTransactionPolicy.class)[0]);
                 assertEquals("customDalPropertyMerger", context.getBeanNamesForType(DalPropertyMerger.class)[0]);
             });
+    }
+
+    @Test
+    void simpleTypePredicate_aggregatesContributions() {
+        applicationContextRunner
+            .withBean(SimpleTypeContributor.class, () -> () -> Set.of(ContributedType.class))
+            .run(context -> {
+                DefaultSimpleTypePredicate predicate = context.getBean(DefaultSimpleTypePredicate.class);
+                assertThat(predicate.test(ContributedType.class)).isTrue();
+            });
+    }
+
+    @Test
+    void simpleTypePredicate_withoutContributions_keepsDefaultClassification() {
+        applicationContextRunner.run(context -> {
+            DefaultSimpleTypePredicate predicate = context.getBean(DefaultSimpleTypePredicate.class);
+            assertThat(predicate.test(String.class)).isTrue();
+            assertThat(predicate.test(ContributedType.class)).isFalse();
+        });
+    }
+
+    @Test
+    void simpleTypePredicate_backsOffWhenUserDefinesOne() {
+        DefaultSimpleTypePredicate custom = new DefaultSimpleTypePredicate();
+        applicationContextRunner
+            .withBean("customSimpleTypePredicate", DefaultSimpleTypePredicate.class, () -> custom)
+            .run(context ->
+                assertThat(context.getBean(DefaultSimpleTypePredicate.class)).isSameAs(custom));
+    }
+
+    private static final class ContributedType {
     }
 
     static class BasicConfig {

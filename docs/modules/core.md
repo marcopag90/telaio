@@ -32,29 +32,30 @@ directly.
 
 ### Registration & Management
 
-| Type                 | Purpose                                                                    |
-|----------------------|----------------------------------------------------------------------------|
-| `DalRegistry`        | Read-only interface: `getServiceByName(String)` → `Dal<?,?>`               |
-| `DalManager`         | Composite registry (single entry point for querying registered DALs)       |
+| Type                 | Purpose                                                                              |
+|----------------------|--------------------------------------------------------------------------------------|
+| `DalRegistry`        | Read-only interface: `getServiceByName(String)` → `Dal<?,?>`                         |
+| `DalManager`         | Composite registry (single entry point for querying registered DALs)                 |
 | `DalDefinitionEntry` | Metadata snapshot: DAL name, concrete `Dal` class, internal flag, exposed operations |
-| `DalOperationType`   | Enum: `CREATE`, `READ`, `READ_ONE`, `UPDATE`, `DELETE`                     |
+| `DalOperationType`   | Enum: `CREATE`, `READ`, `READ_ONE`, `UPDATE`, `DELETE`                               |
 
 ### Lifecycle & Interception
 
-| Type                     | Purpose                                                             |
-|--------------------------|---------------------------------------------------------------------|
-| `DalInterceptorProvider` | SPI for contributing channel-agnostic interceptors (audit, metrics) |
-| `DalInterceptionContext` | Record `(dalName, dalBeanClass)` handed to each `DalInterceptorProvider` once per DAL bean at startup, so the provider can decide which interceptor to contribute |
-| `DalTransactionPolicy`   | SPI for transaction management per DAL                              |
+| Type                            | Purpose                                                                                                                                                           |
+|---------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `DalInterceptorProvider`        | SPI for contributing channel-agnostic interceptors (audit, metrics)                                                                                               |
+| `DalInterceptionContext`        | Record `(dalName, dalBeanClass)` handed to each `DalInterceptorProvider` once per DAL bean at startup, so the provider can decide which interceptor to contribute |
+| `DalTransactionPolicy`          | SPI for transaction management per DAL                                                                                                                            |
+| `PassThroughTransactionManager` | No-op `PlatformTransactionManager` fallback for backends with no real transaction manager available                                                               |
 
 ### Exceptions
 
-| Exception                      | When                                                                         |
-|--------------------------------|------------------------------------------------------------------------------|
-| `DalEntityNotFoundException`   | Entity with given ID not found                                               |
-| `DalEntityValidationException` | Validation fails (includes field-level details)                              |
-| `DalDefinitionException`       | DAL misconfiguration (e.g. duplicate name, invalid `@DalService` attributes) |
-| `DalRegistryException`         | DAL lookup fails                                                             |
+| Exception                      | When                                                                                                       |
+|--------------------------------|------------------------------------------------------------------------------------------------------------|
+| `DalEntityNotFoundException`   | Entity with given ID not found                                                                             |
+| `DalEntityValidationException` | Validation fails (includes field-level details)                                                            |
+| `DalDefinitionException`       | DAL misconfiguration (e.g. duplicate name, invalid `@DalService` attributes)                               |
+| `DalRegistryException`         | DAL lookup fails                                                                                           |
 | `DalNotFoundException`         | No DAL registered under the requested name (subclass of `DalRegistryException`, → 404 at the web boundary) |
 
 ## How Developers Use It
@@ -64,6 +65,7 @@ directly.
 Annotate a class extending `AbstractDal` (or more commonly, `JpaDal`) with `@DalService`:
 
 ```java
+
 @DalService(name = "announcements")
 public class AnnouncementDalService extends JpaDal<Announcement, Long> {
 }
@@ -81,6 +83,7 @@ The framework automatically:
 To restrict which CRUD operations are exposed on the REST boundary:
 
 ```java
+
 @DalService(name = "articles", operations = {DalOperationType.READ, DalOperationType.READ_ONE})
 public class ArticleDalService extends JpaDal<Article, Long> {
 }
@@ -93,6 +96,7 @@ Articles are now read-only; create/update/delete are rejected at the boundary.
 To register a DAL with all cross-cutting features but hide it from REST and OpenAPI:
 
 ```java
+
 @DalService(name = "app-settings", internal = true)
 public class AppSettingDalService extends JpaDal<AppSetting, String> {
 }
@@ -105,6 +109,7 @@ In-process code can still call this DAL (via `DalRegistry`); it is not exposed r
 Customize behavior via extension hooks in `AbstractDal`:
 
 ```java
+
 @DalService(name = "products")
 public class ProductDalService extends JpaDal<Product, Long> {
 
@@ -130,15 +135,15 @@ public class ProductDalService extends JpaDal<Product, Long> {
 
 Available hooks:
 
-- `finalizeBeforeCreate/Update` — Modify the entity inside the operation transaction, after validation and just
-  before persistence (changes made here are **not** re-validated)
+- `finalizeBeforeCreate/Update` — Modify the entity inside the operation transaction, after validation and just before
+  persistence (changes made here are **not** re-validated)
 - `finalizeAfterCreate/Update/Read/ReadOne` — Side-effects after the operation
 - `finalizeBeforeDelete/AfterDelete` — Hooks around deletion (receive the entity id)
 - `defaultSort()` — Default sort order when none is requested
-- `defaultFilter()` — Implicit filter AND-combined with the request's `q` parameter and enforced on
-  every operation addressing existing rows (list and by-id reads, updates, deletes — a hidden entity
-  behaves like a missing one; create payloads are not scoped by it). The returned `FilterNode` can be
-  built type-safely with the `@Filterable`-generated `<Entity>Filter` builder (Spring Filter's
+- `defaultFilter()` — Implicit filter AND-combined with the request's `q` parameter and enforced on every operation
+  addressing existing rows (list and by-id reads, updates, deletes — a hidden entity behaves like a missing one; create
+  payloads are not scoped by it). The returned `FilterNode` can be built type-safely with the `@Filterable`-generated
+  `<Entity>Filter` builder (Spring Filter's
   `typesafe` + `typesafe-processor` artifacts) or manually via the injected `filterBuilder` — see the
   [introspection module docs](./introspection.md) for when to use which
 
@@ -149,9 +154,14 @@ Available hooks:
 ```java
 // If Product has @NotNull(message="Price required") on the price field,
 // a create() with null price raises DalEntityValidationException (400)
-POST /dal/v1/products
-{ "name": "Widget" }  // Missing price
-→ DalEntityValidationException with field details
+POST /dal/v1/
+
+products {
+    "name":"Widget"
+}  // Missing price
+→
+DalEntityValidationException with
+field details
 ```
 
 ### 6. Look Up a DAL at Runtime
@@ -159,6 +169,7 @@ POST /dal/v1/products
 Inject `DalRegistry` to retrieve a DAL by name:
 
 ```java
+
 @Service
 public class MyService {
     @Autowired

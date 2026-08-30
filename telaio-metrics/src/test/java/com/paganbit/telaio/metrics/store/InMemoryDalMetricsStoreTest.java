@@ -53,6 +53,32 @@ class InMemoryDalMetricsStoreTest {
     }
 
     @Test
+    void stats_shouldIgnoreOtherDalsAndOperations() {
+        store.store(List.of(
+            bucket(T0, "products", DalOperationType.READ, 5, 0, 5_000_000),
+            bucket(T0, "products", DalOperationType.CREATE, 2, 0, 4_000_000),
+            bucket(T0, "orders", DalOperationType.READ, 7, 0, 7_000_000)));
+
+        assertThat(store.stats("products", DalOperationType.READ, T0, NOW).count()).isEqualTo(5);
+        assertThat(store.stats("orders", DalOperationType.CREATE, T0, NOW).count()).isZero();
+        assertThat(store.statsByOperation("orders", T0, NOW)).containsOnlyKeys(DalOperationType.READ);
+    }
+
+    @Test
+    void findBuckets_shouldFilterByDalNameAndOperation() {
+        DalMetricsBucket productsRead = bucket(T0, "products", DalOperationType.READ, 5, 0, 5_000_000);
+        DalMetricsBucket productsCreate = bucket(T0, "products", DalOperationType.CREATE, 2, 0, 4_000_000);
+        DalMetricsBucket ordersRead = bucket(T0, "orders", DalOperationType.READ, 7, 0, 7_000_000);
+        store.store(List.of(productsRead, productsCreate, ordersRead));
+
+        assertThat(store.findBuckets(null, null, T0, NOW)).hasSize(3);
+        assertThat(store.findBuckets("products", null, T0, NOW)).containsExactlyInAnyOrder(productsRead, productsCreate);
+        assertThat(store.findBuckets(null, DalOperationType.READ, T0, NOW)).containsExactlyInAnyOrder(productsRead, ordersRead);
+        assertThat(store.findBuckets("orders", DalOperationType.READ, T0, NOW)).containsExactly(ordersRead);
+        assertThat(store.findBuckets("orders", DalOperationType.CREATE, T0, NOW)).isEmpty();
+    }
+
+    @Test
     void stats_acrossOperations_shouldMergeWhenOperationIsNull() {
         store.store(List.of(
             bucket(T0, "products", DalOperationType.READ, 5, 0, 5_000_000),

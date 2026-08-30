@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.*;
@@ -169,8 +170,14 @@ public class JdbcDalMetricsStore implements DalMetricsStore, DalMetricsQueryServ
             formatHistogram(bucket.histogramCounts()));
     }
 
+    /**
+     * Runs the read-merge-update fallback inside the store's own transaction, unless the calling thread
+     * already carries one (a caller invoking {@code flushNow()} from within its own transaction): the
+     * statements then simply take part in that transaction. Starting the store's manager on top of a
+     * foreign transaction bound to the same DataSource could otherwise commit the caller's connection.
+     */
     private void mergeExisting(DalMetricsBucket incoming) {
-        if (transactionTemplate != null) {
+        if (transactionTemplate != null && !TransactionSynchronizationManager.isActualTransactionActive()) {
             transactionTemplate.executeWithoutResult(status -> doMergeExisting(incoming));
         } else {
             doMergeExisting(incoming);

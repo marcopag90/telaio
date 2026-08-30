@@ -21,7 +21,7 @@
 
 Telaio provides a unified **Data Access Layer (DAL)** abstraction for CRUD operations across persistence backends. The
 core contract is **persistence-agnostic** — it is built on Spring Data's abstractions (`Page`, `Pageable`, `Sort`) and
-knows nothing about any specific store; **JPA/Hibernate is the first shipped backend**, with more (MongoDB, QueryDSL) on
+knows nothing about any specific store; **JPA/Hibernate and MongoDB are the shipped backends**, with more (QueryDSL) on
 the roadmap.
 
 Declare an entity, a repository, and one small service class annotated `@DalService`, and Telaio generates a dynamic
@@ -47,8 +47,8 @@ Telaio collapses that into one abstraction:
   is what the client sees — though not necessarily under your field names
   (see [No DTOs — and no lock-in to your field names](#no-dtos--and-no-lock-in-to-your-field-names)).
 - **Persistence-agnostic by design.** The `Dal` contract lives in `telaio-core` and depends only on Spring Data's
-  paging/sorting abstractions; a backend implements a small `execute*` SPI. JPA is the first implementation — not a
-  constraint of the architecture.
+  paging/sorting abstractions; a backend implements a small `execute*` SPI. JPA and MongoDB are the shipped
+  implementations — not a constraint of the architecture.
 - **No controllers.** A single dynamic REST controller (`/dal/v1/{dalName}`) routes every DAL by name; you never write
   `@RestController` boilerplate for a resource.
 - **Pluggable field-level RBAC.** Hide or lock fields per role via a small adapter (`PropertyBasedDalRbacAdapter`) or,
@@ -181,8 +181,8 @@ There is no single "starter" artifact — depend on the modules your project nee
 
 **Using several modules (the usual case)?** Import the `telaio-bom` Bill of Materials in
 `dependencyManagement` once, then declare the modules without versions. At a minimum you need
-`telaio-web` (REST exposure) and `telaio-jpa` (the first persistence backend of the `Dal`
-abstraction, built on Spring Data JPA), plus a JDBC driver:
+`telaio-web` (REST exposure) and a persistence backend — `telaio-jpa` (Spring Data JPA) or
+`telaio-mongo` (Spring Data MongoDB) — plus, for JPA, a JDBC driver:
 
 ```xml
 
@@ -386,6 +386,7 @@ graph TD
     CORE --> METRICS[telaio-metrics]
     CORE --> WEB[telaio-web]
     CORE --> JPA[telaio-jpa]
+    CORE --> MONGO[telaio-mongo]
     CONTRACT --> WEB
     WEB --> OPENAPI[telaio-openapi]
 ```
@@ -406,9 +407,10 @@ never pull in the server stack.
 `telaio-core` defines the `Dal` contract, bean registration, and the channel-agnostic interceptor SPI
 (`DalInterceptorProvider`) that audit and metrics build on — so both work with core alone, over any invocation channel,
 not just REST. `telaio-security`, `telaio-audit`, `telaio-metrics`,
-`telaio-web`, and `telaio-jpa` each depend only on core and are otherwise independent of each other;
-`telaio-openapi` builds on `telaio-web` to generate per-DAL documentation. `telaio-jpa` is the first backend
-implementation of the persistence-agnostic `Dal` contract — additional backends plug into the same `execute*` SPI.
+`telaio-web`, `telaio-jpa`, and `telaio-mongo` each depend only on core and are otherwise independent of each other;
+`telaio-openapi` builds on `telaio-web` to generate per-DAL documentation. `telaio-jpa` and `telaio-mongo` are the
+backend implementations of the persistence-agnostic `Dal` contract — additional backends plug into the same
+`execute*` SPI.
 `telaio-rest-contract` codifies the `/dal/v1` wire contract (path constants, the validation-error payload, and the
 composite-ID codec) as a tiny artifact shared by the server and the remote client, so the two cannot drift apart.
 `telaio-rest-client` is a lightweight, typed Java client for that API — it lets one Telaio application invoke another's
@@ -421,7 +423,7 @@ pulling in the blocking `RestClient` stack. `telaio-showcase` is a runnable demo
 
 | Module                      | Purpose                                                                   | Key type / annotation                                          | Docs                                                                    |
 |-----------------------------|---------------------------------------------------------------------------|----------------------------------------------------------------|-------------------------------------------------------------------------|
-| `telaio-introspection`      | Reflection and type-introspection utilities shared by other modules.      | `PropertyNameResolver`, `TypeUtil`                             | [docs/modules/introspection.md](docs/modules/introspection.md)          |
+| `telaio-introspection`      | Reflection and type-introspection utilities shared by other modules.      | `PropertyNameResolver`, `DefaultSimpleTypePredicate`           | [docs/modules/introspection.md](docs/modules/introspection.md)          |
 | `telaio-core`               | The DAL abstraction, bean registration, and Spring Boot integration.      | `Dal<E,I>` / `AbstractDal<E,I>`, `@DalService`                 | [docs/modules/core.md](docs/modules/core.md)                            |
 | `telaio-security`           | Operation-level authorization and field-level RBAC.                       | `@DalSecurity`, `DalAuthAdapter`, `DalRbacAdapter`             | [docs/modules/security.md](docs/modules/security.md)                    |
 | `telaio-audit`              | Opt-in structured audit logging of DAL operations.                        | `@DalAudit`, `DalAuditEvent`, `DalAuditEventStore`             | [docs/modules/audit.md](docs/modules/audit.md)                          |
@@ -429,7 +431,8 @@ pulling in the blocking `RestClient` stack. `telaio-showcase` is a runnable demo
 | `telaio-rest-contract`      | The frozen `/dal/v1` wire contract shared by server and client.           | `DalApiV1`, `DalIdCodec`, `ValidationError`                    | [docs/modules/rest-contract.md](docs/modules/rest-contract.md)          |
 | `telaio-web`                | Dynamic REST exposure of every registered DAL.                            | `DalRestApiV1Controller`, `@DalId`                             | [docs/modules/web.md](docs/modules/web.md)                              |
 | `telaio-openapi`            | Generates concrete, per-DAL OpenAPI/Swagger documentation.                | `DalOpenApiCustomizer`, `DalPathsGenerator`                    | [docs/modules/openapi.md](docs/modules/openapi.md)                      |
-| `telaio-jpa`                | JPA/Hibernate `Dal` backend — the first persistence implementation.       | `JpaDal<E,I>`, `JpaDalRepository<E,I>`                         | [docs/modules/jpa.md](docs/modules/jpa.md)                              |
+| `telaio-jpa`                | JPA/Hibernate `Dal` backend built on Spring Data JPA.                     | `JpaDal<E,I>`, `JpaDalRepository<E,I>`                         | [docs/modules/jpa.md](docs/modules/jpa.md)                              |
+| `telaio-mongo`              | MongoDB `Dal` backend built on Spring Data MongoDB.                       | `MongoDal<E,I>`, `MongoDalRepository<E,I>`                     | [docs/modules/mongo.md](docs/modules/mongo.md)                          |
 | `telaio-rest-client-shared` | Transport-neutral code shared by the DAL REST clients.                    | `DalPage`, `DalClientException`, `TelaioRestClientProperties`  | [docs/modules/rest-client.md](docs/modules/rest-client.md) |
 | `telaio-rest-client`        | Typed (blocking) REST client to invoke another Telaio application's DALs. | `TelaioClientRegistry`, `TelaioClient`, `DalClient<E,I>`       | [docs/modules/rest-client.md](docs/modules/rest-client.md)              |
 | `telaio-bom`                | Bill of Materials: import it to align all Telaio module versions.         | —                                                              | [Quick start](#quick-start)                                             |
@@ -440,7 +443,7 @@ pulling in the blocking `RestClient` stack. `telaio-showcase` is a runnable demo
 The DAL abstraction is persistence-agnostic by design, and cross-cutting features (audit, metrics, security) already
 attach to the `Dal` bean independently of the invocation channel. Planned work widens both sides of that contract:
 
-- additional persistence backends (e.g. **MongoDB**);
+- additional persistence backends;
 - **QueryDSL** support as an alternative query technology;
 - a **reactive exposure** (Spring WebFlux) as an alternative to the servlet REST boundary;
 - a **reactive remote client** (`WebClient`-based sibling of `telaio-rest-client`, reusing the already-extracted
@@ -473,7 +476,8 @@ mvn -pl telaio-showcase spring-boot:run # run the demo app (needs JDK 25)
 > or exclude the demo with `mvn clean install -pl '!telaio-showcase'`.
 
 The showcase starts on `http://localhost:8080` with Swagger UI at `/swagger-ui.html`. It auto-starts a persistent
-PostgreSQL 17 container via `spring-boot-docker-compose` and seeds demo data idempotently. Log in with HTTP Basic using
+PostgreSQL 17 container and a single-node MongoDB 8 replica set via `spring-boot-docker-compose` (JPA and Mongo DALs
+side by side, each with its own transaction manager) and seeds demo data idempotently. Log in with HTTP Basic using
 one of the seeded test users: `developer` /
 `developer`, `admin` / `admin`, or `user` / `user`.
 

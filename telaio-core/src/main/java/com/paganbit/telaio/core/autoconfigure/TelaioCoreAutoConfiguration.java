@@ -11,6 +11,8 @@ import com.paganbit.telaio.core.registry.InMemoryDalManager;
 import com.paganbit.telaio.core.transaction.DalTransactionPolicy;
 import com.paganbit.telaio.core.transaction.DefaultDalTransactionPolicy;
 import com.paganbit.telaio.core.version.TelaioVersionProvider;
+import com.paganbit.telaio.introspection.DefaultSimpleTypePredicate;
+import com.paganbit.telaio.introspection.SimpleTypeContributor;
 import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.BeanDefinition;
@@ -22,6 +24,8 @@ import org.springframework.context.annotation.Role;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.util.stream.Collectors;
+
 /**
  * {@link EnableAutoConfiguration Auto-configuration} for Telaio Core
  *
@@ -31,13 +35,18 @@ import tools.jackson.databind.json.JsonMapper;
 @AutoConfiguration
 public class TelaioCoreAutoConfiguration {
 
-    // The merger derives a merge-configured mapper from the application ObjectMapper so update (merge)
-    // and create (convertValue) share naming, formats and modules. Falls back to a default mapper when
-    // none is present (e.g., minimal test contexts).
     @Bean
     @ConditionalOnMissingBean
     DalPropertyMerger dalPropertyMerger(ObjectProvider<ObjectMapper> objectMapper) {
         return new DefaultDalPropertyMerger(objectMapper.getIfAvailable(() -> JsonMapper.builder().build()));
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    DefaultSimpleTypePredicate simpleTypePredicate(ObjectProvider<SimpleTypeContributor> contributors) {
+        return new DefaultSimpleTypePredicate(contributors.stream()
+            .flatMap(contributor -> contributor.simpleTypes().stream())
+            .collect(Collectors.toSet()));
     }
 
     @Bean

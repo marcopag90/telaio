@@ -102,7 +102,7 @@ GET /dal/v1/{dalName}?q=filter&page=0&size=20&sort=name,desc
 - **404 Not Found** — DAL service not found, or the URI exposes no operation at all (an internal DAL answers 404 as "DAL service not found").
 - **405 Method Not Allowed** — READ is not exposed but the URI still exposes another method (`Allow` header lists
   them).
-- **400 Bad Request** — Malformed filter or pagination parameters.
+- **400 Bad Request** — Malformed or inapplicable filter (unknown or non-persistent field, unknown function), or invalid pagination parameters.
 
 **Examples:**
 
@@ -379,6 +379,16 @@ If the filter syntax is invalid, you get a **400 Bad Request** with a `ProblemDe
 curl "http://localhost:8080/dal/v1/products?q=((("
 # 400 Bad Request
 # ProblemDetail: "Malformed filter expression"
+```
+
+A well-formed filter the entity cannot honor — a field it does not expose or does not persist, or a function that is unknown or not
+supported by the persistence backend — is also a **400**, with the same answer on every backend (a literal that does not
+convert to the field's type, e.g. `price:'abc'`, is instead a **500**: it fails inside the persistence layer):
+
+```bash
+curl "http://localhost:8080/dal/v1/products?q=nope:1"
+# 400 Bad Request
+# ProblemDetail: "Invalid filter expression"
 ```
 
 ## Error Responses

@@ -1,7 +1,6 @@
 package com.paganbit.telaio.web;
 
 import com.paganbit.telaio.core.Dal;
-import com.paganbit.telaio.web.annotation.DalIdArgumentResolver;
 import com.paganbit.telaio.web.autoconfigure.TelaioWebAutoConfiguration;
 import com.turkraft.springfilter.parser.node.FilterNode;
 import org.jspecify.annotations.Nullable;
@@ -18,10 +17,7 @@ import java.util.Map;
 import java.util.Optional;
 
 @TestConfiguration
-@Import(value = {
-    DalIdArgumentResolver.class,
-    TelaioWebAutoConfiguration.class
-})
+@Import(TelaioWebAutoConfiguration.class)
 @ImportAutoConfiguration(DataWebAutoConfiguration.class)
 public class DalRestApiV1ControllerTestConfig {
 
