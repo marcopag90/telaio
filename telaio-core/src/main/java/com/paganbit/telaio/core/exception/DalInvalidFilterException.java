@@ -2,13 +2,15 @@ package com.paganbit.telaio.core.exception;
 
 /**
  * Exception thrown when a syntactically valid filter cannot be applied to the target entity: it
- * references a field the entity does not expose or does not persist, or uses a function that is unknown
- * or unsupported by the persistence backend.
+ * references a field the entity does not expose or does not persist, or that the current principal is not
+ * allowed to read, or uses a function that is unknown or unsupported by the persistence backend.
  *
  * <p>This is a <em>client fault</em> ({@link DalFailureKind#VALIDATION}): the request cannot be satisfied
  * as-is and must be corrected by the caller. The message may name the offending field, never a literal
  * value. A literal that does not convert to the field's type is not covered: it fails inside the
- * persistence layer, on every backend alike.</p>
+ * persistence layer, on every backend alike. The read-permission case is raised as the
+ * {@link DalFilterFieldNotReadableException} specialisation — same wire answer, distinguishable for
+ * audit.</p>
  *
  * @author Marco Pagan
  * @since 1.2.0

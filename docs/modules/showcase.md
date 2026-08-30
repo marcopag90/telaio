@@ -346,8 +346,7 @@ telaio-showcase/
 │   └── role/
 │       └── UserRole.java
 ├── src/main/resources/
-│   ├── application.yaml
-│   └── application.properties (only the MongoTemplate log level — see the comment in the file)
+│   └── application.yaml
 ├── src/test/java/
 │   ├── com/paganbit/telaio/showcase/
 │   │   ├── TelaioShowcaseApplicationTests.java

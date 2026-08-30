@@ -45,13 +45,14 @@ Residuals:
   `MongoTemplate` DEBUG logging on every consumer — **removed upstream in 4.1.0 (2026-08-29, #527)**. The showcase's
   own `application.properties` override (the only way to neutralize it: at the same location `.properties` takes
   precedence over `.yaml`, and Boot loads a single `classpath:/application.properties` — the first on the classpath)
-  is now redundant and can be dropped. telaio-mongo deliberately never shipped an `application.properties` of its
-  own — it would be the same anti-pattern.
+  became redundant and was **dropped on 2026-08-30**. telaio-mongo deliberately never shipped an
+  `application.properties` of its own — it would be the same anti-pattern.
 
 ## 3. Turkraft mongo functional gaps (document-only for now)
 
 - The `mongo-language` artifact is **empty** — the Mongo filter function vocabulary is only `size` / `today`
-  beyond the standard operators, versus JPA's ~55 processors. Candidate for an upstream issue.
+  beyond the standard operators, versus JPA's ~55 processors. Documented in [modules/mongo.md](modules/mongo.md);
+  filing upstream issues is out of Telaio's scope (decided 2026-08-30).
 - **Done (2026-08-28, shipped in Turkraft 4.1.0):** temporal comparisons now work — filter values used to pass
   through `Document.parse`, so date literals became plain strings and never matched BSON `Date` fields. Fixed upstream
   by this repo's maintainer ([springfilter#524](https://github.com/turkraft/springfilter/issues/524)): the `mongo`
@@ -145,27 +146,52 @@ no user-facing docs):
 - Latent gap fixed: library modules run surefire only, so `JsonAwareFilterSpecificationConverterIT` had never
   executed — renamed `*IntegrationTest`.
 
-**Turkraft findings (upstream candidates; #527 shipped in 4.1.0 without them):** (1) JPA
-`FilterExpressionTransformer.transformInput` swallows `ConversionFailedException` and falls back to the raw literal,
-turning a bad literal into a SQL `CAST` failing at execution — a fork rethrow was tried and **dropped** (2026-08-29):
-telaio keeps unconvertible literals as a uniform 500 instead; (2) multi-pattern like `f ~ ['a','b']` uses raw SQL patterns on JPA (no `*`
-translation, no `%…%` wrap) but `*` regexes on Mongo; (3) `countDistinct` has a definition but no JPA processor;
-(4) `locate()` requires all three arguments although the README shows two; (5) Mongo embeds string literals raw in
-the `$expr` (`q=name:'$code'` compares two fields) — `{$literal: …}` would be safer; (6) under an `Object`-typed
-(schemaless) property a numeric literal does not match on Mongo (`payload.nested.level : 2` → no rows, while
-`payload.nested.tag : 'deep'` matches — the target type is unresolvable, literal handling to be investigated upstream).
-
-**Residual.** Write-only (`@JsonProperty(access = WRITE_ONLY)`) and `@JsonIgnore`d properties remain filterable by
-name (pre-existing behaviour, kept so default filters and in-process callers do not break) — see item 8.
+The backend-specific Turkraft behaviours observed while building the suites (multi-pattern like semantics, `countDistinct`
+without a JPA processor, `locate()` arity, raw string literals in `$expr`, numeric literals under an `Object`-typed
+property on Mongo) are pinned by the two ITs as the behaviour of the version in use; reporting them upstream is out of
+Telaio's scope (decided 2026-08-30).
 
 ## 8. Field-level authorization of `q=` filters
 
-**Open.** Field-level RBAC prunes *output* (`DalRbacAdapter.filterOutput`), but nothing inspects the `FieldNode`s of a
-filter: a principal with READ can filter on a property the adapter hides from them (`cost_price > 100`, bisection) and
-infer its value from the narrowed page. Surfaced by the security review of item 7 (2026-08-28). Candidate design: a
-`DalRbacAdapter` hook receiving the referenced JSON paths (after the JSON-name rewrite), applied in
-`DalSecurityInterceptor` before the read, rejecting references outside the role's readable set with
-`DalInvalidFilterException` (same 400 as an unknown field, so nothing is disclosed).
+**Done (2026-08-30, branch `feature/filter-field-rbac`).** Field-level RBAC pruned *output* only
+(`DalRbacAdapter.filterOutput`); nothing inspected the `FieldNode`s of a filter, so a principal with READ could filter
+on a property the adapter hides from them (`cost_price > 100`, bisection) and infer its value from the narrowed page.
+Surfaced by the security review of item 7 (2026-08-28).
+
+Delivered: `DalRbacAdapter.canFilterOn(String fieldPath, Authentication)` — a `default` pass-through hook (custom
+adapters stay source-compatible; `NoopDalRbacAdapter` accepts everything) — asked by `DalSecurityInterceptor` for every
+field of the caller's filter (`FilterNodes.fieldNodes`), after the operation-level check (a denied read stays a 403) and
+before `proceed()`; a denied field throws `DalFilterFieldNotReadableException` (a `DalInvalidFilterException`
+specialisation) → the same generic 400 as an unknown field on the wire, while `SecurityDalAuditOutcomeClassifier`
+records it as a **DENIED** audit event (probing hidden fields is an authorization signal). The path is checked *as
+written* (wire name or Java name — both are accepted by the backends, so string-matching
+would be a bypass) and each adapter applies the rule of its own output filtering: `PropertyBasedDalRbacAdapter`
+resolves the path to Java names (`JsonPropertyPathResolver.resolveJavaPath`) and requires a *serialized* property
+granted in the read readable map — exact or through a granted descendant, like `prune`; keys below a `Map` property
+and `$id/$ref/$db` reference accessors are not serialized properties and are never filterable. `JsonViewDalRbacAdapter`
+walks the serialization-view properties (keyed by JSON and Java name) requiring the active read view on every declared
+property, descending into the value bean of a `Map` (Jackson applies the view there too), and stops only at
+`Object`/`JsonNode` values and `$id/$ref/$db`. The shared walking rules (`isReferenceKeySegment`, `unwrapElements`,
+`isOpaque`, `isLeaf`) were made public on `JsonPropertyPathResolver` so the two walkers cannot drift. The DAL's own
+`defaultFilter()` is combined inside `AbstractDal`, after the interceptor, so server-side filters are never subject to
+the check. This also absorbs the former residual of item 7: write-only (`@JsonProperty(access = WRITE_ONLY)`) and
+`@JsonIgnore`d properties stay resolvable by Java name (so default filters and in-process callers keep working), but
+behind a field-level RBAC adapter they are filterable only if the adapter grants them (`JsonView`: never — they are
+absent from the serialization view; property maps: only when listed in the readable map). Covered by
+`DalSecurityInterceptorTest`,
+`PropertyBasedDalRbacAdapterTest`, `JsonViewDalRbacAdapterTest`, `NoopDalRbacAdapterTest` and end-to-end by the showcase
+`RbacFilterFieldIT` (`products`/`cost_price` for property maps, `employees`/`salary` for `@JsonView`).
+
+## 10. Field-level authorization of `sort=`
+
+**Open.** Surfaced by the security review of item 8 (2026-08-30): the `Pageable` sort is passed straight to the
+backend (`JpaDal`/`MongoDal` `findAll(spec, pageable)`) and nothing in `DalSecurityInterceptor` inspects
+`pageable.getSort()`. A principal who cannot read `costPrice` can still request `products?sort=costPrice,desc&size=1`
+and learn the *relative* order of the hidden values (which product has the highest margin), plus an existence oracle
+(hidden-but-existing property → 200, unknown property → backend error). Candidate design: in the READ branch, ask
+`DalRbacAdapter.canFilterOn(order.getProperty(), auth)` for every `Sort.Order` (the rule is identical — a sort key the
+principal cannot read) and reject with the same generic 400; check how each backend resolves sort property names
+(wire vs Java) first, so the check canonicalises the way the backend does.
 
 ## 9. Reject filters on serialized-but-not-persisted properties (JPA vs Mongo)
 

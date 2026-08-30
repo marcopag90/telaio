@@ -19,6 +19,19 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   filter the entity cannot honour, `JsonPropertyPathResolver.resolveJavaPath` reporting the first
   unresolvable segment of a field path, and `FilterNodes.fieldNodes` collecting the field references of a
   parsed filter.
+- Security: field-level RBAC now governs the `q=` filter too. `DalRbacAdapter.canFilterOn(fieldPath, auth)`
+  (new `default` hook, pass-through) is asked by `DalSecurityInterceptor` for every field a read filter references,
+  before the read runs; a field the principal cannot read is rejected with the same generic 400
+  (`"Invalid filter expression"`) as an unknown field — closing the inference channel where a hidden value
+  (e.g. `cost_price`) could be worked out from the narrowed page. Both built-in adapters implement the same rule —
+  a field is filterable exactly when it appears in the read response: `PropertyBasedDalRbacAdapter` requires a
+  serialized property granted in the read readable map (exactly or through a granted descendant);
+  `JsonViewDalRbacAdapter` requires the active read view on every declared property of the path, map values
+  included. Both resolve the path under the wire name and the Java name of the property alike. Server-side
+  `defaultFilter()`s are not affected. The
+  rejection is raised as `DalFilterFieldNotReadableException` (core; a `DalInvalidFilterException`), which
+  `telaio-audit`'s `SecurityDalAuditOutcomeClassifier` records as a **DENIED** event. `JsonPropertyPathResolver`'s
+  path-walking rules (`isReferenceKeySegment`, `unwrapElements`, `isOpaque`, `isLeaf`) are now public.
 
 ### 🐞 Bug Fixes
 

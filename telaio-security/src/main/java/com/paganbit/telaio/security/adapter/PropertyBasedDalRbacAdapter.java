@@ -297,6 +297,37 @@ public abstract class PropertyBasedDalRbacAdapter<T> implements DalRbacAdapter<T
     }
 
     // ------------------------------------------------------------------------
+    // Filter-field check (reads)
+    // ------------------------------------------------------------------------
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>The path is resolved to Java property names (JSON wire names and Java names are both accepted,
+     * as the backends do) and checked with the very rules {@link #pruneOutput} applies to the response:
+     * the property must be serialized (a write-only or {@code @JsonIgnore}d property never appears in the
+     * response, so it is not filterable even when listed in the readable map) and granted for read —
+     * exactly, or through a granted descendant (the field is then present as a pruned object). A bare
+     * grant on a parent does <em>not</em> extend to its children — they are pruned from the response, so
+     * they cannot be filtered on either. The keys below a {@code Map} property and the
+     * {@code $id}/{@code $ref}/{@code $db} accessors of a stored reference are not serialized properties
+     * and are never filterable through this adapter. An unresolvable path is denied.</p>
+     */
+    @Override
+    public boolean canFilterOn(String fieldPath, Authentication auth) {
+        JsonPropertyPathResolver.JavaPathResolution resolution = pathResolver.resolveJavaPath(exposedType, fieldPath);
+        if (!resolution.resolved()) {
+            return false;
+        }
+        String javaPath = resolution.javaPath();
+        if (pathResolver.toJsonPath(exposedType, javaPath, true) == null) {
+            return false; // not part of the serialized form: the response never shows it
+        }
+        Set<String> allowedJavaFields = resolveEffectiveFields(auth, readReadable.get());
+        return allowedJavaFields.contains(javaPath) || hasDescendant(allowedJavaFields, javaPath);
+    }
+
+    // ------------------------------------------------------------------------
     // Java-property -> JSON name translation
     // ------------------------------------------------------------------------
 

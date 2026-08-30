@@ -2,6 +2,7 @@ package com.paganbit.telaio.security.adapter;
 
 import com.fasterxml.jackson.annotation.JsonView;
 import com.paganbit.telaio.core.adapter.DalOperationType;
+import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,7 +11,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.util.CollectionUtils;
 import tools.jackson.databind.*;
 import tools.jackson.databind.introspect.AnnotatedClass;
-import tools.jackson.databind.introspect.AnnotatedMember;
 import tools.jackson.databind.introspect.BeanPropertyDefinition;
 import tools.jackson.databind.introspect.ClassIntrospector;
 import tools.jackson.databind.json.JsonMapper;
@@ -30,7 +30,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * implements {@link #resolveView(DalOperationType, Authentication)} to pick the view for the current
  * principal and operation. Output is filtered by serializing through the view; input is filtered by
  * dropping payload keys whose property is not visible in the view, preserving the sparseness required
- * by partial (PATCH) updates.</p>
+ * by partial (PATCH) updates; a read filter may reference only properties visible in the read view
+ * ({@link #canFilterOn}).</p>
  *
  * <p><strong>Secure by default:</strong> the adapter disables {@link MapperFeature#DEFAULT_VIEW_INCLUSION}
  * on its own mapper, so a property with <em>no</em> {@code @JsonView} is excluded from every view (it
@@ -62,6 +63,12 @@ public abstract class JsonViewDalRbacAdapter<T> implements DalRbacAdapter<T> {
     private final Class<T> exposedType = resolveExposedType();
 
     private final Map<Class<?>, Map<String, PropertyInfo>> deserializationProperties = new ConcurrentHashMap<>();
+
+    /**
+     * Serialization-view properties per bean class, keyed by JSON name and by Java internal name (a filter
+     * may use either spelling).
+     */
+    private final Map<Class<?>, Map<String, PropertyInfo>> serializationProperties = new ConcurrentHashMap<>();
 
     private ObjectMapper viewMapper = secureViewMapper(JsonMapper.builder().build());
 
@@ -166,6 +173,74 @@ public abstract class JsonViewDalRbacAdapter<T> implements DalRbacAdapter<T> {
     }
 
     // ------------------------------------------------------------------------
+    // Filter-field check (reads)
+    // ------------------------------------------------------------------------
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Every segment of the path is resolved against the serialization view of the bean it applies to
+     * (JSON wire names and Java property names are both accepted) and must carry the active read view;
+     * a property with no {@code @JsonView} is denied, like on output. The keys of a {@code Map} property
+     * are not declared properties and pass unchecked, but when the map's values are beans the segments
+     * after the key are checked against the value bean — Jackson applies the view to map values too.
+     * Checking stops — and the rest of the path is accepted — once it enters an {@code Object}/
+     * {@code JsonNode} property or a map of such values, or reaches a {@code $id}/{@code $ref}/{@code $db}
+     * reference accessor. A segment applied to a scalar, or an unknown one, is denied; so is every field
+     * when {@link #resolveView} returns {@code null}.</p>
+     */
+    @Override
+    public boolean canFilterOn(String fieldPath, Authentication auth) {
+        Class<?> view = resolveView(DalOperationType.READ, auth);
+        return view != null
+            && isPathInView(List.of(fieldPath.split("\\.")), viewMapper.constructType(exposedType), view);
+    }
+
+    /**
+     * Whether every declared property along {@code segments} carries {@code view}. Same walking rules as
+     * core's strict filter rewrite ({@code JsonPropertyPathResolver.resolveJavaPath}) — including the
+     * reference-accessor check preceding the scalar check — plus the view check on every declared
+     * property, and a descent into the value bean of a {@code Map} (the rewrite has nothing to check
+     * there; the view does).
+     */
+    private boolean isPathInView(List<String> segments, JavaType type, Class<?> view) {
+        if (segments.isEmpty()) {
+            return true;
+        }
+        String segment = segments.getFirst();
+        JavaType element = JsonPropertyPathResolver.unwrapElements(type);
+        if (JsonPropertyPathResolver.isReferenceKeySegment(segment)) {
+            return true;
+        }
+        if (element.isMapLikeType()) {
+            // This segment is a map key, not a declared property; the rest applies to the map's values.
+            return isMapContentInView(rest(segments), element, view);
+        }
+        if (JsonPropertyPathResolver.isOpaque(element)) {
+            return true;
+        }
+        if (JsonPropertyPathResolver.isLeaf(element)) {
+            return false;
+        }
+        PropertyInfo info = serializationProperties(element.getRawClass()).get(segment);
+        return info != null
+            && isInView(info.views(), view)
+            && isPathInView(rest(segments), info.type(), view);
+    }
+
+    private boolean isMapContentInView(List<String> segments, JavaType map, Class<?> view) {
+        JavaType value = JsonPropertyPathResolver.unwrapElements(map.getContentType());
+        if (JsonPropertyPathResolver.isOpaque(value) || JsonPropertyPathResolver.isLeaf(value)) {
+            return true; // nothing introspectable below the keys
+        }
+        return isPathInView(segments, value, view);
+    }
+
+    private static List<String> rest(List<String> segments) {
+        return segments.subList(1, segments.size());
+    }
+
+    // ------------------------------------------------------------------------
     // View introspection
     // ------------------------------------------------------------------------
 
@@ -185,6 +260,10 @@ public abstract class JsonViewDalRbacAdapter<T> implements DalRbacAdapter<T> {
         return deserializationProperties.computeIfAbsent(beanClass, this::introspectDeserialization);
     }
 
+    private Map<String, PropertyInfo> serializationProperties(Class<?> beanClass) {
+        return serializationProperties.computeIfAbsent(beanClass, this::introspectSerialization);
+    }
+
     private Map<String, PropertyInfo> introspectDeserialization(Class<?> beanClass) {
         DeserializationConfig config = viewMapper.deserializationConfig();
         ClassIntrospector introspector = config.classIntrospectorInstance().forOperation(config);
@@ -198,20 +277,37 @@ public abstract class JsonViewDalRbacAdapter<T> implements DalRbacAdapter<T> {
         return properties;
     }
 
-    private Class<?>[] viewsOf(BeanPropertyDefinition property) {
-        AnnotatedMember[] members = {
-            property.getMutator(), property.getField(), property.getPrimaryMember(), property.getGetter()
-        };
-        for (AnnotatedMember member : members) {
-            if (member == null) {
-                continue;
-            }
-            JsonView jsonView = member.getAnnotation(JsonView.class);
-            if (jsonView != null) {
-                return jsonView.value();
-            }
+    private Map<String, PropertyInfo> introspectSerialization(Class<?> beanClass) {
+        SerializationConfig config = viewMapper.serializationConfig();
+        ClassIntrospector introspector = config.classIntrospectorInstance().forOperation(config);
+        JavaType type = viewMapper.constructType(beanClass);
+        AnnotatedClass annotatedClass = introspector.introspectClassAnnotations(type);
+        BeanDescription description = introspector.introspectForSerialization(type, annotatedClass);
+        // Only properties Jackson would actually write: a WRITE_ONLY property is listed by the introspector
+        // but never serialized, so it must not be filterable either.
+        List<BeanPropertyDefinition> serialized = description.findProperties().stream()
+            .filter(BeanPropertyDefinition::couldSerialize)
+            .toList();
+        Map<String, PropertyInfo> properties = new HashMap<>();
+        // Wire names first so that a JSON name always wins over a Java name spelled the same way.
+        for (BeanPropertyDefinition property : serialized) {
+            properties.put(property.getName(), new PropertyInfo(property.getPrimaryType(), viewsOf(property)));
         }
-        return NO_VIEWS;
+        for (BeanPropertyDefinition property : serialized) {
+            properties.putIfAbsent(
+                property.getInternalName(), new PropertyInfo(property.getPrimaryType(), viewsOf(property)));
+        }
+        return properties;
+    }
+
+    /**
+     * The views a property is tagged with, resolved by Jackson for the operation the property was
+     * introspected for — getter-first for serialization, setter-first for deserialization — so that a
+     * property annotated per accessor is classified exactly as Jackson will serialize or bind it.
+     */
+    private static Class<?>[] viewsOf(BeanPropertyDefinition property) {
+        Class<?>[] views = property.findViews();
+        return views != null ? views : NO_VIEWS;
     }
 
     private Class<?> rawContentClass(JavaType type) {

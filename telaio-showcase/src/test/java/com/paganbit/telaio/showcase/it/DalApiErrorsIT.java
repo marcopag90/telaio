@@ -80,9 +80,4 @@ class DalApiErrorsIT extends AbstractShowcaseIT {
         assertThat(matched).isPositive();
         assertThat(tree(byJavaName).path("page").path("totalElements").asLong()).isEqualTo(matched);
     }
-
-    private void assertInvalidFilter(ResponseEntity<String> response) {
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(tree(response).path("detail").asString()).isEqualTo("Invalid filter expression");
-    }
 }

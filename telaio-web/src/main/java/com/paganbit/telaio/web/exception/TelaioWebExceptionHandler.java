@@ -60,18 +60,17 @@ public class TelaioWebExceptionHandler {
 
     /**
      * Maps a well-formed {@code q} filter that cannot be applied to the target entity — an unknown or
-     * non-persistent field, or a function that is unknown or unsupported by the persistence backend — to
-     * {@code 400 Bad Request}. Raised uniformly by every backend's filter converter,
-     * so the same request fails the same way on JPA and Mongo instead of surfacing as a server error or
-     * silently matching nothing. The body carries a stable, generic detail; the field name stays in the
-     * on-demand debug log only.
+     * non-persistent field, a field the principal is not allowed to read, or a function that is unknown or
+     * unsupported by the persistence backend — to {@code 400 Bad Request}. Raised uniformly by every
+     * backend's filter converter (and, for the RBAC case, by the security interceptor before the read).
+     * The body carries a stable, generic detail; the field name stays in the on-demand debug log only.
      */
     @ExceptionHandler(DalInvalidFilterException.class)
     ProblemDetail handleInvalidFilter(DalInvalidFilterException ex) {
         // The wrapped cause names the failing conversion/function; its type is enough to tell the cases
         // apart, and its message (which may echo the rejected literal) stays out of the log.
         log.debug("Invalid filter expression rejected: {} ({})", ex.getMessage(),
-            ex.getCause() != null ? ex.getCause().getClass().getName() : "unresolved field");
+            ex.getCause() != null ? ex.getCause().getClass().getName() : "no cause");
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Invalid filter expression");
     }
 

@@ -131,8 +131,9 @@ sequenceDiagram
 2. **Exposure check** (step 1) returns 404 or 405 for non-exposed operations before reaching the DAL.
 3. **Audit denied** (step 2) records failed authorization attempts.
 4. **Security** (step 3) runs the `DalAuthAdapter` to check if the principal can perform the operation, then applies
-   the `DalRbacAdapter` to filter input/output fields by role — both happen inside the single
-   `DalSecurityInterceptor` (RBAC is not a separate interceptor in the chain).
+   the `DalRbacAdapter` to filter input/output fields by role and to reject a filter that references a field the
+   principal cannot read — all inside the single `DalSecurityInterceptor` (RBAC is not a separate interceptor in the
+   chain).
 5. **Web operation** (step 4) calls the underlying `Dal` method with the filtered input.
 
 ## Per-Request Adapter Chain (REST Boundary)
@@ -140,7 +141,8 @@ sequenceDiagram
 When a REST request arrives at `DalRestApiV1Controller`, it flows through the **web adapter chain**. This chain is
 responsible for exposure control, security checks, and RBAC filtering. Note that RBAC is not a separate interceptor:
 the `DalSecurityInterceptor` first checks authorization via the `DalAuthAdapter`, then applies the `DalRbacAdapter`
-to filter fields — the diagram shows them as distinct steps only to make the logical order visible:
+to check the filter's field references and to filter fields — the diagram shows them as distinct steps only to make
+the logical order visible:
 
 ```mermaid
 graph TD
