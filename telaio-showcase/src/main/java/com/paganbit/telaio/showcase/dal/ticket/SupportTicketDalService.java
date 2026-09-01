@@ -42,7 +42,7 @@ import java.util.Objects;
  * synchronous self-call runs while the DB transaction is open, holding a connection for the whole
  * round-trip (against a real remote a self-call can starve the connection pool under load — size
  * pools and timeouts accordingly, or publish out of band); and every call carries a single static
- * service credential (see {@code ShowcaseRestClientConfig}) with no propagation of the originating
+ * service credential (see {@code TelaioRestClientConfig}) with no propagation of the originating
  * caller's identity.
  */
 @DalService(name = "tickets")

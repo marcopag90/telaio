@@ -32,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  * End-to-end proof of the DAL-to-DAL round-trip powered by the compile-scope
  * {@code telaio-rest-client}: writing a {@code tickets} row makes {@code SupportTicketDalService}
  * call this same application's {@code POST /dal/v1/feed} through the configured {@code self}
- * connection (basic auth via {@code ShowcaseRestClientConfig}), and an activity entry appears.
+ * connection (basic auth via {@code TelaioRestClientConfig}), and an activity entry appears.
  *
  * <p>Unlike {@link TelaioClientRoundTripIT} this test runs on a <b>fixed, pre-allocated port</b>:
  * the app's own {@code TelaioClient} binds its base URL at startup, so the self-call target must be

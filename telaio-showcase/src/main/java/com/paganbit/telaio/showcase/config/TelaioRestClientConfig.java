@@ -17,7 +17,7 @@ import org.springframework.http.client.support.BasicAuthenticationInterceptor;
  * {@code telaio.showcase.self-client.username/password}.
  */
 @Configuration
-public class ShowcaseRestClientConfig {
+public class TelaioRestClientConfig {
 
     @Bean
     TelaioRestClientCustomizer selfConnectionBasicAuth(

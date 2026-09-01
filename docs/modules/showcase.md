@@ -62,7 +62,7 @@ telaio:
 ```
 
 ```java
-// ShowcaseRestClientConfig: basic auth for the "self" connection, the idiomatic per-connection hook
+// TelaioRestClientConfig: basic auth for the "self" connection, the idiomatic per-connection hook
 @Bean
 TelaioRestClientCustomizer selfConnectionBasicAuth(
         @Value("${telaio.showcase.self-client.username:user}") String username,
@@ -339,7 +339,7 @@ telaio-showcase/
 │   │   ├── JpaConfiguration.java
 │   │   ├── MongoConfiguration.java   (qualified MongoTransactionManager — replica-set transactions)
 │   │   ├── SecurityConfiguration.java
-│   │   ├── ShowcaseRestClientConfig.java
+│   │   ├── TelaioRestClientConfig.java
 │   │   └── SwaggerConfiguration.java
 │   ├── dal/                       (each package: entity, repository, DAL service, *Seeder)
 │   │   ├── announcement/
