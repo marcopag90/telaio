@@ -5,7 +5,10 @@ import com.paganbit.telaio.core.adapter.DalOperationAdapter;
 import com.paganbit.telaio.core.annotation.DalService;
 import com.paganbit.telaio.core.registry.DalManager;
 import com.paganbit.telaio.showcase.dal.announcement.AnnouncementDalService;
+import com.paganbit.telaio.showcase.dal.announcement.AnnouncementRepository;
 import com.paganbit.telaio.showcase.dal.notification.NotificationDalService;
+import com.paganbit.telaio.showcase.dal.notification.NotificationRepository;
+import com.paganbit.telaio.showcase.dal.product.ProductPriceHistoryRepository;
 import com.paganbit.telaio.web.registry.WebDalOperationAdapterRegistry;
 import com.turkraft.springfilter.parser.node.FilterNode;
 import org.jspecify.annotations.Nullable;
@@ -13,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
@@ -34,6 +38,9 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest(properties = "spring.docker.compose.enabled=false")
 @Import(TestcontainersConfiguration.class)
 class TelaioShowcaseApplicationTests {
+
+    @Autowired
+    private ApplicationContext context;
 
     @Autowired
     private DalManager dalManager;
@@ -85,6 +92,19 @@ class TelaioShowcaseApplicationTests {
         assertNotNull(adapterRegistry.get("employees"));
         assertNotNull(adapterRegistry.get("departments"));
         assertNotNull(adapterRegistry.get("notifications"));
+    }
+
+    /**
+     * The repository scans are scoped per store with explicit include filters (see
+     * {@code JpaConfiguration}/{@code MongoConfiguration}), so cross-store candidates are never
+     * reported. This test pins the filters as inclusive enough: Telaio JPA repositories, plain
+     * Spring Data JPA repositories, and Mongo repositories must all still be registered.
+     */
+    @Test
+    void scopedRepositoryScansRegisterBothStores() {
+        assertNotNull(context.getBean(AnnouncementRepository.class));
+        assertNotNull(context.getBean(ProductPriceHistoryRepository.class));
+        assertNotNull(context.getBean(NotificationRepository.class));
     }
 
     /**

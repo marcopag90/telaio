@@ -166,6 +166,16 @@ recreation) and reports healthy only once the node is the writable primary; sinc
 --wait`, the application never starts against a server that cannot open a transaction. See the
 [Mongo module docs](./mongo.md#transactions) for the rationale.
 
+**Scoped repository scans.** With two Spring Data stores on the classpath, Spring Boot's auto-configured repository scans
+both cover the whole application package in *strict multi-store mode*: each store still assigns every repository
+correctly, but logs an INFO line ("Could not safely identify store assignment …") for every candidate that belongs to
+the other store. The showcase silences that noise at the source: `JpaConfiguration` and `MongoConfiguration` declare
+`@EnableJpaRepositories` / `@EnableMongoRepositories` with an explicit `includeFilters` on the store interface
+(`JpaRepository` / `MongoRepository`), so each scan only ever sees its own repositories — explicit filters bypass the
+strict matching entirely. Both scans are anchored to the `dal` package subtree via the `DalPackage` marker interface
+(`basePackageClasses`), so the rest of the application is never scanned for repositories at all. New DALs need nothing: any repository extending a store-specific interface (which
+`JpaDalRepository` and `MongoDalRepository` both do) is picked up by the right scan automatically.
+
 **Schema:** Hibernate auto-schema-update (see `application.yaml`):
 
 ```yaml

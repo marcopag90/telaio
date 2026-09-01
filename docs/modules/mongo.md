@@ -49,18 +49,18 @@ and a backend implements the `execute*` SPI.
 ```java
 
 @Document
-public class Announcement {
+public class Notification {
 
     @Id
     private String id;
 
-    private String title;
+    private String subject;
 }
 ```
 
 > **Why `String` ids:** Spring Data maps a `String` `@Id` onto `_id` (generating an ObjectId hex string when unset),
 > and it round-trips cleanly through the `/dal/v1` wire contract — URLs stay plain
-> (`/dal/v1/announcements/{hexId}`). `org.bson.types.ObjectId` ids are **supported as well**: telaio-mongo
+> (`/dal/v1/notifications/{hexId}`). `org.bson.types.ObjectId` ids are **supported as well**: telaio-mongo
 > contributes the type to the framework's simple-type classification (`SimpleTypeContributor`) and registers a
 > Jackson 3 module (`ObjectIdJacksonModule`), so ObjectId ids also travel as plain hex strings — and `q=` filters on
 > ObjectId fields match as BSON `ObjectId`s. `String` stays the recommended default: remote clients
@@ -71,8 +71,8 @@ public class Announcement {
 No implementation needed — Spring Data MongoDB generates it:
 
 ```java
-public interface AnnouncementRepository
-    extends MongoDalRepository<Announcement, String> {
+public interface NotificationRepository
+    extends MongoDalRepository<Notification, String> {
 }
 ```
 
@@ -82,14 +82,14 @@ Extend `MongoDal` and annotate with `@DalService`. Spring's generic-aware autowi
 
 ```java
 
-@DalService(name = "announcements")
-public class AnnouncementDalService extends MongoDal<Announcement, String> {
+@DalService(name = "notifications")
+public class NotificationDalService extends MongoDal<Notification, String> {
 }
 ```
 
 The framework:
 
-- Autowires `AnnouncementRepository` into the `repository` setter
+- Autowires `NotificationRepository` into the `repository` setter
 - Autowires `MongoOperations` (the `MongoTemplate`) into the `mongoOperations` setter
 - Autowires the primary `FilterQueryConverter` (the JSON-aware decorator of Turkraft's converter) into the `queryConverter` setter
 - Autowires the `telaioMongoTransactionManager` bean into the (qualified) `transactionManager` setter
@@ -104,7 +104,7 @@ The framework:
 Clients send Turkraft filter expressions in the `q` parameter, exactly as with a JPA DAL:
 
 ```bash
-curl 'http://localhost:8080/dal/v1/announcements?q=title:%27URGENT%27'
+curl 'http://localhost:8080/dal/v1/notifications?q=subject:%27URGENT%27'
 ```
 
 `MongoDal` converts this to a Mongo `Query` internally. The conversion produces an **`$expr`-wrapped aggregation
