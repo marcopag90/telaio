@@ -2,6 +2,7 @@ package com.paganbit.telaio.jpa;
 
 import com.paganbit.telaio.core.AbstractDal;
 import com.paganbit.telaio.jpa.sort.EntityDefaultSortResolver;
+import com.paganbit.telaio.jpa.sort.JpaSortPropertyValidator;
 import com.paganbit.telaio.jpa.specification.ByIdSpecification;
 import com.turkraft.springfilter.converter.FilterSpecificationConverter;
 import com.turkraft.springfilter.parser.node.FilterNode;
@@ -18,7 +19,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * JPA-based implementation of {@link com.paganbit.telaio.core.Dal}.
+ * JPA-based implementation of {@link com.paganbit.telaio.core.Dal Dal}.
  * <p>
  * Provides CRUD execution through {@link JpaDalRepository} and exposes JPA-specific
  * metadata through {@link JpaDalMetadata}.
@@ -36,7 +37,7 @@ import java.util.Optional;
  * autowiring selects the {@code JpaDalRepository<E, I>} bean matching the concrete type
  * arguments, so multiple repositories for <em>different</em> entity types coexist without
  * ambiguity. The rare case of two beans sharing the exact same {@code <E, I>} is resolved by
- * overriding the relevant setter with a {@link org.springframework.beans.factory.annotation.Qualifier}
+ * overriding the relevant setter with a {@link org.springframework.beans.factory.annotation.Qualifier @Qualifier}
  * or by marking one bean {@link org.springframework.context.annotation.Primary @Primary}.
  * <p>
  * The {@link #JpaDal(JpaDalRepository, EntityManager) two-argument constructor} is retained for
@@ -79,11 +80,6 @@ public class JpaDal<E, I> extends AbstractDal<E, I> implements JpaDalMetadata<E,
      */
     protected @Nullable FilterSpecificationConverter specificationConverter;
 
-    /**
-     * Default constructor used by Spring-managed subclasses. The {@link #repository} and
-     * {@link #entityManager} are supplied via setter injection and validated in
-     * {@link #afterPropertiesSet()}.
-     */
     protected JpaDal() {
     }
 
@@ -147,6 +143,11 @@ public class JpaDal<E, I> extends AbstractDal<E, I> implements JpaDalMetadata<E,
     @Override
     protected Sort defaultSort() {
         return EntityDefaultSortResolver.resolve(getEntityType());
+    }
+
+    @Override
+    protected void validateSortProperty(String property) {
+        JpaSortPropertyValidator.validate(property, getEntityType());
     }
 
     @Override

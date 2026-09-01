@@ -188,4 +188,3 @@ settings.
 - [Core Module](./core.md) — `AbstractDal` base class and lifecycle hooks
 - [REST API Guide](../rest-api.md) — How filtering works at the HTTP boundary
 - [Showcase Module](./showcase.md) — `notifications`: a Mongo DAL running next to the JPA DALs, on a replica set
-- [Roadmap](../roadmap.md) — Deferred items: upstream Turkraft gaps

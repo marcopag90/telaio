@@ -75,6 +75,19 @@ public class TelaioWebExceptionHandler {
     }
 
     /**
+     * Maps a {@code sort} parameter the read cannot honor — an unknown or non-persistent property, a
+     * property the backend cannot order by, or one the principal is not allowed to read — to
+     * {@code 400 Bad Request}. Raised uniformly by every backend (and, for the RBAC case, by the
+     * security interceptor before the read). The body carries a stable, generic detail; the property
+     * name stays in the on-demand debug log only.
+     */
+    @ExceptionHandler(DalInvalidSortException.class)
+    ProblemDetail handleInvalidSort(DalInvalidSortException ex) {
+        log.debug("Invalid sort parameter rejected: {}", ex.getMessage());
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Invalid sort parameter");
+    }
+
+    /**
      * Maps a malformed {@code {id}} path segment (invalid Base64 for a composite key, or a value
      * that cannot be converted into the DAL's ID type) to {@code 400 Bad Request}. Raised by the
      * shared wire-contract codec while resolving the {@code @DalId} argument — malformed client

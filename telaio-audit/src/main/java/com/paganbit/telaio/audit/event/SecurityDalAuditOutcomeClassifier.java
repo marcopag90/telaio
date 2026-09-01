@@ -1,19 +1,14 @@
 package com.paganbit.telaio.audit.event;
 
 import com.paganbit.telaio.core.exception.DalFilterFieldNotReadableException;
+import com.paganbit.telaio.core.exception.DalSortFieldNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 
 /**
  * {@link DalAuditOutcomeClassifier} aware of Spring Security: authorization failures are
  * classified as {@link DalAuditOutcome#DENIED}; everything else follows the shared
- * {@link com.paganbit.telaio.core.exception.DalFailureKind} taxonomy (validation, not-found,
+ * {@link com.paganbit.telaio.core.exception.DalFailureKind DalFailureKind} taxonomy (validation, not-found,
  * conflict, error) exactly like {@link DefaultDalAuditOutcomeClassifier}.
- *
- * <p>Telaio's own {@code DalAccessDeniedException} extends {@link AccessDeniedException}, so DAL
- * authorization failures are covered without a dependency on the security module. A read filter
- * referencing a field the principal may not read ({@link DalFilterFieldNotReadableException}) is a
- * denied attempt too: on the wire it is a plain client fault, but repeated probing of hidden fields is
- * exactly the signal an audit trail exists for.</p>
  *
  * @author Marco Pagan
  * @since 1.0.0
@@ -24,7 +19,9 @@ public class SecurityDalAuditOutcomeClassifier implements DalAuditOutcomeClassif
 
     @Override
     public DalAuditOutcome classify(Throwable failure) {
-        return failure instanceof AccessDeniedException || failure instanceof DalFilterFieldNotReadableException
+        return failure instanceof AccessDeniedException
+            || failure instanceof DalFilterFieldNotReadableException
+            || failure instanceof DalSortFieldNotReadableException
             ? DalAuditOutcome.DENIED
             : fallback.classify(failure);
     }

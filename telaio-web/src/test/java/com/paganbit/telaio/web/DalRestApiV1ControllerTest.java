@@ -2,6 +2,7 @@ package com.paganbit.telaio.web;
 
 import com.paganbit.telaio.core.adapter.DalOperationAdapter;
 import com.paganbit.telaio.core.exception.DalInvalidFilterException;
+import com.paganbit.telaio.core.exception.DalInvalidSortException;
 import com.paganbit.telaio.core.exception.DalNotFoundException;
 import com.paganbit.telaio.core.registry.DalManager;
 import com.paganbit.telaio.web.adapter.WebDalOperationAdapter;
@@ -181,6 +182,26 @@ class DalRestApiV1ControllerTest {
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
             .andExpect(jsonPath("$.status").value(400))
             .andExpect(jsonPath("$.detail").value("Invalid filter expression"));
+    }
+
+    @Test
+    void readCompanies_sortRejectedByBackend_shouldReturnBadRequest() throws Exception {
+        // A sort the read cannot honor (unknown property, hidden property) surfaces from the adapter as
+        // DalInvalidSortException — on every backend and from the security interceptor — and maps to a
+        // generic 400 distinct from the filter detail.
+        @SuppressWarnings("unchecked")
+        WebDalOperationAdapter<Object, Long> rejecting = mock(WebDalOperationAdapter.class);
+        doThrow(DalInvalidSortException.unknownProperty("nope", "nope"))
+            .when(rejecting).read(any(), any());
+        doReturn(rejecting).when(adapterRegistry).get("strict");
+
+        mockMvc.perform(get("/dal/v1/strict")
+                .param("sort", "nope,desc")
+                .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.detail").value("Invalid sort parameter"));
     }
 
     @Test
