@@ -315,11 +315,11 @@ public abstract class PropertyBasedDalRbacAdapter<T> implements DalRbacAdapter<T
      */
     @Override
     public boolean canFilterOn(String fieldPath, Authentication auth) {
-        JsonPropertyPathResolver.JavaPathResolution resolution = pathResolver.resolveJavaPath(exposedType, fieldPath);
-        if (!resolution.resolved()) {
+        final var resolvedJavaPath = pathResolver.resolveJavaPath(exposedType, fieldPath);
+        if (!resolvedJavaPath.resolved()) {
             return false;
         }
-        String javaPath = resolution.javaPath();
+        String javaPath = resolvedJavaPath.javaPath();
         if (pathResolver.toJsonPath(exposedType, javaPath, true) == null) {
             return false; // not part of the serialized form: the response never shows it
         }

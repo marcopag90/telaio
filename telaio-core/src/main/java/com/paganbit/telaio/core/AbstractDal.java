@@ -3,6 +3,9 @@ package com.paganbit.telaio.core;
 import com.paganbit.telaio.core.beans.DalPropertyMerger;
 import com.paganbit.telaio.core.exception.DalEntityNotFoundException;
 import com.paganbit.telaio.core.exception.DalEntityValidationException;
+import com.paganbit.telaio.core.exception.DalInvalidSortException;
+import com.paganbit.telaio.core.json.JsonFieldNameSortRewriter;
+import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import com.paganbit.telaio.core.transaction.DalTransactionPolicy;
 import com.paganbit.telaio.core.validation.DalMapConverterValidator;
 import com.paganbit.telaio.core.validation.DalValidator;
@@ -84,6 +87,12 @@ public abstract class AbstractDal<E, I>
      */
     protected DalPropertyMerger propertyMerger;
 
+    /**
+     * Translates sort properties from their JSON wire names to Java property names
+     * and rejects properties the entity does not expose.
+     */
+    protected JsonFieldNameSortRewriter sortRewriter;
+
     //---------------------------------------------------------------------
     // Filter Management
     //---------------------------------------------------------------------
@@ -136,6 +145,7 @@ public abstract class AbstractDal<E, I>
         Objects.requireNonNull(transactionManager, "PlatformTransactionManager must be set before using the service");
         Objects.requireNonNull(transactionPolicy, "DalTransactionPolicy must be set before using the service");
         this.mapConverterValidator = new DalMapConverterValidator<>(objectMapper, validatorAdapter, entityClass);
+        this.sortRewriter = new JsonFieldNameSortRewriter(new JsonPropertyPathResolver(objectMapper));
     }
 
     public ObjectMapper getObjectMapper() {
@@ -333,7 +343,7 @@ public abstract class AbstractDal<E, I>
     public Page<E> read(@Nullable FilterNode filter, Pageable pageable) {
         final var transaction = finalizeTransaction(transactionManager, transactionPolicy.forRead());
         FilterNode combinedFilter = combineWithDefaultFilter(filter);
-        Pageable effectivePageable = applyDefaultSort(pageable);
+        Pageable effectivePageable = finalizeSort(pageable);
         Page<E> readResult = transaction.execute(ex -> {
             Page<E> result = executeRead(combinedFilter, effectivePageable);
             result.forEach(this::finalizeAfterRead);
@@ -342,11 +352,39 @@ public abstract class AbstractDal<E, I>
         return Objects.requireNonNull(readResult);
     }
 
-    private Pageable applyDefaultSort(Pageable pageable) {
+    private Pageable finalizeSort(Pageable pageable) {
         if (pageable.getSort().isUnsorted()) {
-            return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), defaultSort());
+            return applyDefaultSort(pageable);
         }
-        return pageable;
+        Sort rewrittenSort = sortRewriter.rewrite(pageable.getSort(), entityClass);
+        rewrittenSort.forEach(order -> validateSortProperty(order.getProperty()));
+        if (rewrittenSort.equals(pageable.getSort())) {
+            // Identity rewrite: keep the caller's Pageable (it may carry custom offset semantics).
+            return pageable;
+        }
+        return pageable.isPaged()
+            ? PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), rewrittenSort)
+            : Pageable.unpaged(rewrittenSort);
+    }
+
+    private Pageable applyDefaultSort(Pageable pageable) {
+        if (pageable.isUnpaged()) {
+            return Pageable.unpaged(defaultSort());
+        }
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), defaultSort());
+    }
+
+    /**
+     * Validates a single sort property, already translated to Java property names.
+     *
+     * <p>Backends override this hook to reject a property the underlying repository does not persist or cannot order
+     * by, throwing a {@link DalInvalidSortException}; the default implementation accepts everything.
+     * The DAL's own {@link #defaultSort()} is never routed through this hook.</p>
+     *
+     * @param property the dot-notation Java property path of one {@link Sort.Order}
+     */
+    protected void validateSortProperty(String property) {
+        // noop
     }
 
     @Override

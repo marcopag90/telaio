@@ -4,6 +4,7 @@ import com.paganbit.telaio.core.adapter.DalOperation;
 import com.paganbit.telaio.core.adapter.DalOperationAdapter;
 import com.paganbit.telaio.core.adapter.DalOperationType;
 import com.paganbit.telaio.core.exception.DalFilterFieldNotReadableException;
+import com.paganbit.telaio.core.exception.DalSortFieldNotReadableException;
 import com.paganbit.telaio.core.filter.FilterNodes;
 import com.paganbit.telaio.security.DalSecurityContextHelper;
 import com.paganbit.telaio.security.adapter.DalAuthAdapter;
@@ -16,6 +17,8 @@ import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 
 import java.util.Map;
@@ -32,6 +35,10 @@ import java.util.Optional;
  *       a field the principal may not read rejects the request with a
  *       {@link DalFilterFieldNotReadableException} (on the wire the same client fault as an unknown
  *       field; for audit a denied attempt);</li>
+ *   <li>for reads with a sort, the same {@link DalRbacAdapter#canFilterOn} check on every
+ *       {@link Sort.Order} property — a sort key the principal may not read rejects the request with a
+ *       {@link DalSortFieldNotReadableException} (on the wire the same client fault as an unknown sort
+ *       property; for audit a denied attempt);</li>
  *   <li>input/output filtering, via the {@link DalRbacAdapter}.</li>
  * </ol>
  *
@@ -85,6 +92,7 @@ public class DalSecurityInterceptor implements MethodInterceptor {
             case READ -> {
                 require(authAdapter.authorizeRead(auth), messageResolver.forRead(dalName));
                 requireReadableFilterFields((FilterNode) args[0], auth);
+                requireReadableSortProperties((Pageable) args[1], auth);
                 Page page = Objects.requireNonNull((Page) invocation.proceed());
                 yield page.map(dto -> rbacAdapter.filterOutput(DalOperationType.READ, dto, auth));
             }
@@ -126,6 +134,23 @@ public class DalSecurityInterceptor implements MethodInterceptor {
         for (FieldNode field : FilterNodes.fieldNodes(filter)) {
             if (!rbacAdapter.canFilterOn(field.getName(), auth)) {
                 throw new DalFilterFieldNotReadableException(field.getName());
+            }
+        }
+    }
+
+    /**
+     * Rejects a sort that references a property the principal may not read — the rule is identical to
+     * the filter-field check ({@link DalRbacAdapter#canFilterOn}): a sort on a hidden property leaks the
+     * relative order of its values. Checked after the operation-level authorization (a denied read
+     * stays a {@code 403}) and before the read runs, so no query is ever ordered by a hidden property.
+     */
+    private void requireReadableSortProperties(@Nullable Pageable pageable, Authentication auth) {
+        if (pageable == null) {
+            return;
+        }
+        for (Sort.Order order : pageable.getSort()) {
+            if (!rbacAdapter.canFilterOn(order.getProperty(), auth)) {
+                throw new DalSortFieldNotReadableException(order.getProperty());
             }
         }
     }

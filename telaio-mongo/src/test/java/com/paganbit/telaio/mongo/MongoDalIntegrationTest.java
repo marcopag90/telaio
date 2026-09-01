@@ -1,7 +1,11 @@
 package com.paganbit.telaio.mongo;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.paganbit.telaio.core.beans.DalPropertyMerger;
+import com.paganbit.telaio.core.exception.DalInvalidSortException;
 import com.paganbit.telaio.core.transaction.DalTransactionPolicy;
+import com.paganbit.telaio.core.transaction.DefaultDalTransactionPolicy;
+import com.paganbit.telaio.core.transaction.PassThroughTransactionManager;
 import com.turkraft.springfilter.builder.FilterBuilder;
 import com.turkraft.springfilter.converter.FilterQueryConverter;
 import com.turkraft.springfilter.converter.FilterStringConverter;
@@ -17,6 +21,7 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.data.mongodb.test.autoconfigure.DataMongoTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
@@ -28,15 +33,13 @@ import org.springframework.data.mongodb.core.query.BasicQuery;
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.validation.beanvalidation.SpringValidatorAdapter;
 import org.testcontainers.mongodb.MongoDBContainer;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
@@ -70,6 +73,9 @@ class MongoDalIntegrationTest {
     @Autowired
     private TestConfig.ObjectIdEntityRepository objectIdRepository;
 
+    @Autowired
+    private DalTransactionPolicy dalTransactionPolicy;
+
     private TestMongoDal dal;
 
     @BeforeEach
@@ -88,13 +94,24 @@ class MongoDalIntegrationTest {
         target.setPropertyMerger(mock(DalPropertyMerger.class));
         target.setFilterBuilder(mock(FilterBuilder.class));
         target.setFilterStringConverter(mock(FilterStringConverter.class));
-        target.setTransactionManager(mock(PlatformTransactionManager.class));
-        target.setTransactionPolicy(mock(DalTransactionPolicy.class));
+        // Standalone mongod: no real transactions — the pass-through manager lets read() run end-to-end.
+        target.setTransactionManager(new PassThroughTransactionManager());
+        target.setTransactionPolicy(dalTransactionPolicy);
     }
 
     private TestEntity persisted(String name) {
+        return persisted(name, null, null);
+    }
+
+    private TestEntity persisted(String name, String label, String city) {
         TestEntity entity = new TestEntity();
         entity.setName(name);
+        entity.setLabel(label);
+        if (city != null) {
+            Address address = new Address();
+            address.setCity(city);
+            entity.setAddress(address);
+        }
         return repository.save(entity);
     }
 
@@ -224,6 +241,61 @@ class MongoDalIntegrationTest {
         assertThat(objectIdDal.executeReadOne(saved.getId())).isEmpty();
     }
 
+    @Test
+    void read_withJsonWireNameSort_ordersLikeTheJavaName() {
+        persisted("beta", "z", "Zagreb");
+        persisted("alpha", "a", "Ancona");
+
+        Page<TestEntity> byWireName = dal.read(null, PageRequest.of(0, 10, Sort.by("display_name")));
+        Page<TestEntity> byJavaName = dal.read(null, PageRequest.of(0, 10, Sort.by("label")));
+
+        assertThat(byWireName.getContent()).extracting(TestEntity::getLabel).containsExactly("a", "z");
+        assertThat(byJavaName.getContent()).extracting(TestEntity::getLabel).containsExactly("a", "z");
+    }
+
+    @Test
+    void read_withNestedSortPath_ordersThroughTheSubdocument() {
+        persisted("beta", "z", "Zagreb");
+        persisted("alpha", "a", "Ancona");
+
+        Page<TestEntity> page = dal.read(
+            null, PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "address.city")));
+
+        assertThat(page.getContent()).extracting(TestEntity::getName).containsExactly("beta", "alpha");
+    }
+
+    @Test
+    void read_withUnknownSortProperty_isRejectedAsClientFault() {
+        // Mongo used to sort on the missing path silently (200 with an arbitrary order).
+        PageRequest pageable = PageRequest.of(0, 10, Sort.by("nope"));
+
+        assertThatThrownBy(() -> dal.read(null, pageable))
+            .isInstanceOf(DalInvalidSortException.class)
+            .hasMessageContaining("nope");
+    }
+
+    @Test
+    void read_withSerializedButNotPersistedSortProperty_isRejectedAsClientFault() {
+        // `display` is a computed getter: Jackson serializes it, the mapping context does not store it.
+        PageRequest pageable = PageRequest.of(0, 10, Sort.by("display"));
+
+        assertThatThrownBy(() -> dal.read(null, pageable))
+            .isInstanceOf(DalInvalidSortException.class)
+            .hasMessageContaining("display");
+    }
+
+    @Test
+    void read_withUnsortedPageable_appliesTheDefaultSortWithoutValidation() {
+        TestEntity first = persisted("beta");
+        TestEntity second = persisted("alpha");
+
+        Page<TestEntity> page = dal.read(null, PageRequest.of(0, 10));
+
+        // Default sort is id ascending: ObjectId-backed String ids are monotonic within the process.
+        assertThat(page.getContent()).extracting(TestEntity::getId)
+            .containsExactly(first.getId(), second.getId());
+    }
+
     static class TestMongoDal extends MongoDal<TestEntity, String> {
 
         TestMongoDal(MongoDalRepository<TestEntity, String> repository, MongoOperations mongoOperations) {
@@ -272,6 +344,25 @@ class MongoDalIntegrationTest {
         private String id;
 
         private String name;
+
+        @JsonProperty("display_name")
+        private String label;
+
+        private Address address;
+
+        /**
+         * Serialized by Jackson but not stored by the mapping context: the sort validation must reject it.
+         */
+        public String getDisplay() {
+            return name + "!";
+        }
+    }
+
+    @Getter
+    @Setter
+    static class Address {
+
+        private String city;
     }
 
     @Getter
@@ -299,6 +390,7 @@ class MongoDalIntegrationTest {
 
     @EnableAutoConfiguration
     @EnableMongoRepositories(considerNestedRepositories = true)
+    @Import(DefaultDalTransactionPolicy.class)
     static class TestConfig {
 
         interface TestEntityRepository extends MongoDalRepository<TestEntity, String> {

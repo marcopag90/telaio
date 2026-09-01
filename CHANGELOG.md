@@ -32,6 +32,19 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   rejection is raised as `DalFilterFieldNotReadableException` (core; a `DalInvalidFilterException`), which
   `telaio-audit`'s `SecurityDalAuditOutcomeClassifier` records as a **DENIED** event. `JsonPropertyPathResolver`'s
   path-walking rules (`isReferenceKeySegment`, `unwrapElements`, `isOpaque`, `isLeaf`) are now public.
+- Security: field-level RBAC now governs the `sort=` keys too. `DalSecurityInterceptor` asks the same
+  `DalRbacAdapter.canFilterOn` hook for every `Sort.Order` property of a read's pageable, before the read runs —
+  a sort key the principal cannot read would otherwise leak the relative order of the hidden values
+  (`sort=cost_price,desc&size=1`). The rejection is raised as `DalSortFieldNotReadableException` (core; a
+  `DalInvalidSortException`), maps to the same generic 400 (`"Invalid sort parameter"`) as an unknown sort
+  property, and is recorded as a **DENIED** audit event. The DAL's own `defaultSort()` is not affected.
+- Core: `DalInvalidSortException` (a `DalFailureKind.VALIDATION` client fault) for a `sort=` property the read
+  cannot honor, and `JsonFieldNameSortRewriter` translating caller-supplied sort properties from JSON wire
+  names to Java property names (both spellings accepted, direction/case/null-handling preserved). New
+  protected hook `AbstractDal.validateSortProperty(String)` lets each backend validate the resolved property:
+  `JpaSortPropertyValidator` (JPA metamodel; deliberately stricter than the filter walk — no subtype
+  attributes, no Map accessors, terminal segment must be singular) and `MongoSortPropertyValidator` (mapping
+  context; same walk as the filter validator).
 
 ### 🐞 Bug Fixes
 
@@ -44,6 +57,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `Map`/`Object` property and the `$id`/`$ref`/`$db` keys of a stored reference are not checked. A literal
   that does not convert to the field's type (`quantity:'abc'`) stays a server fault (500) on both
   backends. Multi-pattern likes (`field ~ ['a*', 'b*']`) now honour `@JsonProperty` wire names too.
+- Core: a read with an *unpaged, unsorted* `Pageable` no longer throws `UnsupportedOperationException`
+  while applying the default sort (`Pageable.unpaged().getPageNumber()` is unsupported); it now stays
+  unpaged and carries the DAL's `defaultSort()`.
+- Sorting: a `sort=` property the entity does not expose or does not persist is now a **400**
+  (`"Invalid sort parameter"`) on both backends — before, an unknown sort property was a 500
+  (`PropertyReferenceException`) on JPA and a silently unsorted 200 on Mongo. Sort properties are now
+  resolved like filter fields (JSON wire names and Java names alike), making the documented `DalSort`
+  contract of the REST client ("property uses the JSON field names") actually hold: a sort on a
+  `@JsonProperty`-renamed field used to fail on JPA and order by a missing path on Mongo.
 - Metrics: the JDBC store no longer looks up the application's `PlatformTransactionManager` by type — an
   application with multiple transaction managers failed to start, and a manager over a
   different DataSource was accepted silently. The store now uses a private JDBC transaction manager bound

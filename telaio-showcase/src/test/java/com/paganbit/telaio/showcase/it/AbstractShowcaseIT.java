@@ -128,4 +128,13 @@ abstract class AbstractShowcaseIT {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(tree(response).path("detail").asString()).isEqualTo("Invalid filter expression");
     }
+
+    /**
+     * Asserts the generic client fault for a {@code sort=} property the request cannot honor — unknown,
+     * non-persistent or non-readable — which is deliberately the same body in every case.
+     */
+    protected void assertInvalidSort(ResponseEntity<String> response) {
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(tree(response).path("detail").asString()).isEqualTo("Invalid sort parameter");
+    }
 }

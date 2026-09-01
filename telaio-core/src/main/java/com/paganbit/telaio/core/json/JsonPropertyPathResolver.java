@@ -17,24 +17,15 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Translates dot-notation field paths between their <em>Java</em> property names and their
- * <em>JSON</em>-name equivalents for a given root type, honoring {@code PropertyNamingStrategy} and
- * {@code @JsonProperty} renames declared on the entity, across nested objects and collections.
+ * Translates dot-notation property paths between <em>Java</em> names and <em>JSON</em> wire names
+ * for a given root type. {@code @JsonProperty} and {@code PropertyNamingStrategy} renames are
+ * honored, across nested objects and collections.
  *
- * <p>The forward direction ({@link #toJsonPath}/{@link #toJsonPaths}) maps Java property names to the
- * names clients see on the wire, using the <em>serialization</em> or <em>deserialization</em> view.
- * The reverse direction ({@link #toJavaPath}/{@link #resolveJavaPath}) maps JSON wire names back to the
- * underlying Java property names so query layers (e.g., filtering) can speak the names clients actually
- * send. Resolution uses Jackson introspection; per-class name maps are cached (keyed by type and
- * direction/view).</p>
- *
- * <p>Forward resolution is strict — an unresolvable segment yields {@code null} (deny by default).
- * Reverse resolution accepts the JSON name and the Java name of every property (and the name of any
- * declared field Jackson does not expose), walks nested bean types segment by segment, and stops checking
- * once the path enters a type whose keys are dynamic ({@code Map}, {@code Object}, {@code JsonNode}) or a
- * reference accessor segment ({@code $id}, {@code $ref}, {@code $db}). {@link #resolveJavaPath} reports the
- * first segment that fails on a bean type or is applied to a scalar; {@link #toJavaPath} is its lenient
- * form, passing unknown segments through unchanged.</p>
+ * <p>The forward direction ({@link #toJsonPath}/{@link #toJsonPaths}) maps Java names to the names
+ * clients see on the wire; an unresolvable segment yields {@code null}. The reverse direction maps
+ * wire names back to Java names: {@link #resolveJavaPath} reports the first segment that does not
+ * resolve, {@link #toJavaPath} is its lenient form. Resolution uses Jackson introspection; per-class
+ * name maps are cached.</p>
  *
  * @author Marco Pagan
  * @since 1.0.0

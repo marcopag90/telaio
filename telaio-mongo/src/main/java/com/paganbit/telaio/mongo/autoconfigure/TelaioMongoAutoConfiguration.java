@@ -10,6 +10,7 @@ import com.turkraft.springfilter.converter.FilterQueryConverter;
 import com.turkraft.springfilter.converter.FilterQueryConverterImpl;
 import com.turkraft.springfilter.converter.FilterStringConverter;
 import org.bson.types.ObjectId;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -59,7 +60,7 @@ import java.util.Set;
 @ConditionalOnClass({MongoOperations.class, FilterQueryConverter.class})
 public class TelaioMongoAutoConfiguration {
 
-    private static final org.slf4j.Logger log = LoggerFactory.getLogger(TelaioMongoAutoConfiguration.class);
+    private static final Logger log = LoggerFactory.getLogger(TelaioMongoAutoConfiguration.class);
 
     /**
      * Jackson 3 module mapping {@link ObjectId} to its hexadecimal string form.

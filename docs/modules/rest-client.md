@@ -183,6 +183,9 @@ pinned to one wire contract version lives in a versioned package, everything els
   one at a time.
 - Paging/sorting inputs (`DalPage`, `DalPageRequest`, `DalSort`) and the exception tree are version-agnostic and
   transport-agnostic (they live in `telaio-rest-client-shared`); the registry is version-agnostic.
+- `DalSort` properties use the **JSON field names** of the entity, exactly as they appear in responses — a contract
+  the server enforces: sort properties are resolved like `q=` filter fields (Java names are accepted too), and an
+  unknown or non-readable property is a `DalClientException` for a 400 `"Invalid sort parameter"`.
 
 ## See Also
 

@@ -261,24 +261,24 @@ public interface DalRbacAdapter<T> {
 }
 ```
 
-### Filters
+### Filters and sorting
 
 Hiding a field from the response is not enough: a principal who cannot see `costPrice` could still send
-`q=cost_price>100` and work out its value from the rows that come back. `canFilterOn` closes that gap — the
-`DalSecurityInterceptor` asks it for every field the caller's filter references, *before* the read runs, and rejects
-the request with the same generic `400 "Invalid filter expression"` as an unknown field, so the filter cannot be used
-to probe which hidden properties exist.
+`q=cost_price>100` and work out its value from the rows that come back — or `sort=cost_price,desc&size=1` and learn
+which row holds the highest hidden value. `canFilterOn` closes both gaps — the `DalSecurityInterceptor` asks it for
+every field the caller's filter references *and for every `sort=` key*, before the read runs, and rejects the request
+with the same generic client fault as an unknown field (`400 "Invalid filter expression"` for a filter field,
+`400 "Invalid sort parameter"` for a sort key), so neither parameter can be used to probe which hidden properties
+exist.
 
-Both built-in adapters implement the same rule: **a field is filterable exactly when it appears in the read
-response**. `PropertyBasedDalRbacAdapter` checks the read readable map, `JsonViewDalRbacAdapter` the active read view;
-the fine print for nested paths and `Map` properties is in each adapter's Javadoc. The field path is checked as
-written — wire name or Java name — so a rename offers no bypass. Server-side default filters (`defaultFilter()`) are
-combined inside the DAL, after this check, and are never subject to it. With `telaio-audit` enabled, a rejected filter
-field is recorded as a **DENIED** event (like an authorization failure), so repeated probing of hidden fields is
-visible in the audit trail even though the client only sees a generic 400.
-
-> **Known gap:** the `sort=` parameter is not yet subject to the same check — a principal can order a page by a hidden
-> property and learn the relative order of its values. Tracked as roadmap item 10.
+Both built-in adapters implement the same rule: **a field is filterable — and sortable — exactly when it appears in
+the read response**. `PropertyBasedDalRbacAdapter` checks the read readable map, `JsonViewDalRbacAdapter` the active
+read view; the fine print for nested paths and `Map` properties is in each adapter's Javadoc. The field path is
+checked as written — wire name or Java name — so a rename offers no bypass. Server-side default filters
+(`defaultFilter()`) and the DAL's `defaultSort()` are applied inside the DAL, after this check, and are never subject
+to it. With `telaio-audit` enabled, a rejected filter field or sort key is recorded as a **DENIED** event (like an
+authorization failure), so repeated probing of hidden fields is visible in the audit trail even though the client only
+sees a generic 400.
 
 ### Strategy 1: Property-Based RBAC
 
@@ -518,7 +518,7 @@ and passes it to your adapters.
 
 4. **Test your adapters**: Write unit tests for your `DalAuthAdapter` and `DalRbacAdapter` to ensure the filtering is
    correct. If you write a `DalRbacAdapter` from scratch, implement `canFilterOn` too — the default accepts every
-   field, which leaves hidden values open to inference through `q=`.
+   field, which leaves hidden values open to inference through `q=` and `sort=`.
 
 5. **Log authorization denials**: Telaio automatically logs them to `telaio-audit`, so configure your log aggregator to
    flag denials.
