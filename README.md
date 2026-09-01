@@ -21,8 +21,8 @@
 
 Telaio provides a unified **Data Access Layer (DAL)** abstraction for CRUD operations across persistence backends. The
 core contract is **persistence-agnostic** — it is built on Spring Data's abstractions (`Page`, `Pageable`, `Sort`) and
-knows nothing about any specific store; **JPA/Hibernate and MongoDB are the shipped backends**, with more (QueryDSL) on
-the roadmap.
+knows nothing about any specific store; **JPA/Hibernate and MongoDB are the shipped backends**, with more on
+the roadmap. Whatever the store, every endpoint speaks the same query language.
 
 Declare an entity, a repository, and one small service class annotated `@DalService`, and Telaio generates a dynamic
 REST endpoint for it — with filtering, pagination, operation-level authorization, field-level RBAC, structured audit
@@ -37,6 +37,35 @@ public class ProductDalService extends JpaDal<Product, Long> {
 
 `Product` is now a full CRUD REST resource at `/dal/v1/products` — no controller, no DTO, no mapper. See
 the [Quick start](#quick-start) for the complete three-file example.
+
+## Filter anything — one query language, every backend
+
+Every list endpoint accepts the same compact, SQL-like filter language (powered by
+[**Turkraft Spring Filter**](https://github.com/turkraft/springfilter)): every field is filterable, sortable, and
+pageable out of the box — no `findByCategoryAndPriceGreaterThan` methods, ever.
+
+```bash
+curl "http://localhost:8080/dal/v1/products?q=category:'electronics'%20and%20price>500&sort=price,desc&page=0&size=5"
+```
+
+The expression is not tied to SQL: Telaio compiles it to whatever the store underneath speaks — the same `q=` string
+becomes a JPA `Specification` on Hibernate and an `$expr` query on MongoDB, with the same semantics, the same
+field-name handling, and the same RFC 9457 validation errors. Swap the persistence layer and the client never notices:
+
+```java
+
+@DalService(name = "products")
+public class ProductDalService extends JpaDal<Product, Long> {          // backed by JPA
+}
+
+@DalService(name = "notifications")
+public class NotificationDalService extends MongoDal<Notification, String> {   // backed by MongoDB
+}
+```
+
+Both are real classes from the showcase, running side by side in the same application. The full grammar is in the
+[REST API reference](docs/rest-api.md); the same language also powers implicit server-side
+[baseline filters](#server-side-filtering--baseline-filters-and-the-type-safe-builder).
 
 ## Why Telaio
 
@@ -59,7 +88,7 @@ Telaio collapses that into one abstraction:
 - **Implicit baseline filtering.** Override `defaultFilter()` and a filter is silently AND-combined with every client
   query — per-principal if you like — and enforced on reads, updates, and deletes alike: hidden rows behave like missing
   ones. See
-  [Filtering built in](#filtering-built-in--powered-by-turkraft-spring-filter).
+  [Server-side filtering](#server-side-filtering--baseline-filters-and-the-type-safe-builder).
 - **Exposure control without extra code.** `@DalService(internal = true)` keeps a DAL fully functional in-process while
   hiding it from REST and OpenAPI entirely; `@DalService(operations =
   {...})` exposes only a CRUD subset (e.g. read-only) and answers everything else with `404`/`405`.
@@ -104,18 +133,10 @@ different **projection** of the same entity — what elsewhere costs one DTO per
 Both strategies are covered in depth in the [security guide](docs/security-guide.md); filter-side renaming is in
 the [REST API reference](docs/rest-api.md).
 
-## Filtering built-in — powered by Turkraft Spring Filter
+## Server-side filtering — baseline filters and the type-safe builder
 
-Every list endpoint accepts a `q` parameter in
-[**Turkraft Spring Filter**](https://github.com/turkraft/springfilter) syntax — a compact, SQL-like expression language
-the client composes freely:
-
-```bash
-curl "http://localhost:8080/dal/v1/products?q=category:'electronics'%20and%20price>500"
-curl "http://localhost:8080/dal/v1/products?q=category:'electronics'&sort=price,desc&page=0&size=5"
-```
-
-The same language also works **server-side**: override `defaultFilter()` in a DAL and you get an implicit **baseline
+The `q=` language from [Filter anything](#filter-anything--one-query-language-every-backend) also works
+**server-side**: override `defaultFilter()` in a DAL and you get an implicit **baseline
 filter**, AND-combined with whatever the client sends and enforced on **every operation** — list reads, by-id reads,
 updates, and deletes. The client cannot bypass it: an entity hidden by the filter behaves exactly like one that does not
 exist. And since it is evaluated per request, it can depend on the authenticated principal. (It is a *visibility* filter
@@ -497,7 +518,8 @@ This README is a facade. The full developer guide lives under [`docs/`](docs/REA
 ## Acknowledgments
 
 Telaio's filter query language is powered by [**Turkraft Spring Filter**](https://github.com/turkraft/springfilter)
-— an excellent library that parses a compact `q=` expression and turns it into a JPA `Specification`. The expressive,
+— an excellent library that parses a compact `q=` expression and turns it into a JPA `Specification` or a MongoDB
+`$expr` query. The expressive,
 type-safe filtering Telaio exposes on every read endpoint rests directly on their work. A special thank-you to the
 Turkraft team and contributors for building and maintaining it.
 
