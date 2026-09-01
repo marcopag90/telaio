@@ -515,6 +515,15 @@ This README is a facade. The full developer guide lives under [`docs/`](docs/REA
 - [Observability](docs/observability.md) — audit log formats and metrics storage/export options.
 - Per-module deep dives in the [developer guide index](docs/README.md).
 
+## Contributing
+
+Contributions are welcome! Telaio follows a Gitflow process: fork from `development` with a `feature/<name>` branch
+for new work, or from `main` with a `hotfix/<name>` branch for urgent fixes to the released version, then open a pull
+request — CI runs on every PR. The full workflow (build requirements, dev container, tests, PR conventions) is in
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+Found a security vulnerability? Please report it privately — see [`SECURITY.md`](SECURITY.md).
+
 ## Acknowledgments
 
 Telaio's filter query language is powered by [**Turkraft Spring Filter**](https://github.com/turkraft/springfilter)
