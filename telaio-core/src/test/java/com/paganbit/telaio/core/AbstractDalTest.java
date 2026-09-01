@@ -1,8 +1,10 @@
 package com.paganbit.telaio.core;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.paganbit.telaio.core.beans.DalPropertyMerger;
 import com.paganbit.telaio.core.exception.DalEntityNotFoundException;
 import com.paganbit.telaio.core.exception.DalEntityValidationException;
+import com.paganbit.telaio.core.exception.DalInvalidSortException;
 import com.paganbit.telaio.core.transaction.DalTransactionPolicy;
 import com.paganbit.telaio.core.transaction.FakeTransactionTemplate;
 import com.turkraft.springfilter.builder.FilterBuilder;
@@ -16,6 +18,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -294,6 +297,166 @@ class AbstractDalTest {
 
             verify(spiedService, times(1)).executeRead(any(FilterNode.class), eq(sortedPageable));
         }
+
+        @Test
+        void read_withJsonNamedSort_rewritesToJavaPropertyAndValidatesIt() {
+            final var wireNamedPageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "legacy_code"));
+            final var rewrittenPageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "code"));
+            final var pageResult = new PageImpl<TestEntity>(List.of(), rewrittenPageable, 0);
+
+            doReturn(mockFilterNode).when(spiedService).combineWithDefaultFilter(mockFilterNode);
+            doReturn(pageResult).when(spiedService).executeRead(mockFilterNode, rewrittenPageable);
+            doReturn(spiedTransactionTemplate).when(spiedService).finalizeTransaction(
+                any(PlatformTransactionManager.class),
+                any(DefaultTransactionDefinition.class)
+            );
+            when(mockTransactionPolicy.forRead()).thenReturn(new DefaultTransactionDefinition());
+
+            spiedService.read(mockFilterNode, wireNamedPageable);
+
+            verify(spiedService, times(1)).validateSortProperty("code");
+            verify(spiedService, times(1)).executeRead(any(FilterNode.class), eq(rewrittenPageable));
+        }
+
+        @Test
+        void read_withMultiOrderSort_validatesEveryProperty() {
+            final var pageable = PageRequest.of(0, 10, Sort.by("name").and(Sort.by("legacy_code")));
+            final var pageResult = new PageImpl<TestEntity>(List.of(), pageable, 0);
+
+            doReturn(mockFilterNode).when(spiedService).combineWithDefaultFilter(mockFilterNode);
+            doReturn(pageResult).when(spiedService).executeRead(eq(mockFilterNode), any(Pageable.class));
+            doReturn(spiedTransactionTemplate).when(spiedService).finalizeTransaction(
+                any(PlatformTransactionManager.class),
+                any(DefaultTransactionDefinition.class)
+            );
+            when(mockTransactionPolicy.forRead()).thenReturn(new DefaultTransactionDefinition());
+
+            spiedService.read(mockFilterNode, pageable);
+
+            verify(spiedService, times(1)).validateSortProperty("name");
+            verify(spiedService, times(1)).validateSortProperty("code");
+        }
+
+        @Test
+        void read_withUnknownSortProperty_rejectsBeforeExecutingTheRead() {
+            final var pageable = PageRequest.of(0, 10, Sort.by("nope"));
+
+            doReturn(mockFilterNode).when(spiedService).combineWithDefaultFilter(mockFilterNode);
+            doReturn(spiedTransactionTemplate).when(spiedService).finalizeTransaction(
+                any(PlatformTransactionManager.class),
+                any(DefaultTransactionDefinition.class)
+            );
+            when(mockTransactionPolicy.forRead()).thenReturn(new DefaultTransactionDefinition());
+
+            assertThrows(DalInvalidSortException.class, () -> spiedService.read(mockFilterNode, pageable));
+
+            verify(spiedService, never()).validateSortProperty(any());
+            verify(spiedService, never()).executeRead(any(), any());
+        }
+
+        @Test
+        void read_whenBackendRejectsASortProperty_propagatesBeforeExecutingTheRead() {
+            final var pageable = PageRequest.of(0, 10, Sort.by("name"));
+
+            doReturn(mockFilterNode).when(spiedService).combineWithDefaultFilter(mockFilterNode);
+            doReturn(spiedTransactionTemplate).when(spiedService).finalizeTransaction(
+                any(PlatformTransactionManager.class),
+                any(DefaultTransactionDefinition.class)
+            );
+            when(mockTransactionPolicy.forRead()).thenReturn(new DefaultTransactionDefinition());
+            doThrow(DalInvalidSortException.notSortable("name"))
+                .when(spiedService).validateSortProperty("name");
+
+            assertThrows(DalInvalidSortException.class, () -> spiedService.read(mockFilterNode, pageable));
+
+            verify(spiedService, never()).executeRead(any(), any());
+        }
+
+        @Test
+        void read_withUnsortedPageable_doesNotValidateTheDefaultSort() {
+            final var unsortedPageable = PageRequest.of(0, 10);
+            final var sortedPageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "id"));
+            final var pageResult = new PageImpl<TestEntity>(List.of(), sortedPageable, 0);
+
+            doReturn(mockFilterNode).when(spiedService).combineWithDefaultFilter(mockFilterNode);
+            doReturn(pageResult).when(spiedService).executeRead(mockFilterNode, sortedPageable);
+            doReturn(spiedTransactionTemplate).when(spiedService).finalizeTransaction(
+                any(PlatformTransactionManager.class),
+                any(DefaultTransactionDefinition.class)
+            );
+            when(mockTransactionPolicy.forRead()).thenReturn(new DefaultTransactionDefinition());
+
+            spiedService.read(mockFilterNode, unsortedPageable);
+
+            // The DAL's own defaultSort() is framework-supplied: never rewritten, never validated.
+            verify(spiedService, never()).validateSortProperty(any());
+        }
+
+        @Test
+        void read_withUnpagedSortedPageable_rewritesAndStaysUnpaged() {
+            final var unpagedSorted = Pageable.unpaged(Sort.by("legacy_code"));
+            final var pageResult = new PageImpl<TestEntity>(List.of());
+
+            doReturn(mockFilterNode).when(spiedService).combineWithDefaultFilter(mockFilterNode);
+            doReturn(pageResult).when(spiedService).executeRead(eq(mockFilterNode), any(Pageable.class));
+            doReturn(spiedTransactionTemplate).when(spiedService).finalizeTransaction(
+                any(PlatformTransactionManager.class),
+                any(DefaultTransactionDefinition.class)
+            );
+            when(mockTransactionPolicy.forRead()).thenReturn(new DefaultTransactionDefinition());
+
+            spiedService.read(mockFilterNode, unpagedSorted);
+
+            final var pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+            verify(spiedService, times(1)).executeRead(any(FilterNode.class), pageableCaptor.capture());
+            assertFalse(pageableCaptor.getValue().isPaged());
+            assertEquals(Sort.by("code"), pageableCaptor.getValue().getSort());
+        }
+
+        @Test
+        void read_withUnpagedUnsortedPageable_appliesDefaultSortAndStaysUnpaged() {
+            // Pins the unpaged branch of applyDefaultSort: the old code called getPageNumber()/getPageSize()
+            // on the unpaged pageable, which throws UnsupportedOperationException.
+            final var pageResult = new PageImpl<TestEntity>(List.of());
+
+            doReturn(mockFilterNode).when(spiedService).combineWithDefaultFilter(mockFilterNode);
+            doReturn(pageResult).when(spiedService).executeRead(eq(mockFilterNode), any(Pageable.class));
+            doReturn(spiedTransactionTemplate).when(spiedService).finalizeTransaction(
+                any(PlatformTransactionManager.class),
+                any(DefaultTransactionDefinition.class)
+            );
+            when(mockTransactionPolicy.forRead()).thenReturn(new DefaultTransactionDefinition());
+
+            spiedService.read(mockFilterNode, Pageable.unpaged());
+
+            final var pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+            verify(spiedService, times(1)).executeRead(any(FilterNode.class), pageableCaptor.capture());
+            assertFalse(pageableCaptor.getValue().isPaged());
+            assertEquals(Sort.by(Sort.Direction.ASC, "id"), pageableCaptor.getValue().getSort());
+            verify(spiedService, never()).validateSortProperty(any());
+        }
+
+        @Test
+        void read_whenTheRewriteIsAnIdentity_keepsTheCallersPageableInstance() {
+            // A custom Pageable implementation may carry offset semantics PageRequest cannot express:
+            // when no property was renamed, the caller's instance must pass through untouched.
+            final var pageable = PageRequest.of(2, 5, Sort.by("name"));
+            final var pageResult = new PageImpl<TestEntity>(List.of(), pageable, 0);
+
+            doReturn(mockFilterNode).when(spiedService).combineWithDefaultFilter(mockFilterNode);
+            doReturn(pageResult).when(spiedService).executeRead(eq(mockFilterNode), any(Pageable.class));
+            doReturn(spiedTransactionTemplate).when(spiedService).finalizeTransaction(
+                any(PlatformTransactionManager.class),
+                any(DefaultTransactionDefinition.class)
+            );
+            when(mockTransactionPolicy.forRead()).thenReturn(new DefaultTransactionDefinition());
+
+            spiedService.read(mockFilterNode, pageable);
+
+            final var pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+            verify(spiedService, times(1)).executeRead(any(FilterNode.class), pageableCaptor.capture());
+            assertSame(pageable, pageableCaptor.getValue());
+        }
     }
 
     @Nested
@@ -435,6 +598,9 @@ class AbstractDalTest {
         public Long id;
         @Nullable
         public String name;
+        @Nullable
+        @JsonProperty("legacy_code")
+        public String code;
     }
 
     static class TestEntityService extends AbstractDal<TestEntity, Long> {

@@ -292,7 +292,9 @@ public class DalPathsGenerator {
             .schema(pageSizeSchema);
 
         Parameter sort = new Parameter().name("sort").in(Constants.QUERY_PARAM).required(false)
-            .description("Sorting criteria in the format: property,(asc|desc). Repeat for multiple fields.")
+            .description("Sorting criteria in the format: property,(asc|desc). "
+                + "Properties use the JSON field names of the entity, as in responses. "
+                + "Repeat for multiple fields.")
             .schema(new ArraySchema().items(new StringSchema()));
         return List.of(page, size, sort);
     }

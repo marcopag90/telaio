@@ -2,6 +2,7 @@ package com.paganbit.telaio.mongo;
 
 import com.paganbit.telaio.core.AbstractDal;
 import com.paganbit.telaio.mongo.sort.EntityDefaultSortResolver;
+import com.paganbit.telaio.mongo.sort.MongoSortPropertyValidator;
 import com.turkraft.springfilter.converter.FilterQueryConverter;
 import com.turkraft.springfilter.parser.node.FilterNode;
 import org.bson.Document;
@@ -24,8 +25,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * MongoDB-based implementation of {@link com.paganbit.telaio.core.Dal}, built on Spring Data
- * MongoDB.
+ * MongoDB-based implementation of {@link com.paganbit.telaio.core.Dal Dal}.
  * <p>
  * Provides CRUD execution through {@link MongoDalRepository} and exposes Mongo-specific
  * metadata through {@link MongoDalMetadata}.
@@ -101,10 +101,11 @@ public class MongoDal<E, I> extends AbstractDal<E, I> implements MongoDalMetadat
     protected @Nullable FilterQueryConverter queryConverter;
 
     /**
-     * Default constructor used by Spring-managed subclasses. The {@link #repository} and
-     * {@link #mongoOperations} are supplied via setter injection and validated in
-     * {@link #afterPropertiesSet()}.
+     * Validates caller-supplied sort properties against the Spring Data mapping context.
+     * Built from the {@link MongoOperations} mapping context in {@link #afterPropertiesSet()}.
      */
+    protected @Nullable MongoSortPropertyValidator sortPropertyValidator;
+
     protected MongoDal() {
     }
 
@@ -130,6 +131,7 @@ public class MongoDal<E, I> extends AbstractDal<E, I> implements MongoDalMetadat
         final MongoOperations ops =
             Objects.requireNonNull(mongoOperations, "MongoOperations must be set before using the service");
         persistentEntity = resolvePersistentEntity(ops);
+        sortPropertyValidator = new MongoSortPropertyValidator(ops.getConverter().getMappingContext());
     }
 
     @SuppressWarnings("unchecked")
@@ -192,6 +194,12 @@ public class MongoDal<E, I> extends AbstractDal<E, I> implements MongoDalMetadat
     @Override
     protected Sort defaultSort() {
         return EntityDefaultSortResolver.resolve(getPersistentEntity());
+    }
+
+    @Override
+    protected void validateSortProperty(String property) {
+        Objects.requireNonNull(sortPropertyValidator, "MongoSortPropertyValidator has not been initialized")
+            .validate(property, getEntityClass());
     }
 
     @Override

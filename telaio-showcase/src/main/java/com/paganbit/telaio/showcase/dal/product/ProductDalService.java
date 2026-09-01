@@ -1,5 +1,6 @@
 package com.paganbit.telaio.showcase.dal.product;
 
+import com.paganbit.telaio.audit.annotation.DalAudit;
 import com.paganbit.telaio.core.annotation.DalService;
 import com.paganbit.telaio.jpa.JpaDal;
 import com.paganbit.telaio.security.annotation.DalSecurity;
@@ -30,10 +31,13 @@ import java.time.ZoneId;
  *       <em>inside</em> the operation's transaction (see {@code AbstractDal#create}/{@code #update}), the
  *       history row and the product row commit — or roll back — atomically.</li>
  * </ul>
- * <p>Metrics are left ON (the default); audit is not enabled here to keep the focus on authorization,
- * RBAC, and hooks (see {@code article} for audit).
+ * <p>Metrics are left ON (the default). Audit is enabled via {@code @DalAudit}: combined with the RBAC
+ * adapter it also demonstrates <b>DENIED</b> audit events — a {@code q=} filter or {@code sort=} key on a
+ * property the caller cannot read is rejected with the same generic 400 as an unknown field, but the
+ * audit trail records the probing attempt as a denial (see {@code article} for plain success auditing).
  */
 @DalService(name = "products")
+@DalAudit
 @DalSecurity(
     authAdapterClass = ProductAuthAdapter.class,
     rbacAdapterClass = ProductRbacAdapter.class
