@@ -66,7 +66,7 @@ GET /dal/v1/{dalName}?q=filter&page=0&size=20&sort=name,desc
 | `q`       | string  | (none)           | Turkraft Spring Filter expression (see [Filtering](#filtering-query-language) below)           |
 | `page`    | integer | `0`              | Zero-indexed page number                                                                       |
 | `size`    | integer | `20`             | Number of results per page                                                                     |
-| `sort`    | string  | (entity default) | Comma-separated sort fields with optional `,asc` or `,desc` (e.g., `name,asc` or `price,desc`) |
+| `sort`    | string  | (entity default) | Sort property with optional `,asc` or `,desc` (e.g., `name,asc`); repeat for multiple fields. Properties use the JSON field names of the entity, as in responses (Java names are accepted too). An unknown, non-persistent or non-readable property is a **400** `"Invalid sort parameter"` |
 
 **Response (200 OK):**
 
@@ -389,6 +389,16 @@ convert to the field's type, e.g. `price:'abc'`, is instead a **500**: it fails 
 curl "http://localhost:8080/dal/v1/products?q=nope:1"
 # 400 Bad Request
 # ProblemDetail: "Invalid filter expression"
+```
+
+The `sort=` parameter follows the same contract: a property the entity does not expose or does not persist — or one
+the current principal is not allowed to read (see the [Security Guide](security-guide.md)) — is a **400** with the
+generic detail `"Invalid sort parameter"`, uniformly on every backend:
+
+```bash
+curl "http://localhost:8080/dal/v1/products?sort=nope,desc"
+# 400 Bad Request
+# ProblemDetail: "Invalid sort parameter"
 ```
 
 ## Error Responses

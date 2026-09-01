@@ -3,6 +3,7 @@ package com.paganbit.telaio.security.interceptor;
 import com.paganbit.telaio.core.adapter.DalOperationAdapter;
 import com.paganbit.telaio.core.adapter.DalOperationType;
 import com.paganbit.telaio.core.exception.DalInvalidFilterException;
+import com.paganbit.telaio.core.exception.DalSortFieldNotReadableException;
 import com.paganbit.telaio.security.adapter.DalAuthAdapter;
 import com.paganbit.telaio.security.adapter.DalRbacAdapter;
 import com.paganbit.telaio.security.exception.DalAccessDeniedException;
@@ -19,9 +20,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.*;
 
 import java.lang.reflect.Method;
 import java.util.List;
@@ -150,6 +149,109 @@ class DalSecurityInterceptorTest {
         verify(rbacAdapter).canFilterOn(eq("name"), any());
         verify(rbacAdapter).canFilterOn(eq("price"), any());
         verify(invocation).proceed();
+    }
+
+    @Test
+    void read_withUnsortedPageable_shouldNotConsultTheAdapterForSortProperties() throws Throwable {
+        // An unsorted pageable carries no order to check.
+        when(invocation.getMethod()).thenReturn(readMethod());
+        when(invocation.getArguments()).thenReturn(new Object[]{null, PageRequest.of(0, 10)});
+        when(authAdapter.authorizeRead(any())).thenReturn(true);
+        when(invocation.proceed()).thenReturn(new PageImpl<>(List.of()));
+
+        interceptor.invoke(invocation);
+
+        verify(rbacAdapter, never()).canFilterOn(any(), any());
+    }
+
+    @Test
+    void read_withoutPageable_shouldSkipTheSortCheckAndProceed() throws Throwable {
+        // In-process callers may invoke the adapter without a pageable: the null guard must hold.
+        when(invocation.getMethod()).thenReturn(readMethod());
+        when(invocation.getArguments()).thenReturn(new Object[]{null, null});
+        when(authAdapter.authorizeRead(any())).thenReturn(true);
+        when(invocation.proceed()).thenReturn(new PageImpl<>(List.of()));
+
+        interceptor.invoke(invocation);
+
+        verify(rbacAdapter, never()).canFilterOn(any(), any());
+        verify(invocation).proceed();
+    }
+
+    @Test
+    void read_whenSortReferencesHiddenProperty_shouldRejectBeforeProceeding() throws Throwable {
+        // The security property: sorting on a hidden field leaks the relative order of its values
+        // (`sort=cost_price,desc&size=1` names the product with the highest margin), so the read never runs.
+        Pageable pageable = PageRequest.of(0, 1, Sort.by(Sort.Direction.DESC, "cost_price"));
+        when(invocation.getMethod()).thenReturn(readMethod());
+        when(invocation.getArguments()).thenReturn(new Object[]{null, pageable});
+        when(authAdapter.authorizeRead(any())).thenReturn(true);
+        when(rbacAdapter.canFilterOn(eq("cost_price"), any())).thenReturn(false);
+
+        assertThrows(DalSortFieldNotReadableException.class, () -> interceptor.invoke(invocation));
+
+        verify(invocation, never()).proceed();
+        verify(rbacAdapter, never()).filterOutput(any(), any(), any());
+        // Operation-level authorization comes first, so a denied read stays a 403, never a 400.
+        InOrder inOrder = inOrder(authAdapter, rbacAdapter);
+        inOrder.verify(authAdapter).authorizeRead(any());
+        inOrder.verify(rbacAdapter).canFilterOn(eq("cost_price"), any());
+    }
+
+    @Test
+    void read_whenEverySortPropertyIsReadable_shouldCheckEachOrderAndProceed() throws Throwable {
+        Pageable pageable = PageRequest.of(0, 10, Sort.by("name").and(Sort.by(Sort.Direction.DESC, "price")));
+        Page<Object> page = new PageImpl<>(List.of("a"));
+        when(invocation.getMethod()).thenReturn(readMethod());
+        when(invocation.getArguments()).thenReturn(new Object[]{null, pageable});
+        when(authAdapter.authorizeRead(any())).thenReturn(true);
+        when(rbacAdapter.canFilterOn(any(), any())).thenReturn(true);
+        when(invocation.proceed()).thenReturn(page);
+        when(rbacAdapter.filterOutput(eq(DalOperationType.READ), any(), any()))
+            .thenAnswer(inv -> inv.getArgument(1));
+
+        @SuppressWarnings("unchecked")
+        Page<Object> result = (Page<Object>) interceptor.invoke(invocation);
+
+        assertNotNull(result);
+        assertEquals(List.of("a"), result.getContent());
+        verify(rbacAdapter).canFilterOn(eq("name"), any());
+        verify(rbacAdapter).canFilterOn(eq("price"), any());
+        verify(invocation).proceed();
+    }
+
+    @Test
+    void read_checksTheFilterFieldsBeforeTheSortProperties() throws Throwable {
+        // Pinned ordering: filter fields first, then sort keys — a request failing both reports the filter.
+        FilterNode filter = comparison("name");
+        Pageable pageable = PageRequest.of(0, 10, Sort.by("price"));
+        Page<Object> page = new PageImpl<>(List.of());
+        when(invocation.getMethod()).thenReturn(readMethod());
+        when(invocation.getArguments()).thenReturn(new Object[]{filter, pageable});
+        when(authAdapter.authorizeRead(any())).thenReturn(true);
+        when(rbacAdapter.canFilterOn(any(), any())).thenReturn(true);
+        when(invocation.proceed()).thenReturn(page);
+
+        interceptor.invoke(invocation);
+
+        InOrder inOrder = inOrder(authAdapter, rbacAdapter, invocation);
+        inOrder.verify(authAdapter).authorizeRead(any());
+        inOrder.verify(rbacAdapter).canFilterOn(eq("name"), any());
+        inOrder.verify(rbacAdapter).canFilterOn(eq("price"), any());
+        inOrder.verify(invocation).proceed();
+    }
+
+    @Test
+    void read_whenDenied_shouldNotInspectTheSort() throws Throwable {
+        Pageable pageable = PageRequest.of(0, 10, Sort.by("cost_price"));
+        when(invocation.getMethod()).thenReturn(readMethod());
+        when(invocation.getArguments()).thenReturn(new Object[]{null, pageable});
+        when(authAdapter.authorizeRead(any())).thenReturn(false);
+
+        assertThrows(DalAccessDeniedException.class, () -> interceptor.invoke(invocation));
+
+        verify(invocation, never()).proceed();
+        verifyNoInteractions(rbacAdapter);
     }
 
     @Test

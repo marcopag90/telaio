@@ -1,9 +1,6 @@
 package com.paganbit.telaio.audit.event;
 
-import com.paganbit.telaio.core.exception.DalEntityNotFoundException;
-import com.paganbit.telaio.core.exception.DalEntityValidationException;
-import com.paganbit.telaio.core.exception.DalFilterFieldNotReadableException;
-import com.paganbit.telaio.core.exception.DalInvalidFilterException;
+import com.paganbit.telaio.core.exception.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
@@ -71,6 +68,24 @@ class DalAuditOutcomeClassifierTest {
         // Same wire answer as an unknown field, but for audit it is an authorization signal: probing
         // hidden fields through q= is recorded as DENIED where an authorization concept exists.
         DalFilterFieldNotReadableException probing = new DalFilterFieldNotReadableException("cost_price");
+
+        assertThat(securityClassifier.classify(probing)).isEqualTo(DalAuditOutcome.DENIED);
+        assertThat(defaultClassifier.classify(probing)).isEqualTo(DalAuditOutcome.VALIDATION);
+    }
+
+    @Test
+    void invalidSort_shouldBeClassifiedAsValidation_byBothClassifiers() {
+        DalInvalidSortException failure = DalInvalidSortException.unknownProperty("nope", "nope");
+
+        assertThat(defaultClassifier.classify(failure)).isEqualTo(DalAuditOutcome.VALIDATION);
+        assertThat(securityClassifier.classify(failure)).isEqualTo(DalAuditOutcome.VALIDATION);
+    }
+
+    @Test
+    void sortOnNonReadableProperty_shouldBeDenied_forSecurity_andValidation_forDefault() {
+        // Same wire answer as an unknown sort property, but for audit it is an authorization signal:
+        // probing hidden fields through sort= is recorded as DENIED where an authorization concept exists.
+        DalSortFieldNotReadableException probing = new DalSortFieldNotReadableException("cost_price");
 
         assertThat(securityClassifier.classify(probing)).isEqualTo(DalAuditOutcome.DENIED);
         assertThat(defaultClassifier.classify(probing)).isEqualTo(DalAuditOutcome.VALIDATION);
