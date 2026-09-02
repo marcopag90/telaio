@@ -21,8 +21,7 @@
 
     "source=telaio-m2,target=/home/vscode/.m2,type=volume",
     // Caches and indexes of the JetBrains backend — not the backend itself,
-    // which it deploys under /tmp. This is what spares a full re-index of the
-    // 14-module reactor after every recreate.
+    // which it deploys under /tmp.
     "source=telaio-jetbrains,target=/home/vscode/.cache/JetBrains,type=volume",
     "source=telaio-gh,target=/home/vscode/.config/gh,type=volume"
   ],

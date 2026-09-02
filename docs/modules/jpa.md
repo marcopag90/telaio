@@ -1,12 +1,14 @@
 # Telaio: JPA Module
 
-The JPA module is the **first backend implementation** of the persistence-agnostic DAL abstraction, built on Spring
-Data JPA. It delegates CRUD operations to a Spring Data JPA repository and converts Turkraft filter expressions to JPA
+The JPA module is an implementation of the persistence-agnostic DAL abstraction (the
+other is [telaio-mongo](./mongo.md)), built on Spring Data JPA. 
+It delegates CRUD operations to a Spring Data JPA repository and converts Turkraft filter expressions to JPA
 `Specification` objects.
 
 The core contract knows nothing about JPA — `Dal`/`AbstractDal` use only Spring Data's paging/sorting abstractions,
-and a backend implements the `execute*` SPI. Additional backends (e.g. MongoDB, QueryDSL-based querying) are on the
-roadmap and plug into the same contract.
+and a backend implements the `execute*` SPI. 
+MongoDB ships as `telaio-mongo`; additional backends (e.g. QueryDSL-based
+querying) are on the roadmap and plug into the same contract.
 
 ## Purpose
 
@@ -163,7 +165,7 @@ curl 'http://localhost:8080/dal/v1/announcements?q=type:%27URGENT%27'
 
 ### 6. Validate Entities
 
-If Jakarta Bean Validation is on the classpath, `AbstractDal` validates all input:
+`AbstractDal` always validates input with Jakarta Bean Validation.
 
 ```java
 @Entity

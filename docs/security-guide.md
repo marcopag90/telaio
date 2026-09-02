@@ -276,7 +276,8 @@ the read response**. `PropertyBasedDalRbacAdapter` checks the read readable map,
 read view; the fine print for nested paths and `Map` properties is in each adapter's Javadoc. The field path is
 checked as written — wire name or Java name — so a rename offers no bypass. Server-side default filters
 (`defaultFilter()`) and the DAL's `defaultSort()` are applied inside the DAL, after this check, and are never subject
-to it. With `telaio-audit` enabled, a rejected filter field or sort key is recorded as a **DENIED** event (like an
+to it. With `telaio-audit` enabled, a rejected filter field or sort key that exists on the entity is recorded as a
+**DENIED** event (like an
 authorization failure), so repeated probing of hidden fields is visible in the audit trail even though the client only
 sees a generic 400.
 

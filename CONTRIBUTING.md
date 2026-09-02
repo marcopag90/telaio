@@ -70,7 +70,8 @@ mvn -pl telaio-core clean install       # a single module, still from the root
 
 ## Pull requests
 
-- CI runs automatically on your PR; the `build` check must be green. PRs to `development` must also be up to date with
+- CI runs automatically on PRs to `development` and on `hotfix/*` PRs to `main`; other PRs targeting `main` are not
+  built because they are not an accepted flow. The `build` check must be green. PRs to `development` must also be up to date with
   the base branch before merging.
 - PRs are **squash-merged**, so your PR **title becomes the commit message**. Write it as a
   [Conventional Commit](https://www.conventionalcommits.org/): `type(scope): summary` — for example `fix(jpa): handle

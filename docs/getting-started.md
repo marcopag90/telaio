@@ -285,7 +285,8 @@ To see Telaio in action with multiple DALs, audit, security, metrics, and more, 
 mvn -pl telaio-showcase spring-boot:run
 ```
 
-The showcase starts PostgreSQL in a Docker container automatically (via `spring-boot-docker-compose`). Visit:
+The showcase starts PostgreSQL and MongoDB in Docker containers automatically (via`spring-boot-docker-compose`),
+so it needs a running Docker daemon. Visit:
 
 - **API base**: http://localhost:8080/dal/v1
 - **Swagger UI**: http://localhost:8080/swagger-ui.html

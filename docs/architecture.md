@@ -26,7 +26,7 @@ sides cannot drift apart within a contract version. The server decodes with the 
 parity by construction, verified end to end by the showcase round-trip test.
 
 **Persistence-Agnostic Core**: the `Dal` contract and `AbstractDal` depend only on Spring Data's paging/sorting
-abstractions (`Page`, `Pageable`, `Sort`) — no JPA types. The abstract `execute*` methods are the persistence SPI a
+abstractions (`Page`, `Pageable`, `Sort`). The abstract `execute*` methods are the persistence SPI a
 backend implements: `telaio-jpa` and `telaio-mongo` are the shipped implementations, and additional backends (e.g.
 QueryDSL-based querying) can plug into the same contract without touching core, security, audit, metrics, or the web
 boundary.

@@ -30,14 +30,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   included. Both resolve the path under the wire name and the Java name of the property alike. Server-side
   `defaultFilter()`s are not affected. The
   rejection is raised as `DalFilterFieldNotReadableException` (core; a `DalInvalidFilterException`), which
-  `telaio-audit`'s `SecurityDalAuditOutcomeClassifier` records as a **DENIED** event. `JsonPropertyPathResolver`'s
+  `telaio-audit`'s `SecurityDalAuditOutcomeClassifier` records as a **DENIED** event — for a field that exists but is
+  hidden; a field the entity does not expose at all falls through to the DAL's strict validation and is audited as
+  `VALIDATION` (identical generic 400 on the wire). `JsonPropertyPathResolver`'s
   path-walking rules (`isReferenceKeySegment`, `unwrapElements`, `isOpaque`, `isLeaf`) are now public.
 - Security: field-level RBAC now governs the `sort=` keys too. `DalSecurityInterceptor` asks the same
   `DalRbacAdapter.canFilterOn` hook for every `Sort.Order` property of a read's pageable, before the read runs —
   a sort key the principal cannot read would otherwise leak the relative order of the hidden values
   (`sort=cost_price,desc&size=1`). The rejection is raised as `DalSortFieldNotReadableException` (core; a
   `DalInvalidSortException`), maps to the same generic 400 (`"Invalid sort parameter"`) as an unknown sort
-  property, and is recorded as a **DENIED** audit event. The DAL's own `defaultSort()` is not affected.
+  property, and is recorded as a **DENIED** audit event when the property exists but is hidden (an unknown property is
+  audited as `VALIDATION` instead). The DAL's own `defaultSort()` is not affected.
 - Core: `DalInvalidSortException` (a `DalFailureKind.VALIDATION` client fault) for a `sort=` property the read
   cannot honor, and `JsonFieldNameSortRewriter` translating caller-supplied sort properties from JSON wire
   names to Java property names (both spellings accepted, direction/case/null-handling preserved). New
@@ -48,6 +51,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### 🐞 Bug Fixes
 
+- Build: the library modules can be built with JDK 21 again. The enforcer's build-JDK floor followed a fixed
+  `[25,)` inherited by every module; it now follows each module's `maven.compiler.release` (`[21,)` for the
+  libraries, `[25,)` for `telaio-showcase`), as the README and CONTRIBUTING always documented.
 - Filtering: a well-formed `q=` filter that references a field the entity does not expose or does not
   persist (`@Transient`, computed getter), or a function that is unknown or unsupported by the backend, is
   now a **400** (`"Invalid filter expression"`) on both the JPA and the Mongo backend — before, such
@@ -74,6 +80,29 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### ⛔ Deprecations & Removals
 
+- **Breaking:** validation and JSON path resolution are now application-wide singletons. `TelaioCoreAutoConfiguration`
+  registers one `dalJsonPropertyPathResolver` (`JsonPropertyPathResolver`), one `dalJsonFieldNameSortRewriter`
+  (`JsonFieldNameSortRewriter`) and one `dalValidator` (`DalValidator`) bean — all `@ConditionalOnMissingBean` — in
+  place of the per-DAL instances. Consequences for consumers:
+  - `DalValidator` is de-generified: `DalValidator<T>.validate(T)` becomes `DalValidator.validate(Object target,
+    Class<?> type)`; the default implementation is the new `DefaultDalValidator`.
+  - `DalMapConverterValidator` is removed (map→entity conversion is a plain `ObjectMapper.convertValue` inside
+    `AbstractDal.create`); `AbstractDal` no longer implements `DalValidator` and loses `setValidatorAdapter` /
+    `getMapConverterValidator`. It now requires the sort rewriter and the validator (`setSortRewriter`,
+    `setDalValidator`, checked in `afterPropertiesSet`) — tests that instantiate a DAL by hand must set both.
+  - Constructors changed: `JsonAwareFilterSpecificationConverter` (JPA) and `JsonAwareFilterQueryConverter` (Mongo)
+    take the shared `JsonPropertyPathResolver` (the Mongo one a `MappingContext`) instead of an `ObjectMapper`;
+    `DalSecurityInterceptorProvider` takes the resolver and `DalSecurityInterceptor` a field-existence predicate.
+  - `setObjectMapper` (on `PropertyBasedDalRbacAdapter` and `JsonViewDalRbacAdapter`) and the new `setPathResolver`
+    (on `PropertyBasedDalRbacAdapter`) are now required `@Autowired` setters: a context without an `ObjectMapper` /
+    `JsonPropertyPathResolver` bean fails to start where a missing bean used to be tolerated. The field defaults
+    remain for use outside a container.
+  - `telaio-core` now ships `spring-boot-jackson` (an `ObjectMapper` bean is always available); downstream modules
+    dropped their own declaration. The former `TelaioOpenApiAutoConfiguration` resolver bean is gone — it consumes the
+    shared one.
+- **Breaking (behaviour):** under RBAC, a `q=`/`sort=` field that does not exist on the entity is no longer a denied
+  attempt: it falls through to the DAL's strict validation (audit `VALIDATION`), while a field that exists but is
+  hidden stays `DENIED`. The wire response is the identical generic 400 in both cases.
 - **Breaking:** `TypeUtil` (telaio-introspection) removed. The simple-type classification is now
   carried by the `DefaultSimpleTypePredicate` instance (aggregating `SimpleTypeContributor`
   beans). Internal-use class: consumers should inject the predicate bean instead. For the same

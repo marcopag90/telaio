@@ -387,8 +387,8 @@ plugs in through Spring's `RestClient` customization (see
 
 > **Wire-compatibility policy:** the `/dal/v1` wire shape (paths, parameters, the `errors`
 > problem extension, the page JSON, and the ID-encoding scheme) is **frozen** — any change
-> requires a `/dal/v2`. Applications built on different Telaio 1.x versions interoperate over
-> HTTP.
+> requires a `/dal/v2`. Applications built on different Telaio versions (1.x and 2.x alike) interoperate
+> over HTTP as long as they speak `/dal/v1`.
 
 ## Architecture at a glance
 
@@ -458,6 +458,7 @@ pulling in the blocking `RestClient` stack. `telaio-showcase` is a runnable demo
 | `telaio-rest-client`        | Typed (blocking) REST client to invoke another Telaio application's DALs. | `TelaioClientRegistry`, `TelaioClient`, `DalClient<E,I>`       | [docs/modules/rest-client.md](docs/modules/rest-client.md)              |
 | `telaio-bom`                | Bill of Materials: import it to align all Telaio module versions.         | —                                                              | [Quick start](#quick-start)                                             |
 | `telaio-showcase`           | Runnable reference application exercising every module.                   | `TelaioShowcaseApplication`                                    | [docs/modules/showcase.md](docs/modules/showcase.md)                    |
+| `telaio-coverage-report`    | Build-only module aggregating JaCoCo coverage across the library modules (never published). | —                                             | [CONTRIBUTING.md](CONTRIBUTING.md)                                      |
 
 ## Roadmap
 
@@ -519,7 +520,7 @@ This README is a facade. The full developer guide lives under [`docs/`](docs/REA
 
 Contributions are welcome! Telaio follows a Gitflow process: fork from `development` with a `feature/<name>` branch
 for new work, or from `main` with a `hotfix/<name>` branch for urgent fixes to the released version, then open a pull
-request — CI runs on every PR. The full workflow (build requirements, dev container, tests, PR conventions) is in
+request — CI runs on every PR to `development` and on `hotfix/*` PRs to `main`. The full workflow (build requirements, dev container, tests, PR conventions) is in
 [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 Found a security vulnerability? Please report it privately — see [`SECURITY.md`](SECURITY.md).

@@ -381,7 +381,8 @@ curl "http://localhost:8080/dal/v1/products?q=((("
 # ProblemDetail: "Malformed filter expression"
 ```
 
-A well-formed filter the entity cannot honor — a field it does not expose or does not persist, or a function that is unknown or not
+A well-formed filter the entity cannot honor — a field it does not expose or does not persist, a field the current
+principal is not allowed to read (see the [Security Guide](security-guide.md)), or a function that is unknown or not
 supported by the persistence backend — is also a **400**, with the same answer on every backend (a literal that does not
 convert to the field's type, e.g. `price:'abc'`, is instead a **500**: it fails inside the persistence layer):
 

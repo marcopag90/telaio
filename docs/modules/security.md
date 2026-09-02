@@ -127,8 +127,10 @@ public class ProductDalService extends JpaDal<Product, Long> {
 ### Strategy 2: Field-Level RBAC via Property Maps
 
 Extend `PropertyBasedDalRbacAdapter` to define readable/writable fields per role. The readable map also decides which
-fields a `q=` filter may reference: a field pruned from the response is rejected as a filter criterion with the same 400
-as an unknown field (whether spelled by its wire name or its Java name).
+fields a `q=` filter may reference and a `sort=` may order by: a field pruned from the response is rejected as a filter
+criterion or sort key with the same 400 as an unknown field (whether spelled by its wire name or its Java name). A
+referenced field that does not exist on the entity at all is not a denial — it falls through to the read's own strict
+validation (audited `VALIDATION`, same generic 400).
 
 ```java
 
@@ -181,7 +183,8 @@ When a USER requests `PATCH /dal/v1/products/1` with `{ "costPrice": 50 }`, the 
 ### Strategy 3: Field-Level RBAC via Jackson `@JsonView`
 
 Use `@JsonView` annotations on the entity for hierarchical role-based visibility. The read view also governs the `q=`
-filter: only properties visible in the view may be referenced (a property with no `@JsonView` is never filterable):
+filter and the `sort=` keys: only properties visible in the view may be referenced (a property with no `@JsonView` is
+never filterable); a property the entity does not declare at all falls through to the read's own validation instead:
 
 ```java
 public interface EmployeeView {

@@ -33,6 +33,10 @@ persistence-agnostic (built on Spring Data); JPA/Hibernate and MongoDB are the s
 | **rest-client**        | Typed REST client for remote Telaio applications     | [modules/rest-client.md](modules/rest-client.md)              |
 | **showcase**           | Reference SaaS admin app demonstrating all features  | [modules/showcase.md](modules/showcase.md)                    |
 
+The reactor has 15 modules: the 12 library modules above, `telaio-bom` (the Bill of Materials: import it to align
+all Telaio module versions), `telaio-showcase`, and the build-only `telaio-coverage-report` (JaCoCo aggregate, never
+published).
+
 ## What is Telaio?
 
 Telaio is a Spring Boot framework for building REST APIs from your entities without writing controllers or DTOs. You
@@ -40,7 +44,8 @@ declare an entity and repository, annotate a service with `@DalService`, and Tel
 REST API with:
 
 - **Dynamic REST endpoints** under `/dal/v1/{dalName}`
-- **Built-in validation** from `@Valid` annotations
+- **Built-in validation** from the Jakarta Bean Validation constraints on the entity (`@NotNull`, `@NotBlank`, …),
+  reported under the JSON field names
 - **Field-level RBAC** via pluggable adapters
 - **Opt-in audit** of all DAL operations
 - **On-by-default metrics** for performance monitoring

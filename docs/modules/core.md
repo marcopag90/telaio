@@ -7,7 +7,7 @@ directly.
 
 - **DAL contract:** five CRUD operations via dynamic property maps
 - **Persistence-agnostic:** the contract uses only Spring Data's paging/sorting abstractions — backends implement the
-  `execute*` SPI (JPA is the first; MongoDB and QueryDSL support are on the roadmap)
+  `execute*` SPI (JPA and MongoDB are shipped; QueryDSL support is on the roadmap)
 - **Registration:** lifecycle for discovering and registering DAL beans
 - **Transactions & validation:** built-in cross-cutting concerns
 - **Extension hooks:** lifecycle hooks for custom business logic
@@ -50,13 +50,33 @@ directly.
 
 ### Exceptions
 
-| Exception                      | When                                                                                                       |
-|--------------------------------|------------------------------------------------------------------------------------------------------------|
-| `DalEntityNotFoundException`   | Entity with given ID not found                                                                             |
-| `DalEntityValidationException` | Validation fails (includes field-level details)                                                            |
-| `DalDefinitionException`       | DAL misconfiguration (e.g. duplicate name, invalid `@DalService` attributes)                               |
-| `DalRegistryException`         | DAL lookup fails                                                                                           |
-| `DalNotFoundException`         | No DAL registered under the requested name (subclass of `DalRegistryException`, → 404 at the web boundary) |
+| Exception                            | When                                                                                                                                                              |
+|--------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `DalEntityNotFoundException`         | Entity with given ID not found                                                                                                                                    |
+| `DalEntityValidationException`       | Validation fails (includes field-level details)                                                                                                                   |
+| `DalDefinitionException`             | DAL misconfiguration (e.g. duplicate name, invalid `@DalService` attributes)                                                                                      |
+| `DalRegistryException`               | DAL lookup fails                                                                                                                                                  |
+| `DalNotFoundException`               | No DAL registered under the requested name (subclass of `DalRegistryException`, → 404 at the web boundary)                                                        |
+| `DalInvalidFilterException`          | A well-formed `q=` filter the entity cannot honor: unknown or non-persistent field, unknown or backend-unsupported function (→ 400 `"Invalid filter expression"`) |
+| `DalInvalidSortException`            | A `sort=` property the read cannot honor: unknown, non-persistent or non-orderable (→ 400 `"Invalid sort parameter"`)                                             |
+| `DalFilterFieldNotReadableException` | Subclass of `DalInvalidFilterException` raised by `telaio-security` when a `q=` field exists but the principal may not read it (same 400; audited `DENIED`)       |
+| `DalSortFieldNotReadableException`   | Subclass of `DalInvalidSortException` raised by `telaio-security` when a `sort=` key exists but the principal may not read it (same 400; audited `DENIED`)        |
+
+### Validation and JSON path resolution
+
+`TelaioCoreAutoConfiguration` registers three application-wide singletons, each `@ConditionalOnMissingBean` so an
+application can replace it with its own bean of the same type:
+
+| Bean                           | Type                        | Role                                                                                                                                                                   |
+|--------------------------------|-----------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `dalJsonPropertyPathResolver`  | `JsonPropertyPathResolver`  | Translates dot-notation property paths between Java and JSON wire names for any entity type (built on the application's `ObjectMapper`; caches per type)               |
+| `dalJsonFieldNameSortRewriter` | `JsonFieldNameSortRewriter` | Rewrites caller-supplied `Sort` properties from wire names to Java names; unknown properties raise `DalInvalidSortException`                                           |
+| `dalValidator`                 | `DalValidator`              | `validate(Object target, Class<?> type)` — runs Jakarta Bean Validation over the merged entity and reports field errors under their JSON names (`DefaultDalValidator`) |
+
+Every `AbstractDal` requires the sort rewriter and the validator (injected through `setSortRewriter` /
+`setDalValidator`), and `telaio-security`, `telaio-jpa`, `telaio-mongo` and `telaio-openapi` all consume the same path
+resolver. Replacing the resolver therefore changes filter/sort name resolution, RBAC field-existence checks and OpenAPI
+naming at once.
 
 ## How Developers Use It
 
@@ -140,6 +160,10 @@ Available hooks:
 - `finalizeAfterCreate/Update/Read/ReadOne` — Side-effects after the operation
 - `finalizeBeforeDelete/AfterDelete` — Hooks around deletion (receive the entity id)
 - `defaultSort()` — Default sort order when none is requested
+- `validateSortProperty(String)` — Called for every caller-supplied sort property after it has been rewritten to its
+  Java name; a backend rejects properties it cannot order by with `DalInvalidSortException` (JPA and Mongo do this
+  against their metamodel / mapping context). An unknown property reaches this hook even on an RBAC-guarded read: the
+  security layer only rejects fields that exist and are hidden
 - `defaultFilter()` — Implicit filter AND-combined with the request's `q` parameter and enforced on every operation
   addressing existing rows (list and by-id reads, updates, deletes — a hidden entity behaves like a missing one; create
   payloads are not scoped by it). The returned `FilterNode` can be built type-safely with the `@Filterable`-generated
@@ -149,7 +173,8 @@ Available hooks:
 
 ### 5. Validate Input Automatically
 
-`AbstractDal` validates all input via Jakarta Bean Validation if present:
+`AbstractDal` always validates input with Jakarta Bean Validation — `telaio-core` brings
+`spring-boot-starter-validation`, and the `dalValidator` bean is a hard requirement of every DAL:
 
 ```java
 // If Product has @NotNull(message="Price required") on the price field,
