@@ -144,10 +144,11 @@
                         <configuration>
                             <rules>
                                 <requireJavaVersion>
-                                    <version>[25,)</version>
+                                    <version>[${maven.compiler.release},)</version>
                                     <message>
-                                        This project must be built with JDK 25 or newer (telaio-showcase targets
-                                        Java 25). Library modules still emit Java 21 bytecode via --release 21.
+                                        This module targets Java ${maven.compiler.release} and must be built with JDK
+                                        ${maven.compiler.release} or newer. Library modules need JDK 21+ (they emit
+                                        Java 21 bytecode via --release 21); only telaio-showcase needs JDK 25+.
                                     </message>
                                 </requireJavaVersion>
                             </rules>
