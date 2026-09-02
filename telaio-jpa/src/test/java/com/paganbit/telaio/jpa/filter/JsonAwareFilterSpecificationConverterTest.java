@@ -2,6 +2,7 @@ package com.paganbit.telaio.jpa.filter;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.paganbit.telaio.core.exception.DalInvalidFilterException;
+import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import com.turkraft.springfilter.converter.FilterSpecification;
 import com.turkraft.springfilter.converter.FilterSpecificationConverter;
 import com.turkraft.springfilter.parser.node.FieldNode;
@@ -30,8 +31,7 @@ import tools.jackson.databind.json.JsonMapper;
 import java.math.BigDecimal;
 import java.util.Set;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -56,7 +56,19 @@ class JsonAwareFilterSpecificationConverterTest {
 
     @BeforeEach
     void setUp() {
-        converter = new JsonAwareFilterSpecificationConverter(delegate, objectMapper);
+        converter = new JsonAwareFilterSpecificationConverter(
+            delegate, new JsonPropertyPathResolver(objectMapper));
+    }
+
+    @Test
+    void constructor_rejectsNullCollaborators() {
+        JsonPropertyPathResolver pathResolver = new JsonPropertyPathResolver(objectMapper);
+        assertThatNullPointerException()
+            .isThrownBy(() -> new JsonAwareFilterSpecificationConverter(null, pathResolver))
+            .withMessageContaining("delegate");
+        assertThatNullPointerException()
+            .isThrownBy(() -> new JsonAwareFilterSpecificationConverter(delegate, null))
+            .withMessageContaining("JsonPropertyPathResolver");
     }
 
     @Test

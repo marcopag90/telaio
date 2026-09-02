@@ -41,6 +41,8 @@ class DalApiErrorsIT extends AbstractShowcaseIT {
     void unknownFilterFieldIsRejectedWithBadRequestOnEveryBackend() {
         // Same well-formed filter, same answer on a JPA DAL and on a Mongo DAL: a field the entity does
         // not expose is a client fault (previously a 500 on JPA and a silently empty page on Mongo).
+        // On the RBAC-guarded products DAL the unknown field falls through the security check and is
+        // rejected by the strict rewrite itself.
         assertInvalidFilter(list(USER, "products", "q=nope:1"));
         assertInvalidFilter(list(USER, "notifications", "q=nope:'x'"));
     }
@@ -49,7 +51,9 @@ class DalApiErrorsIT extends AbstractShowcaseIT {
     void filterOnSerializedButNotPersistedPropertyIsRejectedWithBadRequest() {
         // Product.profit is @Transient (computed by the DAL hooks) yet serialized in every response: the
         // name resolves on the wire, but the persistence unit cannot filter on it — a 400, not a 500.
-        assertInvalidFilter(list(USER, "products", "q=profit>10"));
+        // DEVELOPER may read profit, so this genuinely reaches the backend validator (for the other
+        // roles the RBAC check rejects it first, with the same 400).
+        assertInvalidFilter(list(DEVELOPER, "products", "q=profit>10"));
     }
 
     @Test
@@ -73,6 +77,8 @@ class DalApiErrorsIT extends AbstractShowcaseIT {
     void unknownSortPropertyIsRejectedWithBadRequestOnEveryBackend() {
         // Same sort, same answer on a JPA DAL and on a Mongo DAL: a property the entity does not expose
         // is a client fault (previously a PropertyReferenceException 500 on JPA and a silent 200 on Mongo).
+        // On the RBAC-guarded products DAL the unknown key falls through the security check and is
+        // rejected by the sort rewriter itself.
         assertInvalidSort(list(USER, "products", "sort=nope,asc"));
         assertInvalidSort(list(USER, "notifications", "sort=nope,asc"));
     }
@@ -81,7 +87,9 @@ class DalApiErrorsIT extends AbstractShowcaseIT {
     void sortOnSerializedButNotPersistedPropertyIsRejectedWithBadRequest() {
         // Product.profit is @Transient (computed by the DAL hooks) yet serialized in every response: the
         // name resolves on the wire, but the persistence unit cannot order by it — a 400, not a 500.
-        assertInvalidSort(list(USER, "products", "sort=profit,desc"));
+        // DEVELOPER may read profit, so this genuinely reaches the backend validator (for the other
+        // roles the RBAC check rejects it first, with the same 400).
+        assertInvalidSort(list(DEVELOPER, "products", "sort=profit,desc"));
     }
 
     @Test

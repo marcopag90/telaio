@@ -1,5 +1,6 @@
 package com.paganbit.telaio.openapi.autoconfigure;
 
+import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import com.paganbit.telaio.core.registry.DalManager;
 import com.paganbit.telaio.openapi.customizer.DalOpenApiCustomizer;
 import com.paganbit.telaio.openapi.generator.DalPathsGenerator;
@@ -7,9 +8,9 @@ import com.paganbit.telaio.openapi.generator.FilterParameterDescriber;
 import com.paganbit.telaio.openapi.introspection.DalEntitySchemaResolver;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
-import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -21,8 +22,10 @@ import static org.mockito.Mockito.mock;
 class TelaioOpenApiAutoConfigurationTest {
 
     private final WebApplicationContextRunner contextRunner = new WebApplicationContextRunner()
-        .withConfiguration(AutoConfigurations.of(TelaioOpenApiAutoConfiguration.class))
-        .withBean("objectMapper", ObjectMapper.class, () -> JsonMapper.builder().build());
+        .withConfiguration(AutoConfigurations.of(
+            JacksonAutoConfiguration.class, TelaioOpenApiAutoConfiguration.class))
+        .withBean(JsonPropertyPathResolver.class,
+            () -> new JsonPropertyPathResolver(JsonMapper.builder().build()));
 
     @Test
     void byDefault_withDalManager_shouldRegisterBeans() {

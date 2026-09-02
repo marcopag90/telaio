@@ -80,6 +80,43 @@ class RbacSortFieldIT extends AbstractShowcaseIT {
             .anySatisfy(this::assertDeniedProductRead);
     }
 
+    @Test
+    void sortOnANonexistentField_isAuditedAsValidation_notDenied() {
+        // The user's exact scenario: the key resolves on no property at all, so it is a typo (or a blind
+        // probe), not an authorization signal — the audit outcome must stay VALIDATION even under RBAC.
+        auditStore.clear();
+
+        assertInvalidSort(list(ADMIN, "products", "sort=nonexistent,asc"));
+
+        assertThat(auditStore.events())
+            .anySatisfy(event -> {
+                assertThat(event.dalName()).isEqualTo("products");
+                assertThat(event.operation()).isEqualTo(DalOperationType.READ);
+                assertThat(event.outcome()).isEqualTo(DalAuditOutcome.VALIDATION);
+                assertThat(event.principal()).isEqualTo(ADMIN);
+                assertThat(event.errorType()).isEqualTo("com.paganbit.telaio.core.exception.DalInvalidSortException");
+            })
+            .noneSatisfy(event -> assertThat(event.outcome()).isEqualTo(DalAuditOutcome.DENIED));
+    }
+
+    @Test
+    void sortOnAHiddenTransientField_isAuditedAsDenied() {
+        // profit is @Transient yet serialized, and hidden from ADMIN: it exists, so probing it stays a
+        // denied attempt — distinguishable server-side from the nonexistent key above, identical 400 on
+        // the wire.
+        auditStore.clear();
+
+        assertInvalidSort(list(ADMIN, "products", "sort=profit,desc"));
+
+        assertThat(auditStore.events()).anySatisfy(event -> {
+            assertThat(event.dalName()).isEqualTo("products");
+            assertThat(event.outcome()).isEqualTo(DalAuditOutcome.DENIED);
+            assertThat(event.principal()).isEqualTo(ADMIN);
+            assertThat(event.errorType())
+                .isEqualTo("com.paganbit.telaio.core.exception.DalSortFieldNotReadableException");
+        });
+    }
+
     private void assertDeniedProductRead(DalAuditEvent event) {
         assertThat(event.dalName()).isEqualTo("products");
         assertThat(event.operation()).isEqualTo(DalOperationType.READ);

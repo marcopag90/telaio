@@ -126,14 +126,18 @@ public abstract class PropertyBasedDalRbacAdapter<T> implements DalRbacAdapter<T
     private ObjectMapper objectMapper = JsonMapper.builder().build();
 
     /**
-     * Resolves Java-property field paths to their JSON-name equivalents (caches per type/view).
+     * Resolves Java-property field paths to their JSON-name equivalents.
      */
     private JsonPropertyPathResolver pathResolver = new JsonPropertyPathResolver(objectMapper);
 
-    @Autowired(required = false)
+    @Autowired
     public void setObjectMapper(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
-        this.pathResolver = new JsonPropertyPathResolver(objectMapper);
+    }
+
+    @Autowired
+    public void setPathResolver(JsonPropertyPathResolver pathResolver) {
+        this.pathResolver = pathResolver;
     }
 
     @SuppressWarnings("unchecked")
@@ -334,7 +338,7 @@ public abstract class PropertyBasedDalRbacAdapter<T> implements DalRbacAdapter<T
     /**
      * Translates Java-property-name field paths into their JSON-name equivalents for the given root type,
      * honoring {@code PropertyNamingStrategy} and {@code @JsonProperty}. Paths that cannot be resolved are
-     * dropped (deny by default). Delegates to the shared {@link JsonPropertyPathResolver}.
+     * dropped (deny by default). Delegates to the {@link JsonPropertyPathResolver}.
      *
      * @param forSerialization {@code true} to use the serialization view (output), {@code false} for the
      *                         deserialization view (input)

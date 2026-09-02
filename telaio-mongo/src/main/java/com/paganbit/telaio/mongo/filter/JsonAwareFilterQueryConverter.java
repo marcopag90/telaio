@@ -11,7 +11,6 @@ import org.springframework.data.mapping.context.MappingContext;
 import org.springframework.data.mongodb.core.mapping.MongoPersistentEntity;
 import org.springframework.data.mongodb.core.mapping.MongoPersistentProperty;
 import org.springframework.data.mongodb.core.query.Query;
-import tools.jackson.databind.ObjectMapper;
 
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -45,11 +44,8 @@ import java.util.function.Supplier;
 public class JsonAwareFilterQueryConverter implements FilterQueryConverter {
 
     private final FilterQueryConverter delegate;
-
     private final FilterStringConverter filterStringConverter;
-
     private final JsonFieldNameFilterRewriter rewriter;
-
     private final MongoFilterFieldValidator fieldValidator;
 
     /**
@@ -57,21 +53,21 @@ public class JsonAwareFilterQueryConverter implements FilterQueryConverter {
      *
      * @param delegate              the converter performing the actual conversion
      * @param filterStringConverter parser for the string form of a filter
-     * @param objectMapper          the application mapper, used to introspect {@code @JsonProperty} renames
+     * @param pathResolver          the path resolver, used to translate {@code @JsonProperty} renames
      * @param mappingContext        the Spring Data mapping context, used to check that filtered fields are
      *                              persistent
      */
     public JsonAwareFilterQueryConverter(
         FilterQueryConverter delegate,
         FilterStringConverter filterStringConverter,
-        ObjectMapper objectMapper,
+        JsonPropertyPathResolver pathResolver,
         MappingContext<? extends MongoPersistentEntity<?>, MongoPersistentProperty> mappingContext
     ) {
         this.delegate = Objects.requireNonNull(delegate, "FilterQueryConverter delegate must not be null");
         this.filterStringConverter =
             Objects.requireNonNull(filterStringConverter, "FilterStringConverter must not be null");
-        this.rewriter = new JsonFieldNameFilterRewriter(new JsonPropertyPathResolver(
-            Objects.requireNonNull(objectMapper, "ObjectMapper must not be null")));
+        this.rewriter = new JsonFieldNameFilterRewriter(
+            Objects.requireNonNull(pathResolver, "JsonPropertyPathResolver must not be null"));
         this.fieldValidator = new MongoFilterFieldValidator(
             Objects.requireNonNull(mappingContext, "MappingContext must not be null"));
     }

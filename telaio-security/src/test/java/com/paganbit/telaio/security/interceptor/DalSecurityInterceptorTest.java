@@ -2,6 +2,7 @@ package com.paganbit.telaio.security.interceptor;
 
 import com.paganbit.telaio.core.adapter.DalOperationAdapter;
 import com.paganbit.telaio.core.adapter.DalOperationType;
+import com.paganbit.telaio.core.exception.DalFilterFieldNotReadableException;
 import com.paganbit.telaio.core.exception.DalInvalidFilterException;
 import com.paganbit.telaio.core.exception.DalSortFieldNotReadableException;
 import com.paganbit.telaio.security.adapter.DalAuthAdapter;
@@ -46,8 +47,14 @@ class DalSecurityInterceptorTest {
 
     @BeforeEach
     void setUp() {
+        // Every field path counts as existing, so an RBAC rejection is always a denied attempt; the
+        // tests for the unknown-field fall-through build their own interceptor with a real predicate.
         interceptor = new DalSecurityInterceptor(
-            "testDal", authAdapter, rbacAdapter, new DefaultDalAccessDeniedMessageResolver());
+            "testDal",
+            authAdapter,
+            rbacAdapter,
+            new DefaultDalAccessDeniedMessageResolver(), path -> true
+        );
     }
 
     @Test
@@ -239,6 +246,96 @@ class DalSecurityInterceptorTest {
         inOrder.verify(rbacAdapter).canFilterOn(eq("name"), any());
         inOrder.verify(rbacAdapter).canFilterOn(eq("price"), any());
         inOrder.verify(invocation).proceed();
+    }
+
+    @Test
+    void read_whenFilterFieldIsUnknownToTheEntity_shouldFallThroughToTheRead() throws Throwable {
+        // A rejected field that does not exist on the entity is not a denied attempt: the read's own
+        // strict validation rejects it downstream, so audit records VALIDATION instead of DENIED.
+        DalSecurityInterceptor distinguishing = new DalSecurityInterceptor(
+            "testDal", authAdapter, rbacAdapter, new DefaultDalAccessDeniedMessageResolver(),
+            path -> !"nope".equals(path));
+        FilterNode filter = comparison("nope");
+        when(invocation.getMethod()).thenReturn(readMethod());
+        when(invocation.getArguments()).thenReturn(new Object[]{filter, null});
+        when(authAdapter.authorizeRead(any())).thenReturn(true);
+        when(rbacAdapter.canFilterOn(eq("nope"), any())).thenReturn(false);
+        when(invocation.proceed()).thenReturn(new PageImpl<>(List.of()));
+
+        distinguishing.invoke(invocation);
+
+        verify(invocation).proceed();
+    }
+
+    @Test
+    void read_whenSortKeyIsUnknownToTheEntity_shouldFallThroughToTheRead() throws Throwable {
+        DalSecurityInterceptor distinguishing = new DalSecurityInterceptor(
+            "testDal", authAdapter, rbacAdapter, new DefaultDalAccessDeniedMessageResolver(),
+            path -> !"nope".equals(path));
+        Pageable pageable = PageRequest.of(0, 10, Sort.by("nope"));
+        when(invocation.getMethod()).thenReturn(readMethod());
+        when(invocation.getArguments()).thenReturn(new Object[]{null, pageable});
+        when(authAdapter.authorizeRead(any())).thenReturn(true);
+        when(rbacAdapter.canFilterOn(eq("nope"), any())).thenReturn(false);
+        when(invocation.proceed()).thenReturn(new PageImpl<>(List.of()));
+
+        distinguishing.invoke(invocation);
+
+        verify(invocation).proceed();
+    }
+
+    @Test
+    void read_whenFilterMixesUnknownAndHiddenFields_shouldReportTheHiddenOne() throws Throwable {
+        // The unknown field falls through, but the hidden one still blocks the read.
+        DalSecurityInterceptor distinguishing = new DalSecurityInterceptor(
+            "testDal", authAdapter, rbacAdapter, new DefaultDalAccessDeniedMessageResolver(),
+            path -> !"nope".equals(path));
+        FilterNode filter = new InfixOperationNode(comparison("nope"), infix, comparison("cost_price"));
+        when(invocation.getMethod()).thenReturn(readMethod());
+        when(invocation.getArguments()).thenReturn(new Object[]{filter, null});
+        when(authAdapter.authorizeRead(any())).thenReturn(true);
+        when(rbacAdapter.canFilterOn(any(), any())).thenReturn(false);
+
+        assertThrows(DalFilterFieldNotReadableException.class, () -> distinguishing.invoke(invocation));
+
+        verify(invocation, never()).proceed();
+    }
+
+    @Test
+    void read_whenSortMixesUnknownAndHiddenKeys_shouldReportTheHiddenOne() throws Throwable {
+        DalSecurityInterceptor distinguishing = new DalSecurityInterceptor(
+            "testDal", authAdapter, rbacAdapter, new DefaultDalAccessDeniedMessageResolver(),
+            path -> !"nope".equals(path));
+        Pageable pageable = PageRequest.of(0, 10, Sort.by("nope").and(Sort.by("cost_price")));
+        when(invocation.getMethod()).thenReturn(readMethod());
+        when(invocation.getArguments()).thenReturn(new Object[]{null, pageable});
+        when(authAdapter.authorizeRead(any())).thenReturn(true);
+        when(rbacAdapter.canFilterOn(any(), any())).thenReturn(false);
+
+        assertThrows(DalSortFieldNotReadableException.class, () -> distinguishing.invoke(invocation));
+
+        verify(invocation, never()).proceed();
+    }
+
+    @Test
+    void read_whenEveryFieldIsReadable_shouldNotConsultTheExistencePredicate() throws Throwable {
+        // The existence check runs only on a rejection: the common path pays nothing for it.
+        DalSecurityInterceptor distinguishing = new DalSecurityInterceptor(
+            "testDal", authAdapter, rbacAdapter, new DefaultDalAccessDeniedMessageResolver(),
+            path -> {
+                throw new AssertionError("the existence predicate must not be consulted");
+            });
+        FilterNode filter = comparison("name");
+        Pageable pageable = PageRequest.of(0, 10, Sort.by("price"));
+        when(invocation.getMethod()).thenReturn(readMethod());
+        when(invocation.getArguments()).thenReturn(new Object[]{filter, pageable});
+        when(authAdapter.authorizeRead(any())).thenReturn(true);
+        when(rbacAdapter.canFilterOn(any(), any())).thenReturn(true);
+        when(invocation.proceed()).thenReturn(new PageImpl<>(List.of()));
+
+        distinguishing.invoke(invocation);
+
+        verify(invocation).proceed();
     }
 
     @Test

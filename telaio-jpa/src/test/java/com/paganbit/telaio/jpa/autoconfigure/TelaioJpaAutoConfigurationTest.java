@@ -1,5 +1,6 @@
 package com.paganbit.telaio.jpa.autoconfigure;
 
+import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import com.paganbit.telaio.jpa.filter.JsonAwareFilterSpecificationConverter;
 import com.turkraft.springfilter.converter.FilterSpecificationConverter;
 import com.turkraft.springfilter.converter.FilterSpecificationConverterImpl;
@@ -28,7 +29,10 @@ class TelaioJpaAutoConfigurationTest {
     private final FilterSpecificationConverterImpl turkraftConverter = mock(FilterSpecificationConverterImpl.class);
 
     private ApplicationContextRunner withTurkraftConverter() {
-        return runner.withBean(FilterSpecificationConverterImpl.class, () -> turkraftConverter);
+        return runner
+            .withBean(FilterSpecificationConverterImpl.class, () -> turkraftConverter)
+            .withBean(JsonPropertyPathResolver.class,
+                () -> new JsonPropertyPathResolver(JsonMapper.builder().build()));
     }
 
     @Test
@@ -57,8 +61,8 @@ class TelaioJpaAutoConfigurationTest {
      */
     @Test
     void converter_backsOffWhenUserDefinesTheDecorator() {
-        JsonAwareFilterSpecificationConverter custom =
-            new JsonAwareFilterSpecificationConverter(turkraftConverter, JsonMapper.builder().build());
+        JsonAwareFilterSpecificationConverter custom = new JsonAwareFilterSpecificationConverter(
+            turkraftConverter, new JsonPropertyPathResolver(JsonMapper.builder().build()));
         withTurkraftConverter()
             .withBean("customConverter", JsonAwareFilterSpecificationConverter.class, () -> custom,
                 definition -> definition.setPrimary(true))

@@ -1,6 +1,10 @@
 package com.paganbit.telaio.showcase.it;
 
+import com.paganbit.telaio.audit.event.DalAuditOutcome;
+import com.paganbit.telaio.core.adapter.DalOperationType;
+import com.paganbit.telaio.showcase.it.AuditCaptureTestConfig.CapturingDalAuditEventStore;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -16,6 +20,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * unknown field, so the filter cannot be used to probe which hidden properties exist either.
  */
 class RbacFilterFieldIT extends AbstractShowcaseIT {
+
+    @Autowired
+    private CapturingDalAuditEventStore auditStore;
 
     @Test
     void propertyMapAdapter_rejectsAFilterOnAHiddenField() {
@@ -41,6 +48,43 @@ class RbacFilterFieldIT extends AbstractShowcaseIT {
         assertInvalidFilter(list(ADMIN, "employees", "q=salary>1000"));
         assertInvalidFilter(list(USER, "employees", "q=employeeEmail~'*a*'"));
         assertInvalidFilter(list(USER, "employees", "q=email~'*a*'"));
+    }
+
+    @Test
+    void filterOnANonexistentField_isAuditedAsValidation_notDenied() {
+        // The field resolves on no property at all: a typo (or a blind probe), not an authorization
+        // signal — the audit outcome must stay VALIDATION even under RBAC.
+        auditStore.clear();
+
+        assertInvalidFilter(list(ADMIN, "products", "q=nonexistent:1"));
+
+        assertThat(auditStore.events())
+            .anySatisfy(event -> {
+                assertThat(event.dalName()).isEqualTo("products");
+                assertThat(event.operation()).isEqualTo(DalOperationType.READ);
+                assertThat(event.outcome()).isEqualTo(DalAuditOutcome.VALIDATION);
+                assertThat(event.principal()).isEqualTo(ADMIN);
+                assertThat(event.errorType())
+                    .isEqualTo("com.paganbit.telaio.core.exception.DalInvalidFilterException");
+            })
+            .noneSatisfy(event -> assertThat(event.outcome()).isEqualTo(DalAuditOutcome.DENIED));
+    }
+
+    @Test
+    void filterOnAHiddenField_isAuditedAsDenied() {
+        // cost_price exists and is hidden from USER: probing it stays a denied attempt — identical 400
+        // on the wire, distinguishable server-side from the nonexistent field above.
+        auditStore.clear();
+
+        assertInvalidFilter(list(USER, "products", "q=cost_price>100"));
+
+        assertThat(auditStore.events()).anySatisfy(event -> {
+            assertThat(event.dalName()).isEqualTo("products");
+            assertThat(event.outcome()).isEqualTo(DalAuditOutcome.DENIED);
+            assertThat(event.principal()).isEqualTo(USER);
+            assertThat(event.errorType())
+                .isEqualTo("com.paganbit.telaio.core.exception.DalFilterFieldNotReadableException");
+        });
     }
 
     @Test

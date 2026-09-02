@@ -8,10 +8,12 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.core.convert.support.DefaultConversionService;
+import org.springframework.validation.beanvalidation.SpringValidatorAdapter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -22,11 +24,16 @@ import static org.mockito.Mockito.mock;
 class TelaioMetricsEndpointAutoConfigurationTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
+        // Boot's Jackson autoconfiguration ships with telaio-core and provides the ObjectMapper bean
+        // core's path resolver requires; the DalValidator bean requires a SpringValidatorAdapter.
         .withConfiguration(AutoConfigurations.of(
+            JacksonAutoConfiguration.class,
             TelaioCoreAutoConfiguration.class,
             TelaioMetricsAutoConfiguration.class,
             TelaioMetricsEndpointAutoConfiguration.class))
-        .withBean("sfConversionService", ConversionService.class, DefaultConversionService::new);
+        .withBean("sfConversionService", ConversionService.class, DefaultConversionService::new)
+        .withBean(SpringValidatorAdapter.class,
+            () -> new SpringValidatorAdapter(mock(jakarta.validation.Validator.class)));
 
     @Test
     void byDefault_endpointIsNotRegistered() {

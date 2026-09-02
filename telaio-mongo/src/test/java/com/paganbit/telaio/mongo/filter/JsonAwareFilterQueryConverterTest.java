@@ -2,6 +2,7 @@ package com.paganbit.telaio.mongo.filter;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.paganbit.telaio.core.exception.DalInvalidFilterException;
+import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import com.turkraft.springfilter.converter.FilterQueryConverter;
 import com.turkraft.springfilter.converter.FilterStringConverter;
 import com.turkraft.springfilter.parser.node.FieldNode;
@@ -62,7 +63,8 @@ class JsonAwareFilterQueryConverterTest {
     private final Document delegateDocument = new Document("$expr", "$costPrice");
 
     private final JsonAwareFilterQueryConverter converter = new JsonAwareFilterQueryConverter(
-        delegate, filterStringConverter, JsonMapper.builder().build(), new MongoMappingContext());
+        delegate, filterStringConverter,
+        new JsonPropertyPathResolver(JsonMapper.builder().build()), new MongoMappingContext());
 
     private String fieldNamePassedToDelegate() {
         ArgumentCaptor<FilterNode> captor = ArgumentCaptor.forClass(FilterNode.class);
@@ -168,19 +170,23 @@ class JsonAwareFilterQueryConverterTest {
 
     @Test
     void constructor_rejectsNullCollaborators() {
-        JsonMapper mapper = JsonMapper.builder().build();
+        JsonPropertyPathResolver pathResolver = new JsonPropertyPathResolver(JsonMapper.builder().build());
         MongoMappingContext mappingContext = new MongoMappingContext();
         assertThatNullPointerException()
-            .isThrownBy(() -> new JsonAwareFilterQueryConverter(delegate, filterStringConverter, mapper, null))
+            .isThrownBy(() ->
+                new JsonAwareFilterQueryConverter(delegate, filterStringConverter, pathResolver, null))
             .withMessageContaining("MappingContext");
         assertThatNullPointerException()
-            .isThrownBy(() -> new JsonAwareFilterQueryConverter(null, filterStringConverter, mapper, mappingContext))
+            .isThrownBy(() ->
+                new JsonAwareFilterQueryConverter(null, filterStringConverter, pathResolver, mappingContext))
             .withMessageContaining("delegate");
         assertThatNullPointerException()
-            .isThrownBy(() -> new JsonAwareFilterQueryConverter(delegate, null, mapper, mappingContext))
+            .isThrownBy(() ->
+                new JsonAwareFilterQueryConverter(delegate, null, pathResolver, mappingContext))
             .withMessageContaining("FilterStringConverter");
         assertThatNullPointerException()
-            .isThrownBy(() -> new JsonAwareFilterQueryConverter(delegate, filterStringConverter, null, mappingContext))
-            .withMessageContaining("ObjectMapper");
+            .isThrownBy(() ->
+                new JsonAwareFilterQueryConverter(delegate, filterStringConverter, null, mappingContext))
+            .withMessageContaining("JsonPropertyPathResolver");
     }
 }

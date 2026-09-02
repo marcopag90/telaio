@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.turkraft.springfilter.converter.FilterQueryConverter;
 import com.turkraft.springfilter.converter.FilterStringConverter;
 import com.turkraft.springfilter.parser.node.FilterNode;
+import jakarta.validation.Validator;
 import lombok.Getter;
 import lombok.Setter;
 import org.bson.types.ObjectId;
@@ -20,12 +21,14 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.format.support.DefaultFormattingConversionService;
+import org.springframework.validation.beanvalidation.SpringValidatorAdapter;
 import org.testcontainers.mongodb.MongoDBContainer;
 
 import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 /**
  * End-to-end integration test for {@link JsonAwareFilterQueryConverter}: a {@code q}-string filter
@@ -188,6 +191,11 @@ class JsonAwareFilterQueryConverterIntegrationTest {
         @Bean
         ConversionService conversionService() {
             return new DefaultFormattingConversionService();
+        }
+
+        @Bean
+        SpringValidatorAdapter validatorAdapter() {
+            return new SpringValidatorAdapter(mock(Validator.class));
         }
 
         @Bean

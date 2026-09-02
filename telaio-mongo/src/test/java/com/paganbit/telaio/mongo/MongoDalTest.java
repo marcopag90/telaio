@@ -2,7 +2,10 @@ package com.paganbit.telaio.mongo;
 
 import com.paganbit.telaio.core.beans.DalPropertyMerger;
 import com.paganbit.telaio.core.exception.DalEntityNotFoundException;
+import com.paganbit.telaio.core.json.JsonFieldNameSortRewriter;
+import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import com.paganbit.telaio.core.transaction.DalTransactionPolicy;
+import com.paganbit.telaio.core.validation.DefaultDalValidator;
 import com.turkraft.springfilter.builder.FilterBuilder;
 import com.turkraft.springfilter.converter.FilterQueryConverter;
 import com.turkraft.springfilter.converter.FilterStringConverter;
@@ -138,11 +141,13 @@ class MongoDalTest {
     }
 
     /**
-     * Injects the seven {@link com.paganbit.telaio.core.AbstractDal} collaborators required by init.
+     * Injects the {@link com.paganbit.telaio.core.AbstractDal} collaborators required by init.
      */
     private void wireAbstractDalCollaborators(TestMongoDal dal) {
         dal.setObjectMapper(objectMapper);
-        dal.setValidatorAdapter(new SpringValidatorAdapter(validator));
+        JsonPropertyPathResolver pathResolver = new JsonPropertyPathResolver(objectMapper);
+        dal.setSortRewriter(new JsonFieldNameSortRewriter(pathResolver));
+        dal.setDalValidator(new DefaultDalValidator(new SpringValidatorAdapter(validator), pathResolver));
         dal.setPropertyMerger(propertyMerger);
         dal.setFilterBuilder(filterBuilder);
         dal.setFilterStringConverter(filterStringConverter);

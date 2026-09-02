@@ -24,6 +24,7 @@ import org.springframework.security.core.Authentication;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 /**
  * Applies a DAL's authorization and RBAC policy to its operation adapter.
@@ -55,17 +56,20 @@ public class DalSecurityInterceptor implements MethodInterceptor {
     private final DalAuthAdapter authAdapter;
     private final DalRbacAdapter rbacAdapter;
     private final DalAccessDeniedMessageResolver messageResolver;
+    private final Predicate<String> entityFieldExists;
 
     public DalSecurityInterceptor(
         String dalName,
         DalAuthAdapter authAdapter,
         DalRbacAdapter rbacAdapter,
-        DalAccessDeniedMessageResolver messageResolver
+        DalAccessDeniedMessageResolver messageResolver,
+        Predicate<String> entityFieldExists
     ) {
         this.dalName = dalName;
         this.authAdapter = authAdapter;
         this.rbacAdapter = rbacAdapter;
         this.messageResolver = messageResolver;
+        this.entityFieldExists = entityFieldExists;
     }
 
     @Override
@@ -125,14 +129,15 @@ public class DalSecurityInterceptor implements MethodInterceptor {
     /**
      * Rejects a read filter that references a field the principal may not read — checked after the
      * operation-level authorization (a denied read stays a {@code 403}) and before the read runs, so no
-     * query is ever executed on a hidden property.
+     * query is ever executed on a hidden property. A rejected field that does not exist on the entity
+     * falls through instead: the read's own strict validation rejects it as a plain client fault.
      */
     private void requireReadableFilterFields(@Nullable FilterNode filter, Authentication auth) {
         if (filter == null) {
             return;
         }
         for (FieldNode field : FilterNodes.fieldNodes(filter)) {
-            if (!rbacAdapter.canFilterOn(field.getName(), auth)) {
+            if (!rbacAdapter.canFilterOn(field.getName(), auth) && entityFieldExists.test(field.getName())) {
                 throw new DalFilterFieldNotReadableException(field.getName());
             }
         }
@@ -143,13 +148,15 @@ public class DalSecurityInterceptor implements MethodInterceptor {
      * the filter-field check ({@link DalRbacAdapter#canFilterOn}): a sort on a hidden property leaks the
      * relative order of its values. Checked after the operation-level authorization (a denied read
      * stays a {@code 403}) and before the read runs, so no query is ever ordered by a hidden property.
+     * A rejected key that does not exist on the entity falls through instead: the read's own strict
+     * validation rejects it as a plain client fault.
      */
     private void requireReadableSortProperties(@Nullable Pageable pageable, Authentication auth) {
         if (pageable == null) {
             return;
         }
         for (Sort.Order order : pageable.getSort()) {
-            if (!rbacAdapter.canFilterOn(order.getProperty(), auth)) {
+            if (!rbacAdapter.canFilterOn(order.getProperty(), auth) && entityFieldExists.test(order.getProperty())) {
                 throw new DalSortFieldNotReadableException(order.getProperty());
             }
         }

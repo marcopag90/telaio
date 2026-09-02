@@ -5,8 +5,11 @@ import com.paganbit.telaio.core.beans.DalPropertyMerger;
 import com.paganbit.telaio.core.exception.DalEntityNotFoundException;
 import com.paganbit.telaio.core.exception.DalEntityValidationException;
 import com.paganbit.telaio.core.exception.DalInvalidSortException;
+import com.paganbit.telaio.core.json.JsonFieldNameSortRewriter;
+import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import com.paganbit.telaio.core.transaction.DalTransactionPolicy;
 import com.paganbit.telaio.core.transaction.FakeTransactionTemplate;
+import com.paganbit.telaio.core.validation.DefaultDalValidator;
 import com.turkraft.springfilter.builder.FilterBuilder;
 import com.turkraft.springfilter.builder.StepWithResult;
 import com.turkraft.springfilter.converter.FilterStringConverter;
@@ -75,7 +78,6 @@ class AbstractDalTest {
 
     private final ObjectMapper objectMapper = JsonMapper.builder().build();
     private final TransactionTemplate spiedTransactionTemplate = FakeTransactionTemplate.spied();
-    private SpringValidatorAdapter validatorAdapter;
     private TestEntityService service;
     private TestEntityService spiedService;
 
@@ -94,12 +96,13 @@ class AbstractDalTest {
             mockTransactionPolicy,
             spiedTransactionTemplate
         );
-        validatorAdapter = new SpringValidatorAdapter(mockValidator);
 
         service = new TestEntityService();
         service.setObjectMapper(objectMapper);
+        JsonPropertyPathResolver testPathResolver = new JsonPropertyPathResolver(objectMapper);
+        service.setSortRewriter(new JsonFieldNameSortRewriter(testPathResolver));
+        service.setDalValidator(new DefaultDalValidator(new SpringValidatorAdapter(mockValidator), testPathResolver));
         service.setPropertyMerger(propertyMerger);
-        service.setValidatorAdapter(validatorAdapter);
         service.setFilterBuilder(mockFilterBuilder);
         service.setFilterStringConverter(mockFilterStringConverter);
         service.setTransactionManager(mockTransactionManager);
@@ -130,7 +133,7 @@ class AbstractDalTest {
     void testGetters() {
         assertEquals(objectMapper, service.getObjectMapper());
         assertEquals(propertyMerger, service.getPropertyMerger());
-        assertEquals(validatorAdapter, service.getValidatorAdapter());
+        assertNotNull(service.getDalValidator());
         assertEquals(mockFilterBuilder, service.getFilterBuilder());
         assertEquals(mockFilterStringConverter, service.getFilterStringConverter());
         assertEquals(mockTransactionManager, service.getTransactionManager());
@@ -203,11 +206,11 @@ class AbstractDalTest {
         @Test
         @SuppressWarnings("squid:S5778")
         void testCreateValidationError() {
-            service.setValidatorAdapter(mockValidatorAdapter);
-
             doAnswer(invocation -> {
                 throw new DalEntityValidationException(List.of());
             }).when(mockValidatorAdapter).validate(any(TestEntity.class), any(BeanPropertyBindingResult.class));
+            service.setDalValidator(new DefaultDalValidator(
+                mockValidatorAdapter, new JsonPropertyPathResolver(objectMapper)));
 
             assertThrows(DalEntityValidationException.class, () -> service.create(Map.of()));
         }

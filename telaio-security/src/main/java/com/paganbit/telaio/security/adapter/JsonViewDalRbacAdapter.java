@@ -72,7 +72,7 @@ public abstract class JsonViewDalRbacAdapter<T> implements DalRbacAdapter<T> {
 
     private ObjectMapper viewMapper = secureViewMapper(JsonMapper.builder().build());
 
-    @Autowired(required = false)
+    @Autowired
     public void setObjectMapper(ObjectMapper objectMapper) {
         this.viewMapper = secureViewMapper(objectMapper);
     }

@@ -19,12 +19,14 @@ import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.core.convert.support.DefaultConversionService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.validation.beanvalidation.SpringValidatorAdapter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 /**
  * Verifies channel-agnostic auditing: no telaio-web class is involved — DALs are invoked
@@ -42,8 +45,11 @@ class TelaioAuditAutoConfigurationTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
         .withConfiguration(AutoConfigurations.of(
-            TelaioCoreAutoConfiguration.class, TelaioAuditAutoConfiguration.class))
-        .withBean("sfConversionService", ConversionService.class, DefaultConversionService::new);
+            JacksonAutoConfiguration.class, TelaioCoreAutoConfiguration.class,
+            TelaioAuditAutoConfiguration.class))
+        .withBean("sfConversionService", ConversionService.class, DefaultConversionService::new)
+        .withBean(SpringValidatorAdapter.class,
+            () -> new SpringValidatorAdapter(mock(jakarta.validation.Validator.class)));
 
     @Test
     void auditedDal_invokedProgrammatically_shouldStoreEvents() {

@@ -1,6 +1,7 @@
 package com.paganbit.telaio.security.autoconfigure;
 
 import com.paganbit.telaio.core.autoconfigure.TelaioCoreAutoConfiguration;
+import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import com.paganbit.telaio.security.adapter.DenyAllDalAuthAdapter;
 import com.paganbit.telaio.security.adapter.NoopDalRbacAdapter;
 import com.paganbit.telaio.security.adapter.PermitAllDalAuthAdapter;
@@ -47,7 +48,10 @@ public class TelaioSecurityAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    DalSecurityInterceptorProvider dalSecurityInterceptorProvider(DalAccessDeniedMessageResolver messageResolver) {
-        return new DalSecurityInterceptorProvider(messageResolver);
+    DalSecurityInterceptorProvider dalSecurityInterceptorProvider(
+        DalAccessDeniedMessageResolver messageResolver,
+        JsonPropertyPathResolver pathResolver
+    ) {
+        return new DalSecurityInterceptorProvider(messageResolver, pathResolver);
     }
 }

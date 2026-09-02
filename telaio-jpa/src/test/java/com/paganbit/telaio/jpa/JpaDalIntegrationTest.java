@@ -3,8 +3,11 @@ package com.paganbit.telaio.jpa;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.paganbit.telaio.core.beans.DalPropertyMerger;
 import com.paganbit.telaio.core.exception.DalInvalidSortException;
+import com.paganbit.telaio.core.json.JsonFieldNameSortRewriter;
+import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import com.paganbit.telaio.core.transaction.DalTransactionPolicy;
 import com.paganbit.telaio.core.transaction.DefaultDalTransactionPolicy;
+import com.paganbit.telaio.core.validation.DefaultDalValidator;
 import com.turkraft.springfilter.builder.FilterBuilder;
 import com.turkraft.springfilter.converter.FilterStringConverter;
 import jakarta.persistence.*;
@@ -63,8 +66,12 @@ class JpaDalIntegrationTest {
     @BeforeEach
     void setUp() {
         dal = new TestJpaDal(repository, entityManager);
-        dal.setObjectMapper(JsonMapper.builder().build());
-        dal.setValidatorAdapter(new SpringValidatorAdapter(mock(Validator.class)));
+        final var mapper = JsonMapper.builder().build();
+        final var pathResolver = new JsonPropertyPathResolver(mapper);
+        dal.setObjectMapper(mapper);
+        dal.setSortRewriter(new JsonFieldNameSortRewriter(pathResolver));
+        dal.setDalValidator(new DefaultDalValidator(
+            new SpringValidatorAdapter(mock(Validator.class)), pathResolver));
         dal.setPropertyMerger(mock(DalPropertyMerger.class));
         dal.setFilterBuilder(mock(FilterBuilder.class));
         dal.setFilterStringConverter(mock(FilterStringConverter.class));

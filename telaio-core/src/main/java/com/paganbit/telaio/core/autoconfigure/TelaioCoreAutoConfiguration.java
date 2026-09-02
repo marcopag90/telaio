@@ -6,10 +6,14 @@ import com.paganbit.telaio.core.beans.registration.DalDefinitionBeanPostProcesso
 import com.paganbit.telaio.core.beans.registration.DalFactoryPostProcessor;
 import com.paganbit.telaio.core.beans.registration.DalInterceptionBeanPostProcessor;
 import com.paganbit.telaio.core.interceptor.DalInterceptorProvider;
+import com.paganbit.telaio.core.json.JsonFieldNameSortRewriter;
+import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import com.paganbit.telaio.core.registry.DalManager;
 import com.paganbit.telaio.core.registry.InMemoryDalManager;
 import com.paganbit.telaio.core.transaction.DalTransactionPolicy;
 import com.paganbit.telaio.core.transaction.DefaultDalTransactionPolicy;
+import com.paganbit.telaio.core.validation.DalValidator;
+import com.paganbit.telaio.core.validation.DefaultDalValidator;
 import com.paganbit.telaio.core.version.TelaioVersionProvider;
 import com.paganbit.telaio.introspection.DefaultSimpleTypePredicate;
 import com.paganbit.telaio.introspection.SimpleTypeContributor;
@@ -21,8 +25,8 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Role;
+import org.springframework.validation.beanvalidation.SpringValidatorAdapter;
 import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.util.stream.Collectors;
 
@@ -37,8 +41,29 @@ public class TelaioCoreAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    DalPropertyMerger dalPropertyMerger(ObjectProvider<ObjectMapper> objectMapper) {
-        return new DefaultDalPropertyMerger(objectMapper.getIfAvailable(() -> JsonMapper.builder().build()));
+    DalPropertyMerger dalPropertyMerger(ObjectMapper objectMapper) {
+        return new DefaultDalPropertyMerger(objectMapper);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    JsonPropertyPathResolver dalJsonPropertyPathResolver(ObjectMapper objectMapper) {
+        return new JsonPropertyPathResolver(objectMapper);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    JsonFieldNameSortRewriter dalJsonFieldNameSortRewriter(JsonPropertyPathResolver pathResolver) {
+        return new JsonFieldNameSortRewriter(pathResolver);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    DalValidator dalValidator(
+        SpringValidatorAdapter validatorAdapter,
+        JsonPropertyPathResolver pathResolver
+    ) {
+        return new DefaultDalValidator(validatorAdapter, pathResolver);
     }
 
     @Bean

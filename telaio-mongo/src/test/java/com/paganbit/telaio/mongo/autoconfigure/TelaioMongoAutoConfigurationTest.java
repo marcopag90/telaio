@@ -1,5 +1,6 @@
 package com.paganbit.telaio.mongo.autoconfigure;
 
+import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import com.paganbit.telaio.core.transaction.PassThroughTransactionManager;
 import com.paganbit.telaio.introspection.SimpleTypeContributor;
 import com.paganbit.telaio.mongo.MongoDal;
@@ -45,6 +46,8 @@ class TelaioMongoAutoConfigurationTest {
         return runner
             .withBean(FilterQueryConverterImpl.class, () -> turkraftConverter)
             .withBean(FilterStringConverter.class, () -> mock(FilterStringConverter.class))
+            .withBean(JsonPropertyPathResolver.class,
+                () -> new JsonPropertyPathResolver(JsonMapper.builder().build()))
             .withBean(MongoOperations.class, TelaioMongoAutoConfigurationTest::mongoOperations);
     }
 
@@ -67,6 +70,8 @@ class TelaioMongoAutoConfigurationTest {
         runner
             .withBean(FilterQueryConverterImpl.class, () -> turkraftConverter)
             .withBean(FilterStringConverter.class, () -> mock(FilterStringConverter.class))
+            .withBean(JsonPropertyPathResolver.class,
+                () -> new JsonPropertyPathResolver(JsonMapper.builder().build()))
             .run(context -> {
                 assertThat(context).hasFailed();
                 assertThat(context.getStartupFailure()).rootCause()
@@ -100,8 +105,8 @@ class TelaioMongoAutoConfigurationTest {
     @Test
     void converter_backsOffWhenUserDefinesTheDecorator() {
         JsonAwareFilterQueryConverter custom = new JsonAwareFilterQueryConverter(
-            turkraftConverter, mock(FilterStringConverter.class), JsonMapper.builder().build(),
-            new MongoMappingContext());
+            turkraftConverter, mock(FilterStringConverter.class),
+            new JsonPropertyPathResolver(JsonMapper.builder().build()), new MongoMappingContext());
         withTurkraftMongoBeans()
             .withBean("customConverter", JsonAwareFilterQueryConverter.class, () -> custom,
                 definition -> definition.setPrimary(true))

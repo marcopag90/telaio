@@ -280,6 +280,18 @@ to it. With `telaio-audit` enabled, a rejected filter field or sort key is recor
 authorization failure), so repeated probing of hidden fields is visible in the audit trail even though the client only
 sees a generic 400.
 
+The DENIED outcome is reserved for fields that **exist and are hidden**. A referenced field that does not exist on the
+entity at all falls through the security check and is rejected by the read's own strict validation — the same generic
+400 on the wire, but a **VALIDATION** audit event. Server-side, the two cases stay distinguishable: a typo (or a blind
+probe of a name that resolves to nothing) is a validation failure, while a probe of a real hidden property — including
+one that exists in Java but is never serialized, such as a `@JsonIgnore` field — is a denied attempt. The audit
+event's `errorType` carries the exact exception (`DalFilterFieldNotReadableException` /
+`DalSortFieldNotReadableException` for denied fields, `DalInvalidFilterException` / `DalInvalidSortException` for
+validation). The existence check uses the same path resolver as the read itself (one application-wide
+`JsonPropertyPathResolver` bean, built on the application's `ObjectMapper`), so the two can never disagree; custom
+`Dal` backends must keep rejecting unknown fields in their strict filter/sort validation, since an unknown field now
+reaches them even on an RBAC-guarded DAL.
+
 ### Strategy 1: Property-Based RBAC
 
 Use `PropertyBasedDalRbacAdapter` for a simple role → field set mapping.

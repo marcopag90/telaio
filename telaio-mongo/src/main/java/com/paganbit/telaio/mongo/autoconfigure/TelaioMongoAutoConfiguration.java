@@ -1,6 +1,7 @@
 package com.paganbit.telaio.mongo.autoconfigure;
 
 import com.paganbit.telaio.core.autoconfigure.TelaioCoreAutoConfiguration;
+import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import com.paganbit.telaio.core.transaction.PassThroughTransactionManager;
 import com.paganbit.telaio.introspection.SimpleTypeContributor;
 import com.paganbit.telaio.mongo.MongoDal;
@@ -24,8 +25,6 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.data.mongodb.MongoTransactionManager;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.transaction.PlatformTransactionManager;
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Set;
 
@@ -90,8 +89,7 @@ public class TelaioMongoAutoConfiguration {
      *
      * @param delegate              Turkraft's autoconfigured converter to delegate the actual conversion to
      * @param filterStringConverter Turkraft's parser, used for the string form of a filter
-     * @param objectMapper          provider of the application {@link ObjectMapper} (falls back to a default
-     *                              mapper if none is defined), used to introspect {@code @JsonProperty} renames
+     * @param pathResolver          the path resolver, used to translate {@code @JsonProperty} renames
      * @param mongoOperations       the template every {@code MongoDal} persists through; its converter's
      *                              mapping context is the authority on which properties a document stores,
      *                              so filters on non-persistent properties are rejected
@@ -104,13 +102,13 @@ public class TelaioMongoAutoConfiguration {
     FilterQueryConverter jsonAwareFilterQueryConverter(
         FilterQueryConverterImpl delegate,
         FilterStringConverter filterStringConverter,
-        ObjectProvider<ObjectMapper> objectMapper,
+        JsonPropertyPathResolver pathResolver,
         MongoOperations mongoOperations
     ) {
         return new JsonAwareFilterQueryConverter(
             delegate,
             filterStringConverter,
-            objectMapper.getIfAvailable(() -> JsonMapper.builder().build()),
+            pathResolver,
             mongoOperations.getConverter().getMappingContext()
         );
     }

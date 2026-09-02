@@ -33,8 +33,6 @@ import org.springframework.format.support.DefaultFormattingConversionService;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.beanvalidation.SpringValidatorAdapter;
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
@@ -578,19 +576,9 @@ class JpaDalFilterLanguageIntegrationTest {
             return new DefaultFormattingConversionService();
         }
 
-        /**
-         * {@code AbstractDal} requires a validator adapter and an {@link ObjectMapper}; this module has
-         * neither a Bean Validation provider nor Boot's Jackson autoconfiguration on its classpath (nothing
-         * is validated or merged here — the DAL is only read).
-         */
         @Bean
         SpringValidatorAdapter validatorAdapter() {
             return new SpringValidatorAdapter(mock(Validator.class));
-        }
-
-        @Bean
-        ObjectMapper objectMapper() {
-            return JsonMapper.builder().build();
         }
     }
 }

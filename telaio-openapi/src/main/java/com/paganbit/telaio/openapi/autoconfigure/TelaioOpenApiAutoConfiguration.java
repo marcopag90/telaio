@@ -38,12 +38,6 @@ public class TelaioOpenApiAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    JsonPropertyPathResolver dalJsonPropertyPathResolver(ObjectMapper objectMapper) {
-        return new JsonPropertyPathResolver(objectMapper);
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
     DalEntitySchemaResolver dalEntitySchemaResolver(JsonPropertyPathResolver jsonPathResolver) {
         return new DalEntitySchemaResolver(jsonPathResolver);
     }

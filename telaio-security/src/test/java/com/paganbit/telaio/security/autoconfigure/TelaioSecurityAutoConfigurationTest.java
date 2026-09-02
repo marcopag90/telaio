@@ -1,6 +1,7 @@
 package com.paganbit.telaio.security.autoconfigure;
 
 import com.paganbit.telaio.core.adapter.DalAdapterInterceptorProvider;
+import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import com.paganbit.telaio.security.adapter.DenyAllDalAuthAdapter;
 import com.paganbit.telaio.security.adapter.NoopDalRbacAdapter;
 import com.paganbit.telaio.security.adapter.PermitAllDalAuthAdapter;
@@ -10,6 +11,7 @@ import com.paganbit.telaio.security.interceptor.DalSecurityInterceptorProvider;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import tools.jackson.databind.json.JsonMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -26,6 +28,7 @@ import static org.mockito.Mockito.mock;
 class TelaioSecurityAutoConfigurationTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
+        .withBean(JsonPropertyPathResolver.class, () -> new JsonPropertyPathResolver(JsonMapper.builder().build()))
         .withConfiguration(AutoConfigurations.of(TelaioSecurityAutoConfiguration.class));
 
     @Test
@@ -94,9 +97,19 @@ class TelaioSecurityAutoConfigurationTest {
     }
 
     @Test
+    void withoutAPathResolverBean_theContextFailsToStart() {
+        // The field-existence check must share the read path's resolver (core's bean), so a context
+        // without one must fail instead of silently degrading.
+        new ApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(TelaioSecurityAutoConfiguration.class))
+            .run(context -> assertThat(context).hasFailed());
+    }
+
+    @Test
     void customInterceptorProvider_replacesDefault() {
-        DalSecurityInterceptorProvider custom =
-            new DalSecurityInterceptorProvider(mock(DalAccessDeniedMessageResolver.class));
+        DalSecurityInterceptorProvider custom = new DalSecurityInterceptorProvider(
+            mock(DalAccessDeniedMessageResolver.class),
+            new JsonPropertyPathResolver(JsonMapper.builder().build()));
         contextRunner
             .withBean("customProvider", DalSecurityInterceptorProvider.class, () -> custom)
             .run(context -> {

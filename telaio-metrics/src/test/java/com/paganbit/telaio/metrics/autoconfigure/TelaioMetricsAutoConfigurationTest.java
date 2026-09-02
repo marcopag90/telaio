@@ -21,6 +21,7 @@ import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -41,6 +42,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.validation.beanvalidation.SpringValidatorAdapter;
 
 import javax.sql.DataSource;
 import java.time.Duration;
@@ -51,6 +53,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 /**
  * Verifies the metrics autoconfiguration end to end without telaio-web: DALs are invoked
@@ -60,9 +63,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TelaioMetricsAutoConfigurationTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
+        // Boot's Jackson autoconfiguration ships with telaio-core and provides the ObjectMapper bean
+        // core's path resolver requires; the DalValidator bean requires a SpringValidatorAdapter.
         .withConfiguration(AutoConfigurations.of(
-            TelaioCoreAutoConfiguration.class, TelaioMetricsAutoConfiguration.class))
-        .withBean("sfConversionService", ConversionService.class, DefaultConversionService::new);
+            JacksonAutoConfiguration.class, TelaioCoreAutoConfiguration.class,
+            TelaioMetricsAutoConfiguration.class))
+        .withBean("sfConversionService", ConversionService.class, DefaultConversionService::new)
+        .withBean(SpringValidatorAdapter.class,
+            () -> new SpringValidatorAdapter(mock(jakarta.validation.Validator.class)));
 
     @Test
     void byDefault_withoutDataSource_shouldUseInMemoryStore() {
@@ -500,10 +508,13 @@ class TelaioMetricsAutoConfigurationTest {
     void endpointAutoconfiguration_shouldRegisterEndpointWhenExposed() {
         new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(
+                JacksonAutoConfiguration.class,
                 TelaioCoreAutoConfiguration.class,
                 TelaioMetricsAutoConfiguration.class,
                 TelaioMetricsEndpointAutoConfiguration.class))
             .withBean("sfConversionService", ConversionService.class, DefaultConversionService::new)
+            .withBean(SpringValidatorAdapter.class,
+                () -> new SpringValidatorAdapter(mock(jakarta.validation.Validator.class)))
             .withPropertyValues("management.endpoints.web.exposure.include=telaiometrics")
             .run(context -> assertThat(context).hasSingleBean(TelaioMetricsEndpoint.class));
     }

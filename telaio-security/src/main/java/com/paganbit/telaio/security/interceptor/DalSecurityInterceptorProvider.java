@@ -2,11 +2,14 @@ package com.paganbit.telaio.security.interceptor;
 
 import com.paganbit.telaio.core.adapter.DalAdapterContext;
 import com.paganbit.telaio.core.adapter.DalAdapterInterceptorProvider;
+import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import com.paganbit.telaio.security.adapter.*;
 import com.paganbit.telaio.security.annotation.DalSecurity;
 import com.paganbit.telaio.security.exception.DalAccessDeniedMessageResolver;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.springframework.core.annotation.AnnotationUtils;
+
+import java.util.function.Predicate;
 
 /**
  * Contributes the authorization and RBAC interceptor for each DAL.
@@ -24,9 +27,14 @@ import org.springframework.core.annotation.AnnotationUtils;
 public class DalSecurityInterceptorProvider implements DalAdapterInterceptorProvider {
 
     private final DalAccessDeniedMessageResolver messageResolver;
+    private final JsonPropertyPathResolver pathResolver;
 
-    public DalSecurityInterceptorProvider(DalAccessDeniedMessageResolver messageResolver) {
+    public DalSecurityInterceptorProvider(
+        DalAccessDeniedMessageResolver messageResolver,
+        JsonPropertyPathResolver pathResolver
+    ) {
         this.messageResolver = messageResolver;
+        this.pathResolver = pathResolver;
     }
 
     @Override
@@ -43,7 +51,18 @@ public class DalSecurityInterceptorProvider implements DalAdapterInterceptorProv
         DalAuthAdapter authAdapter = context.dalManager().getAdapter(authClass);
         DalRbacAdapter rbacAdapter = context.dalManager().getAdapter(rbacClass);
 
-        return new DalSecurityInterceptor(context.dalName(), authAdapter, rbacAdapter, messageResolver);
+        return new DalSecurityInterceptor(
+            context.dalName(),
+            authAdapter,
+            rbacAdapter,
+            messageResolver,
+            entityFieldExists(context)
+        );
+    }
+
+    private Predicate<String> entityFieldExists(DalAdapterContext context) {
+        Class<?> entityClass = context.dalManager().getServiceByName(context.dalName()).getEntityClass();
+        return path -> pathResolver.resolveJavaPath(entityClass, path).resolved();
     }
 
     @Override

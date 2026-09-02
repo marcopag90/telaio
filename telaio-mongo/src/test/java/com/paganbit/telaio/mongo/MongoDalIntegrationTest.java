@@ -3,9 +3,12 @@ package com.paganbit.telaio.mongo;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.paganbit.telaio.core.beans.DalPropertyMerger;
 import com.paganbit.telaio.core.exception.DalInvalidSortException;
+import com.paganbit.telaio.core.json.JsonFieldNameSortRewriter;
+import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import com.paganbit.telaio.core.transaction.DalTransactionPolicy;
 import com.paganbit.telaio.core.transaction.DefaultDalTransactionPolicy;
 import com.paganbit.telaio.core.transaction.PassThroughTransactionManager;
+import com.paganbit.telaio.core.validation.DefaultDalValidator;
 import com.turkraft.springfilter.builder.FilterBuilder;
 import com.turkraft.springfilter.converter.FilterQueryConverter;
 import com.turkraft.springfilter.converter.FilterStringConverter;
@@ -89,8 +92,12 @@ class MongoDalIntegrationTest {
     }
 
     private void wireAbstractDalCollaborators(MongoDal<?, ?> target) {
-        target.setObjectMapper(JsonMapper.builder().build());
-        target.setValidatorAdapter(new SpringValidatorAdapter(mock(Validator.class)));
+        final var mapper = JsonMapper.builder().build();
+        final var pathResolver = new JsonPropertyPathResolver(mapper);
+        target.setObjectMapper(mapper);
+        target.setSortRewriter(new JsonFieldNameSortRewriter(pathResolver));
+        target.setDalValidator(new DefaultDalValidator(
+            new SpringValidatorAdapter(mock(Validator.class)), pathResolver));
         target.setPropertyMerger(mock(DalPropertyMerger.class));
         target.setFilterBuilder(mock(FilterBuilder.class));
         target.setFilterStringConverter(mock(FilterStringConverter.class));

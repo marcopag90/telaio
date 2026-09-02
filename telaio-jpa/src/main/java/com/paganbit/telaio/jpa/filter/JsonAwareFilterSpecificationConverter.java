@@ -12,8 +12,8 @@ import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import org.jspecify.annotations.Nullable;
 import org.springframework.core.convert.TypeDescriptor;
-import tools.jackson.databind.ObjectMapper;
 
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -52,11 +52,15 @@ public class JsonAwareFilterSpecificationConverter implements FilterSpecificatio
      * Creates the decorator.
      *
      * @param delegate     the converter performing the actual conversion
-     * @param objectMapper the application mapper, used to introspect {@code @JsonProperty} renames
+     * @param pathResolver the path resolver, used to translate {@code @JsonProperty} renames
      */
-    public JsonAwareFilterSpecificationConverter(FilterSpecificationConverter delegate, ObjectMapper objectMapper) {
-        this.delegate = delegate;
-        this.rewriter = new JsonFieldNameFilterRewriter(new JsonPropertyPathResolver(objectMapper));
+    public JsonAwareFilterSpecificationConverter(
+        FilterSpecificationConverter delegate,
+        JsonPropertyPathResolver pathResolver
+    ) {
+        this.delegate = Objects.requireNonNull(delegate, "FilterSpecificationConverter delegate must not be null");
+        this.rewriter = new JsonFieldNameFilterRewriter(
+            Objects.requireNonNull(pathResolver, "JsonPropertyPathResolver must not be null"));
     }
 
     @Override
