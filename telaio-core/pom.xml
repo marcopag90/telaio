@@ -46,10 +46,6 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
         <dependency>
-            <groupId>tools.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-        </dependency>
-        <dependency>
             <groupId>com.turkraft.springfilter</groupId>
             <artifactId>core</artifactId>
         </dependency>
