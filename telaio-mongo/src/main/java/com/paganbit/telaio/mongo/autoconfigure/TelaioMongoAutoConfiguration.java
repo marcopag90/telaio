@@ -47,7 +47,7 @@ import java.util.Set;
  * corresponding autoconfigured bean backs off.</p>
  *
  * @author Marco Pagan
- * @since 1.2.0
+ * @since 2.0.0
  */
 @AutoConfiguration(
     after = {

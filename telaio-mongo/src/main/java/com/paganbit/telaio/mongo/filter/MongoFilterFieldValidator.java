@@ -25,7 +25,7 @@ import java.util.Set;
  * keys. A segment applied to a simple property can never resolve and is rejected.</p>
  *
  * @author Marco Pagan
- * @since 1.2.0
+ * @since 2.0.0
  */
 final class MongoFilterFieldValidator {
 

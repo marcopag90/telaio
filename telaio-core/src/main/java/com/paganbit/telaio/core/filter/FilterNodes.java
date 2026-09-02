@@ -11,7 +11,7 @@ import java.util.List;
  * Read-only helpers over a parsed Turkraft {@link FilterNode} tree.
  *
  * @author Marco Pagan
- * @since 1.2.0
+ * @since 2.0.0
  */
 public final class FilterNodes {
 

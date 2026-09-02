@@ -17,7 +17,7 @@ import java.util.Iterator;
  * pagination — the same caveat filtered reads carry.</p>
  *
  * @author Marco Pagan
- * @since 1.2.0
+ * @since 2.0.0
  */
 public final class JpaSortPropertyValidator {
 

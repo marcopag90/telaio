@@ -24,7 +24,7 @@ import java.util.Iterator;
  * the key or value type. A segment applied to a basic attribute can never resolve and is rejected.</p>
  *
  * @author Marco Pagan
- * @since 1.2.0
+ * @since 2.0.0
  */
 final class JpaFilterFieldValidator {
 

@@ -18,7 +18,7 @@ import javax.sql.DataSource;
  * one is ordered behind have contributed their definitions.</p>
  *
  * @author Marco Pagan
- * @since 1.2.0
+ * @since 2.0.0
  */
 public class OnMetricsDataSourceCondition implements ConfigurationCondition {
 

@@ -23,7 +23,7 @@ import java.lang.annotation.*;
  *
  * @author Marco Pagan
  * @see TelaioMetricsTransactionManager
- * @since 1.2.0
+ * @since 2.0.0
  */
 @Target({ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER, ElementType.TYPE, ElementType.ANNOTATION_TYPE})
 @Retention(RetentionPolicy.RUNTIME)

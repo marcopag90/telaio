@@ -39,7 +39,7 @@ import java.util.function.Supplier;
  * cannot use indexes.</p>
  *
  * @author Marco Pagan
- * @since 1.2.0
+ * @since 2.0.0
  */
 public class JsonAwareFilterQueryConverter implements FilterQueryConverter {
 

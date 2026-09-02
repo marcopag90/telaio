@@ -13,7 +13,7 @@ import org.springframework.data.repository.NoRepositoryBean;
  * @param <E> the entity type
  * @param <I> the entity identifier type
  * @author Marco Pagan
- * @since 1.2.0
+ * @since 2.0.0
  */
 @NoRepositoryBean
 public interface MongoDalRepository<E, I> extends MongoRepository<E, I> {

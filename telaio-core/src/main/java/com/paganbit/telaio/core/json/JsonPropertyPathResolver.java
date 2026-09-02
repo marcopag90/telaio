@@ -57,7 +57,7 @@ public class JsonPropertyPathResolver {
      *                          resolved are kept verbatim
      * @param unresolvedSegment the first segment that failed to resolve on a bean type, or {@code null}
      *                          when every checked segment resolved
-     * @since 1.2.0
+     * @since 2.0.0
      */
     public record JavaPathResolution(String javaPath, @Nullable String unresolvedSegment) {
 
@@ -129,7 +129,7 @@ public class JsonPropertyPathResolver {
      * @param rootType the type the path is rooted at
      * @param jsonPath the dot-notation path of JSON (or Java) property names
      * @return the resolution outcome, never {@code null}
-     * @since 1.2.0
+     * @since 2.0.0
      */
     public JavaPathResolution resolveJavaPath(Class<?> rootType, String jsonPath) {
         JavaType currentType = objectMapper.constructType(rootType);
@@ -291,7 +291,7 @@ public class JsonPropertyPathResolver {
      *
      * @param segment one dot-separated segment of a field path
      * @return {@code true} for a reference accessor segment
-     * @since 1.2.0
+     * @since 2.0.0
      */
     public static boolean isReferenceKeySegment(String segment) {
         return REFERENCE_KEY_SEGMENTS.contains(segment);
@@ -303,7 +303,7 @@ public class JsonPropertyPathResolver {
      *
      * @param type the declared type of the current property
      * @return the element type, or {@code type} itself when it is not a collection or array
-     * @since 1.2.0
+     * @since 2.0.0
      */
     public static JavaType unwrapElements(JavaType type) {
         JavaType current = type;
@@ -319,7 +319,7 @@ public class JsonPropertyPathResolver {
      *
      * @param element the (element-unwrapped) type a segment is applied to
      * @return {@code true} when the type has no introspectable properties
-     * @since 1.2.0
+     * @since 2.0.0
      */
     public static boolean isOpaque(JavaType element) {
         Class<?> raw = element.getRawClass();
@@ -332,7 +332,7 @@ public class JsonPropertyPathResolver {
      *
      * @param element the (element-unwrapped) type a segment is applied to
      * @return {@code true} for a scalar type
-     * @since 1.2.0
+     * @since 2.0.0
      */
     public static boolean isLeaf(JavaType element) {
         return SIMPLE_TYPES.test(element.getRawClass());

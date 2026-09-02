@@ -10,7 +10,7 @@ package com.paganbit.telaio.core.exception;
  * attempt rather than a plain validation failure.</p>
  *
  * @author Marco Pagan
- * @since 1.2.0
+ * @since 2.0.0
  */
 public class DalSortFieldNotReadableException extends DalInvalidSortException {
 

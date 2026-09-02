@@ -17,7 +17,7 @@ import java.util.Objects;
  * {@link JsonPropertyPathResolver#resolveJavaPath}; literals ({@code InputNode}), placeholders, operators,
  * and functions are preserved verbatim, and the tree shape is unchanged.</p>
  *
- * <p>Field paths are checked strictly (since 1.2.0): a field the entity does not expose — checked segment
+ * <p>Field paths are checked strictly (since 2.0.0): a field the entity does not expose — checked segment
  * by segment while the path runs through bean types, see {@link JsonPropertyPathResolver#resolveJavaPath} —
  * is rejected with a {@link DalInvalidFilterException}, uniformly on every backend, instead of failing
  * inside the store or silently matching nothing. Both the JSON name and the Java name of a property are

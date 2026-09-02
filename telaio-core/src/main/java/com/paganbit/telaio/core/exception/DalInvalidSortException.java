@@ -11,7 +11,7 @@ package com.paganbit.telaio.core.exception;
  * specialisation — same wire answer, distinguishable for audit.</p>
  *
  * @author Marco Pagan
- * @since 1.2.0
+ * @since 2.0.0
  */
 public class DalInvalidSortException extends RuntimeException {
 

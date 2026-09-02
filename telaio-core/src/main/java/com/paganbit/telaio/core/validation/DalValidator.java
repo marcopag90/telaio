@@ -6,7 +6,7 @@ import com.paganbit.telaio.core.exception.DalEntityValidationException;
  * Validates entities in the Telaio Data Access Layer.
  *
  * @author Marco Pagan
- * @since 1.2.0
+ * @since 2.0.0
  */
 public interface DalValidator {
 

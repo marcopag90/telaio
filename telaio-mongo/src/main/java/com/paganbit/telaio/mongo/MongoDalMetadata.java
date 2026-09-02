@@ -11,7 +11,7 @@ import org.springframework.data.mongodb.core.mapping.MongoPersistentEntity;
  * @param <E> the entity type
  * @param <I> the entity identifier type
  * @author Marco Pagan
- * @since 1.2.0
+ * @since 2.0.0
  */
 public interface MongoDalMetadata<E, I> extends DalMetadata<E, I> {
 

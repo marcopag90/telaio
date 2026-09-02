@@ -105,7 +105,7 @@ public interface DalRbacAdapter<T> {
      * @param fieldPath      the field path referenced by the filter or the sort, as written by the caller
      * @param authentication the current authentication context
      * @return {@code true} to accept the reference, {@code false} to reject the whole request
-     * @since 1.2.0
+     * @since 2.0.0
      */
     default boolean canFilterOn(String fieldPath, Authentication authentication) {
         return true;

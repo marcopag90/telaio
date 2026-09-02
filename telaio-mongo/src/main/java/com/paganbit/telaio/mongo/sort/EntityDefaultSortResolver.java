@@ -11,7 +11,7 @@ import org.springframework.data.mongodb.core.mapping.MongoPersistentProperty;
  * provides an unsorted {@code Pageable}.
  *
  * @author Marco Pagan
- * @since 1.2.0
+ * @since 2.0.0
  */
 public final class EntityDefaultSortResolver {
 

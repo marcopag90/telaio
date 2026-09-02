@@ -14,7 +14,7 @@ import tools.jackson.databind.ser.std.StdSerializer;
  * Jackson 3 module mapping {@link ObjectId} to its 24-character hexadecimal string form.
  *
  * @author Marco Pagan
- * @since 1.2.0
+ * @since 2.0.0
  */
 public class ObjectIdJacksonModule extends SimpleModule {
 
