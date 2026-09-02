@@ -6,118 +6,59 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+MongoDB joins JPA as a shipped backend, field-level security now also covers filtering and
+sorting, and an invalid `q=` or `sort=` gives the same `400` on both backends. Validation and
+field-name resolution moved to application-wide beans, which breaks a few APIs.
+
 ### ⭐ New Features
 
-- MongoDB DAL backend (`telaio-mongo`): `MongoDal` built on Spring Data MongoDB with Turkraft
-  filter conversion (`$expr`-based), default sort resolution, and a dedicated qualified
-  transaction manager (`telaioMongoTransactionManager`) with a no-op fallback for standalone
-  MongoDB — designed to coexist with `telaio-jpa` behind the same `/dal/v1` surface.
-- Metrics: `@TelaioMetricsDataSource` and `@TelaioMetricsTransactionManager` qualifiers select the
-  DataSource (e.g. a dedicated metrics schema) and, optionally, the transaction manager the JDBC store
-  uses in applications with several DataSources or transaction managers.
-- Core: `DalInvalidFilterException` (a `DalFailureKind.VALIDATION` client fault) for a well-formed `q=`
-  filter the entity cannot honour, `JsonPropertyPathResolver.resolveJavaPath` reporting the first
-  unresolvable segment of a field path, and `FilterNodes.fieldNodes` collecting the field references of a
-  parsed filter.
-- Security: field-level RBAC now governs the `q=` filter too. `DalRbacAdapter.canFilterOn(fieldPath, auth)`
-  (new `default` hook, pass-through) is asked by `DalSecurityInterceptor` for every field a read filter references,
-  before the read runs; a field the principal cannot read is rejected with the same generic 400
-  (`"Invalid filter expression"`) as an unknown field — closing the inference channel where a hidden value
-  (e.g. `cost_price`) could be worked out from the narrowed page. Both built-in adapters implement the same rule —
-  a field is filterable exactly when it appears in the read response: `PropertyBasedDalRbacAdapter` requires a
-  serialized property granted in the read readable map (exactly or through a granted descendant);
-  `JsonViewDalRbacAdapter` requires the active read view on every declared property of the path, map values
-  included. Both resolve the path under the wire name and the Java name of the property alike. Server-side
-  `defaultFilter()`s are not affected. The
-  rejection is raised as `DalFilterFieldNotReadableException` (core; a `DalInvalidFilterException`), which
-  `telaio-audit`'s `SecurityDalAuditOutcomeClassifier` records as a **DENIED** event — for a field that exists but is
-  hidden; a field the entity does not expose at all falls through to the DAL's strict validation and is audited as
-  `VALIDATION` (identical generic 400 on the wire). `JsonPropertyPathResolver`'s
-  path-walking rules (`isReferenceKeySegment`, `unwrapElements`, `isOpaque`, `isLeaf`) are now public.
-- Security: field-level RBAC now governs the `sort=` keys too. `DalSecurityInterceptor` asks the same
-  `DalRbacAdapter.canFilterOn` hook for every `Sort.Order` property of a read's pageable, before the read runs —
-  a sort key the principal cannot read would otherwise leak the relative order of the hidden values
-  (`sort=cost_price,desc&size=1`). The rejection is raised as `DalSortFieldNotReadableException` (core; a
-  `DalInvalidSortException`), maps to the same generic 400 (`"Invalid sort parameter"`) as an unknown sort
-  property, and is recorded as a **DENIED** audit event when the property exists but is hidden (an unknown property is
-  audited as `VALIDATION` instead). The DAL's own `defaultSort()` is not affected.
-- Core: `DalInvalidSortException` (a `DalFailureKind.VALIDATION` client fault) for a `sort=` property the read
-  cannot honor, and `JsonFieldNameSortRewriter` translating caller-supplied sort properties from JSON wire
-  names to Java property names (both spellings accepted, direction/case/null-handling preserved). New
-  protected hook `AbstractDal.validateSortProperty(String)` lets each backend validate the resolved property:
-  `JpaSortPropertyValidator` (JPA metamodel; deliberately stricter than the filter walk — no subtype
-  attributes, no Map accessors, terminal segment must be singular) and `MongoSortPropertyValidator` (mapping
-  context; same walk as the filter validator).
+- **MongoDB backend** (`telaio-mongo`): a second `Dal` implementation, on Spring Data MongoDB,
+  with the same filtering and sorting contract as JPA. It runs next to `telaio-jpa` behind one
+  `/dal/v1` surface, with its own transaction manager.
+- **Field-level security now covers `q=` and `sort=`.** A role that cannot read a field can no
+  longer filter or sort on it, so a hidden value cannot be inferred from the rows or the order
+  returned. Override `DalRbacAdapter.canFilterOn` to decide; both built-in adapters already follow
+  the read permissions. A rejected field gives the same generic `400` as an unknown one.
+- **Metrics can be stored in their own database.** `@TelaioMetricsDataSource` and
+  `@TelaioMetricsTransactionManager` pick the DataSource, and optionally the transaction manager,
+  the JDBC store writes through.
 
 ### 🐞 Bug Fixes
 
-- Build: the library modules can be built with JDK 21 again. The enforcer's build-JDK floor followed a fixed
-  `[25,)` inherited by every module; it now follows each module's `maven.compiler.release` (`[21,)` for the
-  libraries, `[25,)` for `telaio-showcase`), as the README and CONTRIBUTING always documented.
-- Filtering: a well-formed `q=` filter that references a field the entity does not expose or does not
-  persist (`@Transient`, computed getter), or a function that is unknown or unsupported by the backend, is
-  now a **400** (`"Invalid filter expression"`) on both the JPA and the Mongo backend — before, such
-  filters were a 500 on JPA and a silently empty page on Mongo. Field paths are resolved against the
-  entity's properties (JSON wire names and Java names, so server-side default filters keep working) and
-  checked against the backend's mapping (JPA metamodel, Mongo mapping context); keys below a
-  `Map`/`Object` property and the `$id`/`$ref`/`$db` keys of a stored reference are not checked. A literal
-  that does not convert to the field's type (`quantity:'abc'`) stays a server fault (500) on both
-  backends. Multi-pattern likes (`field ~ ['a*', 'b*']`) now honour `@JsonProperty` wire names too.
-- Core: a read with an *unpaged, unsorted* `Pageable` no longer throws `UnsupportedOperationException`
-  while applying the default sort (`Pageable.unpaged().getPageNumber()` is unsupported); it now stays
-  unpaged and carries the DAL's `defaultSort()`.
-- Sorting: a `sort=` property the entity does not expose or does not persist is now a **400**
-  (`"Invalid sort parameter"`) on both backends — before, an unknown sort property was a 500
-  (`PropertyReferenceException`) on JPA and a silently unsorted 200 on Mongo. Sort properties are now
-  resolved like filter fields (JSON wire names and Java names alike), making the documented `DalSort`
-  contract of the REST client ("property uses the JSON field names") actually hold: a sort on a
-  `@JsonProperty`-renamed field used to fail on JPA and order by a missing path on Mongo.
-- Metrics: the JDBC store no longer looks up the application's `PlatformTransactionManager` by type — an
-  application with multiple transaction managers failed to start, and a manager over a
-  different DataSource was accepted silently. The store now uses a private JDBC transaction manager bound
-  to its own DataSource; with several unmarked DataSources the context fails fast with guidance instead of
-  persisting metrics into an arbitrary database.
+- **An unusable filter is a `400` on both backends.** A `q=` field the entity does not expose or
+  persist, or a function the backend cannot run, used to be a `500` on JPA and a silently empty
+  page on Mongo. Field names are accepted in their JSON or their Java spelling.
+- **An unusable sort is a `400` on both backends**, where an unknown property used to be a `500`
+  on JPA and silently ignored on Mongo. Sorting now accepts JSON field names too.
+- Reading with an unpaged and unsorted `Pageable` no longer fails while applying the default sort.
+- The metrics store no longer borrows the application's transaction manager. That broke startup
+  when several were present, and could write metrics into the wrong database.
+- Library modules build with JDK 21 again. The build required JDK 25 everywhere; it now follows
+  each module's target, and only the showcase needs 25.
 
 ### ⛔ Deprecations & Removals
 
-- **Breaking:** validation and JSON path resolution are now application-wide singletons. `TelaioCoreAutoConfiguration`
-  registers one `dalJsonPropertyPathResolver` (`JsonPropertyPathResolver`), one `dalJsonFieldNameSortRewriter`
-  (`JsonFieldNameSortRewriter`) and one `dalValidator` (`DalValidator`) bean — all `@ConditionalOnMissingBean` — in
-  place of the per-DAL instances. Consequences for consumers:
-  - `DalValidator` is de-generified: `DalValidator<T>.validate(T)` becomes `DalValidator.validate(Object target,
-    Class<?> type)`; the default implementation is the new `DefaultDalValidator`.
-  - `DalMapConverterValidator` is removed (map→entity conversion is a plain `ObjectMapper.convertValue` inside
-    `AbstractDal.create`); `AbstractDal` no longer implements `DalValidator` and loses `setValidatorAdapter` /
-    `getMapConverterValidator`. It now requires the sort rewriter and the validator (`setSortRewriter`,
-    `setDalValidator`, checked in `afterPropertiesSet`) — tests that instantiate a DAL by hand must set both.
-  - Constructors changed: `JsonAwareFilterSpecificationConverter` (JPA) and `JsonAwareFilterQueryConverter` (Mongo)
-    take the shared `JsonPropertyPathResolver` (the Mongo one a `MappingContext`) instead of an `ObjectMapper`;
-    `DalSecurityInterceptorProvider` takes the resolver and `DalSecurityInterceptor` a field-existence predicate.
-  - `setObjectMapper` (on `PropertyBasedDalRbacAdapter` and `JsonViewDalRbacAdapter`) and the new `setPathResolver`
-    (on `PropertyBasedDalRbacAdapter`) are now required `@Autowired` setters: a context without an `ObjectMapper` /
-    `JsonPropertyPathResolver` bean fails to start where a missing bean used to be tolerated. The field defaults
-    remain for use outside a container.
-  - `telaio-core` now ships `spring-boot-jackson` (an `ObjectMapper` bean is always available); downstream modules
-    dropped their own declaration. The former `TelaioOpenApiAutoConfiguration` resolver bean is gone — it consumes the
-    shared one.
-- **Breaking (behaviour):** under RBAC, a `q=`/`sort=` field that does not exist on the entity is no longer a denied
-  attempt: it falls through to the DAL's strict validation (audit `VALIDATION`), while a field that exists but is
-  hidden stays `DENIED`. The wire response is the identical generic 400 in both cases.
-- **Breaking:** `TypeUtil` (telaio-introspection) removed. The simple-type classification is now
-  carried by the `DefaultSimpleTypePredicate` instance (aggregating `SimpleTypeContributor`
-  beans). Internal-use class: consumers should inject the predicate bean instead. For the same
-  reason the constructors of the framework-wiring classes `DalIdArgumentResolver`,
-  `DalPathsGenerator` and `FilterParameterDescriber` now take the predicate.
+- **Breaking:** validation and field-name resolution are now application-wide beans, one each
+  instead of one per DAL. `DalValidator` loses its type parameter, becoming
+  `validate(Object target, Class<?> type)`, and `DalMapConverterValidator` is gone. Code that
+  builds a DAL, a filter converter or the security interceptor by hand must pass the new beans;
+  everything wired by Spring is unaffected. An `ObjectMapper` bean is now required, and
+  `telaio-core` brings one.
+- **Breaking:** under field-level security, a field that does not exist is a validation failure
+  rather than a denied attempt. Only an existing but hidden field is audited as `DENIED`, an
+  unknown one as `VALIDATION`. Clients see the same generic `400` either way.
+- **Breaking:** `TypeUtil` is removed from `telaio-introspection`. Inject the
+  `DefaultSimpleTypePredicate` bean instead.
 
 ### 📔 Documentation
 
-- Showcase: `notifications`, a MongoDB-backed DAL running next to the JPA DALs with its own transaction
-  manager — jpa+mongo coexistence on one `/dal/v1` surface.
+- Showcase: a MongoDB-backed `notifications` DAL runs next to the JPA ones, demonstrating both
+  backends on a single `/dal/v1` surface.
 
 ### 🔨 Dependency Upgrades
 
-- Turkraft Spring Filter 4.0.1 → 4.1.0 (BSON-native mongo filter conversion, `FilterQueryConverter` bean,
-  `@DBRef`/`@DocumentReference` filtering, xor fix)
+- Turkraft Spring Filter 4.0.1 → 4.1.0 (BSON-native Mongo filter conversion, `@DBRef` filtering,
+  xor fix)
 
 ## [1.1.0] - 2026-07-29
 
