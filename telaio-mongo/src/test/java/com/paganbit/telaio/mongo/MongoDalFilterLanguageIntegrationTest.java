@@ -211,6 +211,11 @@ class MongoDalFilterLanguageIntegrationTest {
             c("size(lines) >: 2", 1, 4, 6),
             c("'shipped' in lines.status", 1, 3, 5, 6),
             c("lines is empty", 2),
+            // or/xor over arrays, aligned with the JPA cases
+            c("'red' in tags or tags is empty", 1, 2, 4, 6),
+            c("quantity : 0 or 'shipped' in lines.status", 1, 2, 3, 5, 6),
+            c("'red' in tags xor 'blue' in tags", 1, 3),
+            c("'shipped' in lines.status or 'pending' in lines.status", 1, 3, 4, 5, 6),
             // --- map fields: keys are dynamic, so unknown keys match nothing instead of failing ---
             c("attributes.color : 'red'", 1, 4),
             c("attributes.color in ['red', 'blue']", 1, 3, 4),
@@ -249,6 +254,8 @@ class MongoDalFilterLanguageIntegrationTest {
             c("id : '{id:G1}'", 1),
             c("id in ['{id:G1}', '{id:G3}']", 1, 3),
             c("id ! '{id:G1}'", 2, 3, 4, 5, 6),
+            // `~` on the String @Id string-matches through Turkraft's $function instead of comparing ObjectIds
+            c("id ~ '{id:G1}'", 1),
             c("ownerId : '{ownerId:G2}'", 2),
             c("ownerId in ['{ownerId:G1}', '{ownerId:G4}']", 1, 4),
             c("externalId : '11111111-1111-1111-1111-111111111111'", 1),
