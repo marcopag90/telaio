@@ -196,7 +196,7 @@ There is no single "starter" artifact — depend on the modules your project nee
 <dependency>
     <groupId>com.paganbit</groupId>
     <artifactId>telaio-core</artifactId>
-    <version>1.1.0</version>
+    <version>2.0.0</version>
 </dependency>
 ```
 
@@ -212,7 +212,7 @@ There is no single "starter" artifact — depend on the modules your project nee
         <dependency>
             <groupId>com.paganbit</groupId>
             <artifactId>telaio-bom</artifactId>
-            <version>1.1.0</version>
+            <version>2.0.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>

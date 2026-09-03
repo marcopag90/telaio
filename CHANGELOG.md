@@ -6,6 +6,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-09-03
+
 MongoDB joins JPA as a shipped backend, field-level security now also covers filtering and
 sorting, and an invalid `q=` or `sort=` gives the same `400` on both backends. Validation and
 field-name resolution moved to application-wide beans, which breaks a few APIs.
@@ -190,7 +192,8 @@ First public release, available on Maven Central under the `com.paganbit` group 
   delete transaction (TOCTOU hardening); deleting an entity outside the filter now
   returns `404` (previously `204`).
 
-[unreleased]: https://github.com/marcopag90/telaio/compare/v1.1.0...HEAD
+[unreleased]: https://github.com/marcopag90/telaio/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/marcopag90/telaio/compare/v1.1.0...v2.0.0
 [1.1.0]: https://github.com/marcopag90/telaio/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/marcopag90/telaio/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/marcopag90/telaio/releases/tag/v1.0.0
