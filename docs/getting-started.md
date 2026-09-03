@@ -7,7 +7,7 @@ minutes.
 
 - **Java 21+** — Telaio is compiled to and distributed as Java 21 bytecode. (Only the optional `telaio-showcase` demo
   targets Java 25; that is not a requirement of the framework.)
-- **Spring Boot 4.1.0+**
+- **Spring Boot 4.1.1+**
 - **Maven 3.9+**
 
 ## Step 1: Add Dependencies
@@ -18,7 +18,7 @@ each one. For a minimal setup:
 
 ```xml
 <properties>
-    <telaio.version>1.1.0</telaio.version>
+    <telaio.version>2.0.0</telaio.version>
 </properties>
 
 <dependencyManagement>
@@ -285,7 +285,8 @@ To see Telaio in action with multiple DALs, audit, security, metrics, and more, 
 mvn -pl telaio-showcase spring-boot:run
 ```
 
-The showcase starts PostgreSQL in a Docker container automatically (via `spring-boot-docker-compose`). Visit:
+The showcase starts PostgreSQL and MongoDB in Docker containers automatically (via`spring-boot-docker-compose`),
+so it needs a running Docker daemon. Visit:
 
 - **API base**: http://localhost:8080/dal/v1
 - **Swagger UI**: http://localhost:8080/swagger-ui.html

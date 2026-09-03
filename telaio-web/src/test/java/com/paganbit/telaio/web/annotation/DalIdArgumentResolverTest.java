@@ -2,6 +2,7 @@ package com.paganbit.telaio.web.annotation;
 
 import com.paganbit.telaio.core.Dal;
 import com.paganbit.telaio.core.registry.DalManager;
+import com.paganbit.telaio.introspection.DefaultSimpleTypePredicate;
 import com.paganbit.telaio.rest.contract.DalIdCodecException;
 import com.paganbit.telaio.web.DalRestApiV1;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,7 +55,7 @@ class DalIdArgumentResolverTest {
 
     @BeforeEach
     void setUp() {
-        resolver = new DalIdArgumentResolver(dalManager, objectMapper);
+        resolver = new DalIdArgumentResolver(dalManager, objectMapper, new DefaultSimpleTypePredicate());
         pathVariables = new HashMap<>();
         pathVariables.put(DalRestApiV1.PATH_VARIABLE_DAL_NAME, "testDal");
         pathVariables.put(DalRestApiV1.PATH_VARIABLE_ID, "123");

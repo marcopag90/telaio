@@ -1,10 +1,7 @@
 package com.paganbit.telaio.web.exception;
 
 import com.paganbit.telaio.core.adapter.DalOperationType;
-import com.paganbit.telaio.core.exception.DalEntityNotFoundException;
-import com.paganbit.telaio.core.exception.DalEntityValidationException;
-import com.paganbit.telaio.core.exception.DalNotFoundException;
-import com.paganbit.telaio.core.exception.DalRegistryException;
+import com.paganbit.telaio.core.exception.*;
 import com.paganbit.telaio.rest.contract.DalIdCodecException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +40,9 @@ class TelaioWebExceptionHandlerTest {
     private static final String REGISTRY_EXCEPTION = "/registry-exception";
     private static final String OPTIMISTIC_LOCK_EXCEPTION = "/optimistic-lock-exception";
     private static final String MALFORMED_ID_EXCEPTION = "/malformed-id-exception";
+    private static final String INVALID_FILTER_EXCEPTION = "/invalid-filter-exception";
+    private static final String INVALID_SORT_EXCEPTION = "/invalid-sort-exception";
+    private static final String SORT_FIELD_NOT_READABLE_EXCEPTION = "/sort-field-not-readable-exception";
 
     @Autowired
     private MockMvc mockMvc;
@@ -127,6 +127,37 @@ class TelaioWebExceptionHandlerTest {
     }
 
     @Test
+    void handleInvalidFilter_shouldReturn400ProblemDetailWithGenericDetail() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders.get(INVALID_FILTER_EXCEPTION))
+            .andExpect(MockMvcResultMatchers.status().isBadRequest())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.title").value("Bad Request"))
+            .andExpect(jsonPath("$.status").value(400))
+            // Generic detail: the offending field name never reaches the client body.
+            .andExpect(jsonPath("$.detail").value("Invalid filter expression"));
+    }
+
+    @Test
+    void handleInvalidSort_shouldReturn400ProblemDetailWithGenericDetail() throws Exception {
+        mockMvc.perform(MockMvcRequestBuilders.get(INVALID_SORT_EXCEPTION))
+            .andExpect(MockMvcResultMatchers.status().isBadRequest())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.title").value("Bad Request"))
+            .andExpect(jsonPath("$.status").value(400))
+            // Generic detail: the offending property name never reaches the client body.
+            .andExpect(jsonPath("$.detail").value("Invalid sort parameter"));
+    }
+
+    @Test
+    void handleSortFieldNotReadable_shouldLandInTheSameHandlerWithTheSameGenericDetail() throws Exception {
+        // The RBAC rejection must stay wire-indistinguishable from an unknown sort property.
+        mockMvc.perform(MockMvcRequestBuilders.get(SORT_FIELD_NOT_READABLE_EXCEPTION))
+            .andExpect(MockMvcResultMatchers.status().isBadRequest())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.detail").value("Invalid sort parameter"));
+    }
+
+    @Test
     void handleRegistryException_shouldReturn500ProblemDetailWithoutLeakingInternals() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.get(REGISTRY_EXCEPTION))
             .andExpect(MockMvcResultMatchers.status().isInternalServerError())
@@ -182,6 +213,21 @@ class TelaioWebExceptionHandlerTest {
         public void throwDalIdCodecException() {
             throw new DalIdCodecException("Failed to decode composite ID from Base64 (length 10)",
                 new IllegalArgumentException("Illegal base64 character"));
+        }
+
+        @GetMapping(INVALID_FILTER_EXCEPTION)
+        public void throwDalInvalidFilterException() {
+            throw DalInvalidFilterException.unknownField("nope", "nope");
+        }
+
+        @GetMapping(INVALID_SORT_EXCEPTION)
+        public void throwDalInvalidSortException() {
+            throw DalInvalidSortException.unknownProperty("nope", "nope");
+        }
+
+        @GetMapping(SORT_FIELD_NOT_READABLE_EXCEPTION)
+        public void throwDalSortFieldNotReadableException() {
+            throw new DalSortFieldNotReadableException("cost_price");
         }
 
         @GetMapping(OPTIMISTIC_LOCK_EXCEPTION)

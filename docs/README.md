@@ -2,7 +2,7 @@
 
 This is the comprehensive developer guide for **Telaio**, a Spring Boot framework that transforms an entity and
 repository into a secured, audited, and monitored REST API with zero boilerplate. The DAL abstraction is
-persistence-agnostic (built on Spring Data); JPA/Hibernate is the first shipped backend.
+persistence-agnostic (built on Spring Data); JPA/Hibernate and MongoDB are the shipped backends.
 
 ## Quick Links
 
@@ -22,6 +22,7 @@ persistence-agnostic (built on Spring Data); JPA/Hibernate is the first shipped 
 | **introspection**      | Type introspection and reflection utilities          | [modules/introspection.md](modules/introspection.md)          |
 | **core**               | DAL abstraction, CRUD contracts, Spring integration  | [modules/core.md](modules/core.md)                            |
 | **jpa**                | JPA/Hibernate-backed DAL implementation              | [modules/jpa.md](modules/jpa.md)                              |
+| **mongo**              | MongoDB-backed DAL implementation                    | [modules/mongo.md](modules/mongo.md)                          |
 | **security**           | Authentication, RBAC, field-level access control     | [modules/security.md](modules/security.md)                    |
 | **audit**              | Operation auditing with flexible event stores        | [modules/audit.md](modules/audit.md)                          |
 | **metrics**            | Performance monitoring and usage statistics          | [modules/metrics.md](modules/metrics.md)                      |
@@ -32,6 +33,10 @@ persistence-agnostic (built on Spring Data); JPA/Hibernate is the first shipped 
 | **rest-client**        | Typed REST client for remote Telaio applications     | [modules/rest-client.md](modules/rest-client.md)              |
 | **showcase**           | Reference SaaS admin app demonstrating all features  | [modules/showcase.md](modules/showcase.md)                    |
 
+The reactor has 15 modules: the 12 library modules above, `telaio-bom` (the Bill of Materials: import it to align
+all Telaio module versions), `telaio-showcase`, and the build-only `telaio-coverage-report` (JaCoCo aggregate, never
+published).
+
 ## What is Telaio?
 
 Telaio is a Spring Boot framework for building REST APIs from your entities without writing controllers or DTOs. You
@@ -39,7 +44,8 @@ declare an entity and repository, annotate a service with `@DalService`, and Tel
 REST API with:
 
 - **Dynamic REST endpoints** under `/dal/v1/{dalName}`
-- **Built-in validation** from `@Valid` annotations
+- **Built-in validation** from the Jakarta Bean Validation constraints on the entity (`@NotNull`, `@NotBlank`, …),
+  reported under the JSON field names
 - **Field-level RBAC** via pluggable adapters
 - **Opt-in audit** of all DAL operations
 - **On-by-default metrics** for performance monitoring
@@ -116,7 +122,7 @@ curl -X DELETE http://localhost:8080/dal/v1/announcements/1
 input and output to respect role-based visibility.
 
 **Persistence-Agnostic DAL**: the `Dal` contract depends only on Spring Data abstractions; backends implement the
-`execute*` SPI. JPA is the first implementation — MongoDB, QueryDSL and a reactive exposure are on the
+`execute*` SPI. JPA and MongoDB are the shipped implementations — QueryDSL and a reactive exposure are on the
 [roadmap](../README.md#roadmap).
 
 **No `@ComponentScan` in Autoconfiguration**: Every bean is registered explicitly via `@Bean` or `@Import`, keeping
@@ -143,7 +149,8 @@ telaio-core (DAL abstraction)
     ├→ telaio-web (REST endpoints)
     │    ↓
     │  telaio-openapi (auto-generated docs)
-    └→ telaio-jpa (first backend implementation, Spring Data JPA)
+    ├→ telaio-jpa (backend implementation, Spring Data JPA)
+    └→ telaio-mongo (backend implementation, Spring Data MongoDB)
 
 telaio-rest-contract (frozen /dal/v1 wire contract)
     ↓

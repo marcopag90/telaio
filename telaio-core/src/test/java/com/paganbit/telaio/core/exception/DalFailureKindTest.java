@@ -19,6 +19,23 @@ class DalFailureKindTest {
     }
 
     @Test
+    void invalidFilter_shouldBeValidation() {
+        assertThat(DalFailureKind.of(DalInvalidFilterException.unknownField("nope", "nope")))
+            .isEqualTo(DalFailureKind.VALIDATION);
+        assertThat(DalFailureKind.of(new DalInvalidFilterException("Invalid filter expression",
+            new IllegalArgumentException("bad literal"))))
+            .isEqualTo(DalFailureKind.VALIDATION);
+    }
+
+    @Test
+    void invalidSort_shouldBeValidation() {
+        assertThat(DalFailureKind.of(DalInvalidSortException.unknownProperty("nope", "nope")))
+            .isEqualTo(DalFailureKind.VALIDATION);
+        assertThat(DalFailureKind.of(DalInvalidSortException.notSortable("tags")))
+            .isEqualTo(DalFailureKind.VALIDATION);
+    }
+
+    @Test
     void missingEntity_shouldBeNotFound() {
         assertThat(DalFailureKind.of(new DalEntityNotFoundException(Object.class, 42L)))
             .isEqualTo(DalFailureKind.NOT_FOUND);

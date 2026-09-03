@@ -2,6 +2,8 @@ package com.paganbit.telaio.core.exception;
 
 import org.springframework.dao.OptimisticLockingFailureException;
 
+import java.util.List;
+
 /**
  * Classifies a failure raised by a {@link com.paganbit.telaio.core.Dal} operation as a
  * <em>client fault</em> (the caller's request cannot be satisfied as-is) or a
@@ -25,7 +27,9 @@ import org.springframework.dao.OptimisticLockingFailureException;
 public enum DalFailureKind {
 
     /**
-     * The request payload failed validation ({@link DalEntityValidationException}).
+     * The request payload failed validation ({@link DalEntityValidationException}), the filter cannot
+     * be applied to the target entity ({@link DalInvalidFilterException}), or the sort cannot be
+     * applied ({@link DalInvalidSortException}).
      */
     VALIDATION,
 
@@ -47,6 +51,15 @@ public enum DalFailureKind {
     SERVER_ERROR;
 
     /**
+     * The client-fault types (subclasses included) classified as {@link #VALIDATION}.
+     */
+    private static final List<Class<? extends Throwable>> VALIDATION_FAILURES = List.of(
+        DalEntityValidationException.class,
+        DalInvalidFilterException.class,
+        DalInvalidSortException.class
+    );
+
+    /**
      * Resolves the kind of the given failure.
      *
      * @param failure the failure raised by a DAL operation
@@ -54,7 +67,7 @@ public enum DalFailureKind {
      * recognized client faults
      */
     public static DalFailureKind of(Throwable failure) {
-        if (failure instanceof DalEntityValidationException) {
+        if (VALIDATION_FAILURES.stream().anyMatch(type -> type.isInstance(failure))) {
             return VALIDATION;
         }
         if (failure instanceof DalEntityNotFoundException) {

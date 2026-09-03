@@ -8,12 +8,12 @@ import com.paganbit.telaio.web.registry.WebDalOperationAdapterRegistry;
 import com.turkraft.springfilter.converter.FilterStringConverter;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.boot.test.context.runner.ReactiveWebApplicationContextRunner;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.core.convert.support.DefaultConversionService;
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.json.JsonMapper;
+import org.springframework.validation.beanvalidation.SpringValidatorAdapter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -25,10 +25,12 @@ class TelaioWebAutoConfigurationTest {
 
     private final WebApplicationContextRunner contextRunner = new WebApplicationContextRunner()
         .withConfiguration(AutoConfigurations.of(
+            JacksonAutoConfiguration.class,
             TelaioCoreAutoConfiguration.class,
             TelaioWebAutoConfiguration.class))
         .withBean("sfConversionService", ConversionService.class, DefaultConversionService::new)
-        .withBean("objectMapper", ObjectMapper.class, () -> JsonMapper.builder().build())
+        .withBean(SpringValidatorAdapter.class,
+            () -> new SpringValidatorAdapter(mock(jakarta.validation.Validator.class)))
         .withBean(FilterStringConverter.class, () -> mock(FilterStringConverter.class));
 
     @Test
@@ -56,6 +58,7 @@ class TelaioWebAutoConfigurationTest {
     void reactiveWebContext_shouldNotLoadTelaioWebAutoConfiguration() {
         new ReactiveWebApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(TelaioWebAutoConfiguration.class))
-            .run(context -> assertThat(context).doesNotHaveBean(WebDalOperationAdapterRegistry.class));
+            .run(context ->
+                assertThat(context).doesNotHaveBean(WebDalOperationAdapterRegistry.class));
     }
 }

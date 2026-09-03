@@ -66,7 +66,7 @@ GET /dal/v1/{dalName}?q=filter&page=0&size=20&sort=name,desc
 | `q`       | string  | (none)           | Turkraft Spring Filter expression (see [Filtering](#filtering-query-language) below)           |
 | `page`    | integer | `0`              | Zero-indexed page number                                                                       |
 | `size`    | integer | `20`             | Number of results per page                                                                     |
-| `sort`    | string  | (entity default) | Comma-separated sort fields with optional `,asc` or `,desc` (e.g., `name,asc` or `price,desc`) |
+| `sort`    | string  | (entity default) | Sort property with optional `,asc` or `,desc` (e.g., `name,asc`); repeat for multiple fields. Properties use the JSON field names of the entity, as in responses (Java names are accepted too). An unknown, non-persistent or non-readable property is a **400** `"Invalid sort parameter"` |
 
 **Response (200 OK):**
 
@@ -102,7 +102,7 @@ GET /dal/v1/{dalName}?q=filter&page=0&size=20&sort=name,desc
 - **404 Not Found** — DAL service not found, or the URI exposes no operation at all (an internal DAL answers 404 as "DAL service not found").
 - **405 Method Not Allowed** — READ is not exposed but the URI still exposes another method (`Allow` header lists
   them).
-- **400 Bad Request** — Malformed filter or pagination parameters.
+- **400 Bad Request** — Malformed or inapplicable filter (unknown or non-persistent field, unknown function), or invalid pagination parameters.
 
 **Examples:**
 
@@ -379,6 +379,27 @@ If the filter syntax is invalid, you get a **400 Bad Request** with a `ProblemDe
 curl "http://localhost:8080/dal/v1/products?q=((("
 # 400 Bad Request
 # ProblemDetail: "Malformed filter expression"
+```
+
+A well-formed filter the entity cannot honor — a field it does not expose or does not persist, a field the current
+principal is not allowed to read (see the [Security Guide](security-guide.md)), or a function that is unknown or not
+supported by the persistence backend — is also a **400**, with the same answer on every backend (a literal that does not
+convert to the field's type, e.g. `price:'abc'`, is instead a **500**: it fails inside the persistence layer):
+
+```bash
+curl "http://localhost:8080/dal/v1/products?q=nope:1"
+# 400 Bad Request
+# ProblemDetail: "Invalid filter expression"
+```
+
+The `sort=` parameter follows the same contract: a property the entity does not expose or does not persist — or one
+the current principal is not allowed to read (see the [Security Guide](security-guide.md)) — is a **400** with the
+generic detail `"Invalid sort parameter"`, uniformly on every backend:
+
+```bash
+curl "http://localhost:8080/dal/v1/products?sort=nope,desc"
+# 400 Bad Request
+# ProblemDetail: "Invalid sort parameter"
 ```
 
 ## Error Responses

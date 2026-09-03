@@ -1,8 +1,9 @@
 package com.paganbit.telaio.rest.contract;
 
+import com.fasterxml.jackson.annotation.JsonValue;
+import com.paganbit.telaio.introspection.DefaultSimpleTypePredicate;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -10,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.Month;
 import java.util.Base64;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -66,6 +68,23 @@ class DalIdCodecTest {
     }
 
     @Test
+    void contributedSimpleTypesTravelRaw() {
+        DalIdCodec contributedCodec = new DalIdCodec(objectMapper, new DefaultSimpleTypePredicate(Set.of(HexId.class)));
+        HexId id = new HexId("0a1b2c");
+
+        assertThat(contributedCodec.encode(id, HexId.class)).isEqualTo("0a1b2c");
+        assertThat(contributedCodec.decode("0a1b2c", HexId.class)).isEqualTo(id);
+    }
+
+    @Test
+    void uncontributedTypesStayComplexUnderTheDefaultClassification() {
+        String encoded = codec.encode(new HexId("0a1b2c"), HexId.class);
+
+        String json = new String(Base64.getUrlDecoder().decode(encoded), StandardCharsets.UTF_8);
+        assertThat(json).isEqualTo("\"0a1b2c\"");
+    }
+
+    @Test
     void malformedBase64FailsWithCodecException() {
         assertThatThrownBy(() -> codec.decode("not-valid-base64!!!", CompositeId.class))
             .isInstanceOf(DalIdCodecException.class)
@@ -100,7 +119,15 @@ class DalIdCodecTest {
             .hasMessageContaining("composite");
     }
 
-    /** A complex (record) id whose accessor throws while Jackson serializes it. */
+    /**
+     * A string-shaped id used to exercise the contributed simple-type classification.
+     */
+    record HexId(@JsonValue String value) {
+    }
+
+    /**
+     * A complex (record) id whose accessor throws while Jackson serializes it.
+     */
     record ExplodingId(String code) {
         @Override
         public String code() {

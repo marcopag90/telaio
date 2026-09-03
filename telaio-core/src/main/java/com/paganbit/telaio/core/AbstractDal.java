@@ -3,8 +3,9 @@ package com.paganbit.telaio.core;
 import com.paganbit.telaio.core.beans.DalPropertyMerger;
 import com.paganbit.telaio.core.exception.DalEntityNotFoundException;
 import com.paganbit.telaio.core.exception.DalEntityValidationException;
+import com.paganbit.telaio.core.exception.DalInvalidSortException;
+import com.paganbit.telaio.core.json.JsonFieldNameSortRewriter;
 import com.paganbit.telaio.core.transaction.DalTransactionPolicy;
-import com.paganbit.telaio.core.validation.DalMapConverterValidator;
 import com.paganbit.telaio.core.validation.DalValidator;
 import com.turkraft.springfilter.builder.FilterBuilder;
 import com.turkraft.springfilter.converter.FilterStringConverter;
@@ -20,7 +21,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.validation.beanvalidation.SpringValidatorAdapter;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
@@ -39,8 +39,7 @@ import java.util.stream.Stream;
  * @author Marco Pagan
  * @since 1.0.0
  */
-public abstract class AbstractDal<E, I>
-    implements Dal<E, I>, DalValidator<E>, InitializingBean {
+public abstract class AbstractDal<E, I> implements Dal<E, I>, InitializingBean {
 
     //---------------------------------------------------------------------
     // Metadata
@@ -66,23 +65,20 @@ public abstract class AbstractDal<E, I>
     protected ObjectMapper objectMapper;
 
     /**
-     * Spring's {@link SpringValidatorAdapter} for validating entities.
-     * This adapter allows for validation of entities using the configured
-     * validation framework (e.g., Hibernate Validator).
+     * Validates entities before they are persisted.
      */
-    protected SpringValidatorAdapter validatorAdapter;
-
-    /**
-     * Validator for converting maps to entities and validating them.
-     * This uses the configured {@link ObjectMapper} and {@link SpringValidatorAdapter}
-     * to ensure that entities are valid before being persisted.
-     */
-    protected DalMapConverterValidator<E> mapConverterValidator;
+    protected DalValidator dalValidator;
 
     /**
      * Merges properties from a map into an existing entity instance.
      */
     protected DalPropertyMerger propertyMerger;
+
+    /**
+     * Translates sort properties from their JSON wire names to Java property names
+     * and rejects properties the entity does not expose.
+     */
+    protected JsonFieldNameSortRewriter sortRewriter;
 
     //---------------------------------------------------------------------
     // Filter Management
@@ -130,12 +126,12 @@ public abstract class AbstractDal<E, I>
          */
         Objects.requireNonNull(objectMapper, "ObjectMapper must be set before using the service");
         Objects.requireNonNull(propertyMerger, "DalPropertyMerger must be set before using the service");
-        Objects.requireNonNull(validatorAdapter, "SpringValidatorAdapter must be set before using the service");
+        Objects.requireNonNull(dalValidator, "DalValidator must be set before using the service");
         Objects.requireNonNull(filterBuilder, "FilterBuilder must be set before using the service");
         Objects.requireNonNull(filterStringConverter, "FilterStringConverter must be set before using the service");
         Objects.requireNonNull(transactionManager, "PlatformTransactionManager must be set before using the service");
         Objects.requireNonNull(transactionPolicy, "DalTransactionPolicy must be set before using the service");
-        this.mapConverterValidator = new DalMapConverterValidator<>(objectMapper, validatorAdapter, entityClass);
+        Objects.requireNonNull(sortRewriter, "JsonFieldNameSortRewriter must be set before using the service");
     }
 
     public ObjectMapper getObjectMapper() {
@@ -146,24 +142,22 @@ public abstract class AbstractDal<E, I>
     public void setObjectMapper(ObjectMapper objectMapper) {
         Objects.requireNonNull(objectMapper, "ObjectMapper must not be null");
         this.objectMapper = objectMapper;
-        // Reconfigure the converter validator with the new ObjectMapper
-        if (this.mapConverterValidator != null) {
-            this.mapConverterValidator.setObjectMapper(objectMapper);
-        }
-    }
-
-    public SpringValidatorAdapter getValidatorAdapter() {
-        return validatorAdapter;
     }
 
     @Autowired
-    public void setValidatorAdapter(SpringValidatorAdapter validatorAdapter) {
-        Objects.requireNonNull(validatorAdapter, "SpringValidatorAdapter must not be null");
-        this.validatorAdapter = validatorAdapter;
-        // Reconfigure the converter validator with the new SpringValidatorAdapter
-        if (this.mapConverterValidator != null) {
-            this.mapConverterValidator.setValidator(validatorAdapter);
-        }
+    public void setSortRewriter(JsonFieldNameSortRewriter sortRewriter) {
+        Objects.requireNonNull(sortRewriter, "JsonFieldNameSortRewriter must not be null");
+        this.sortRewriter = sortRewriter;
+    }
+
+    public DalValidator getDalValidator() {
+        return dalValidator;
+    }
+
+    @Autowired
+    public void setDalValidator(DalValidator dalValidator) {
+        Objects.requireNonNull(dalValidator, "DalValidator must not be null");
+        this.dalValidator = dalValidator;
     }
 
     public DalPropertyMerger getPropertyMerger() {
@@ -215,10 +209,6 @@ public abstract class AbstractDal<E, I>
         this.transactionPolicy = transactionPolicy;
     }
 
-    public DalMapConverterValidator<E> getMapConverterValidator() {
-        return mapConverterValidator;
-    }
-
     @SuppressWarnings("unchecked")
     private Class<E> resolveEntityClass() {
         Class<?> clazz = Objects.requireNonNull(
@@ -257,9 +247,14 @@ public abstract class AbstractDal<E, I>
         return idClass;
     }
 
-    @Override
+    /**
+     * Validates the entity as an instance of {@link #getEntityClass()}.
+     *
+     * @param target the entity to validate
+     * @throws DalEntityValidationException if validation fails
+     */
     public void validate(E target) throws DalEntityValidationException {
-        this.mapConverterValidator.validate(target);
+        this.dalValidator.validate(target, entityClass);
     }
 
     /**
@@ -318,7 +313,7 @@ public abstract class AbstractDal<E, I>
 
     @Override
     public E create(Map<String, Object> properties) {
-        E entity = mapConverterValidator.convert(properties);
+        E entity = objectMapper.convertValue(properties, entityClass);
         validate(entity);
         final var transaction = finalizeTransaction(transactionManager, transactionPolicy.forCreate());
         return Objects.requireNonNull(transaction.execute(ex -> {
@@ -333,7 +328,7 @@ public abstract class AbstractDal<E, I>
     public Page<E> read(@Nullable FilterNode filter, Pageable pageable) {
         final var transaction = finalizeTransaction(transactionManager, transactionPolicy.forRead());
         FilterNode combinedFilter = combineWithDefaultFilter(filter);
-        Pageable effectivePageable = applyDefaultSort(pageable);
+        Pageable effectivePageable = finalizeSort(pageable);
         Page<E> readResult = transaction.execute(ex -> {
             Page<E> result = executeRead(combinedFilter, effectivePageable);
             result.forEach(this::finalizeAfterRead);
@@ -342,11 +337,39 @@ public abstract class AbstractDal<E, I>
         return Objects.requireNonNull(readResult);
     }
 
-    private Pageable applyDefaultSort(Pageable pageable) {
+    private Pageable finalizeSort(Pageable pageable) {
         if (pageable.getSort().isUnsorted()) {
-            return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), defaultSort());
+            return applyDefaultSort(pageable);
         }
-        return pageable;
+        Sort rewrittenSort = sortRewriter.rewrite(pageable.getSort(), entityClass);
+        rewrittenSort.forEach(order -> validateSortProperty(order.getProperty()));
+        if (rewrittenSort.equals(pageable.getSort())) {
+            // Identity rewrite: keep the caller's Pageable (it may carry custom offset semantics).
+            return pageable;
+        }
+        return pageable.isPaged()
+            ? PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), rewrittenSort)
+            : Pageable.unpaged(rewrittenSort);
+    }
+
+    private Pageable applyDefaultSort(Pageable pageable) {
+        if (pageable.isUnpaged()) {
+            return Pageable.unpaged(defaultSort());
+        }
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), defaultSort());
+    }
+
+    /**
+     * Validates a single sort property, already translated to Java property names.
+     *
+     * <p>Backends override this hook to reject a property the underlying repository does not persist or cannot order
+     * by, throwing a {@link DalInvalidSortException}; the default implementation accepts everything.
+     * The DAL's own {@link #defaultSort()} is never routed through this hook.</p>
+     *
+     * @param property the dot-notation Java property path of one {@link Sort.Order}
+     */
+    protected void validateSortProperty(String property) {
+        // noop
     }
 
     @Override

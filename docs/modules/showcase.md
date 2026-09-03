@@ -7,16 +7,18 @@ itself is compiled to and distributed as Java 21, so this is a property of the d
 ## Purpose
 
 - **Reference implementation:** Complete working examples of every Telaio feature
-- **Developer playground:** Local PostgreSQL via docker-compose for interactive exploration
-- **Test coverage:** Integration tests with Testcontainers PostgreSQL
+- **Developer playground:** Local PostgreSQL and MongoDB via docker-compose for interactive exploration
+- **Test coverage:** Integration tests with Testcontainers PostgreSQL and MongoDB
 - **Feature showcase:** DALs demonstrating security, audit, metrics, RBAC, lifecycle hooks, filtering
+- **Two backends, one API:** JPA and MongoDB DALs side by side, each with its own transaction manager, on the same
+  `/dal/v1` surface
 
 ## Key Demo DALs
 
 | DAL               | Highlights                                                                             | Key File                 |
 |-------------------|----------------------------------------------------------------------------------------|--------------------------|
 | **announcements** | Baseline: no security, no audit, metrics disabled                                      | `AnnouncementDalService` |
-| **articles**      | Read-only (via `operations`), audit, default filter, role-based visibility             | `ArticleDalService`      |
+| **articles**      | Read-only (via `operations`), audit, default filter via type-safe builder (`@Filterable`), role-based visibility | `ArticleDalService`      |
 | **products**      | Full: auth + property-based RBAC, lifecycle hooks, multi-entity transactions           | `ProductDalService`      |
 | **employees**     | JsonView RBAC with hierarchical role visibility                                        | `EmployeeDalService`     |
 | **bulletins**     | Custom auth adapter (admin writes), metrics disabled                                   | `BulletinDalService`     |
@@ -25,6 +27,7 @@ itself is compiled to and distributed as Java 21, so this is a property of the d
 | **app-settings**  | Internal DAL (no REST/OpenAPI)                                                         | `AppSettingDalService`   |
 | **feed**          | Append-only, `operations={CREATE,READ}`                                                | `FeedEntryDalService`    |
 | **tickets**       | Calls another DAL over the remote `telaio-rest-client` (DAL-to-DAL round-trip)         | `SupportTicketDalService`|
+| **notifications** | MongoDB backend (`MongoDal`, `String` id, `@Version`), real `MongoTransactionManager` on a replica set, audit on a non-JPA store | `NotificationDalService` |
 
 ## REST Client: DAL-to-DAL Round-Trip
 
@@ -59,7 +62,7 @@ telaio:
 ```
 
 ```java
-// ShowcaseRestClientConfig: basic auth for the "self" connection, the idiomatic per-connection hook
+// TelaioRestClientConfig: basic auth for the "self" connection, the idiomatic per-connection hook
 @Bean
 TelaioRestClientCustomizer selfConnectionBasicAuth(
         @Value("${telaio.showcase.self-client.username:user}") String username,
@@ -81,7 +84,7 @@ end-to-end by `TicketFeedRoundTripIT`.
 ### Prerequisites
 
 - **JDK 25+** (showcase target is Java 25)
-- **Docker** (for PostgreSQL)
+- **Docker** (for PostgreSQL and MongoDB)
 - **Maven 3.9+**
 
 ### Build and Start
@@ -115,7 +118,8 @@ open http://localhost:8080/swagger-ui.html
 
 ### Development
 
-The showcase uses **PostgreSQL 17** started automatically via `spring-boot-docker-compose`:
+The showcase uses **PostgreSQL 17** (the JPA DALs) and **MongoDB 8** (the `notifications` DAL), both started
+automatically via `spring-boot-docker-compose` from the same `compose.yaml`:
 
 ```yaml
 # compose.yaml
@@ -129,14 +133,48 @@ services:
     ports:
       - '5432:5432'
     volumes:
-      # Named volume keeps the data across application stop/restart and container recreation.
       - telaio_showcase_pgdata:/var/lib/postgresql/data
+
+  mongo:
+    image: 'mongo:8'
+    command: ['mongod', '--replSet', 'rs0', '--bind_ip_all']
+    environment:
+      MONGO_INITDB_DATABASE: telaio_showcase
+    ports:
+      - '27017:27017'
+    volumes:
+      - telaio_showcase_mongodata:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval \"...\""]
 
 volumes:
   telaio_showcase_pgdata:
+  telaio_showcase_mongodata:
 ```
 
-The named volume `telaio_showcase_pgdata` persists data across restarts.
+The named volumes persist data across restarts. Boot derives both connections from the compose services (no
+`spring.datasource.*` / `spring.data.mongodb.*` in `application.yaml`).
+
+**MongoDB as a single-node replica set.** MongoDB accepts multi-document transactions only on a replica set, and the
+showcase demonstrates the production-grade configuration: `MongoConfiguration` declares a real
+`MongoTransactionManager` under the Telaio qualifier (`MongoDal.TRANSACTION_MANAGER_BEAN_NAME`, `defaultCandidate =
+false` — in a mixed jpa+mongo application a plain bean would be a second by-type transaction-manager candidate), so
+every `notifications` operation runs in a transaction while the JPA DALs keep Boot's `JpaTransactionManager`. The
+`mongo` service therefore starts with `--replSet` and its healthcheck initializes the replica set (`rs.initiate` with
+an explicit `localhost:27017` member, so the configuration persisted in the volume stays valid across container
+recreation) and reports healthy only once the node is the writable primary; since Boot runs `docker compose up
+--wait`, the application never starts against a server that cannot open a transaction. See the
+[Mongo module docs](./mongo.md#transactions) for the rationale.
+
+**Scoped repository scans.** With two Spring Data stores on the classpath, Spring Boot's auto-configured repository scans
+both cover the whole application package in *strict multi-store mode*: each store still assigns every repository
+correctly, but logs an INFO line ("Could not safely identify store assignment …") for every candidate that belongs to
+the other store. The showcase silences that noise at the source: `JpaConfiguration` and `MongoConfiguration` declare
+`@EnableJpaRepositories` / `@EnableMongoRepositories` with an explicit `includeFilters` on the store interface
+(`JpaRepository` / `MongoRepository`), so each scan only ever sees its own repositories — explicit filters bypass the
+strict matching entirely. Both scans are anchored to the `dal` package subtree via the `DalPackage` marker interface
+(`basePackageClasses`), so the rest of the application is never scanned for repositories at all. New DALs need nothing: any repository extending a store-specific interface (which
+`JpaDalRepository` and `MongoDalRepository` both do) is picked up by the right scan automatically.
 
 **Schema:** Hibernate auto-schema-update (see `application.yaml`):
 
@@ -147,37 +185,43 @@ spring:
       ddl-auto: update
 ```
 
-**Seeding:** `DataInitializer` populates demo data **idempotently** on startup:
+**Seeding:** demo data is populated **idempotently** on startup. Each `dal/*` package owns a small `DemoSeeder`
+bean (e.g. `ArticleSeeder`, `NotificationSeeder`) extending `AbstractDemoSeeder`, whose guard skips the population
+step when the aggregate's repository is not empty — so restarts against the persistent stores never duplicate rows or
+documents. `DataInitializer` merely runs them in `@Order` (reference data such as departments first):
 
 ```java
+// seed/AbstractDemoSeeder — the guard every seeder inherits (works for JPA and Mongo repositories alike)
+@Override
+public final void seed() {
+    if (repository.count() > 0) {
+        return;
+    }
+    populate();
+}
 
+// dal/notification/NotificationSeeder — one seeder per aggregate, next to its entity, repository and DAL
 @Component
-public class DataInitializer implements CommandLineRunner {
-
-    private final AnnouncementRepository announcementRepository;
-    // ... other repositories, assigned in an explicit constructor
-
+class NotificationSeeder extends AbstractDemoSeeder {
+    // ...
     @Override
-    public void run(String @NonNull ... args) {
-        seedArticles();
-        seedProducts();
-        seedAnnouncements();
-        // ... seed other entities
+    protected void populate() {
+        repository.save(notification("ada@example.com", "Welcome aboard", "...", NotificationChannel.EMAIL));
+        // ...
     }
+}
 
-    private void seedBulletins() {
-        if (bulletinRepository.count() > 0) {
-            return;  // Each seed* method is guarded, so restarts don't duplicate data
-        }
-        // ... build and save demo rows
-    }
+// DataInitializer — a CommandLineRunner that executes every DemoSeeder bean
+@Override
+public void run(String... args) {
+    seeders.forEach(DemoSeeder::seed);
 }
 ```
 
 ### Testing
 
-Tests use **Testcontainers** to spin up a fresh PostgreSQL 17 container. All integration tests extend a shared base
-class:
+Tests use **Testcontainers** to spin up a fresh PostgreSQL 17 container and a fresh MongoDB 8 container. All
+integration tests extend a shared base class:
 
 ```java
 
@@ -186,14 +230,15 @@ class:
 @AutoConfigureTestRestTemplate
 @Import({TestcontainersConfiguration.class, AuditCaptureTestConfig.class})
 abstract class AbstractShowcaseIT {
-    // Boots the whole app on a random port against a real PostgreSQL (Testcontainers,
-    // wired via @ServiceConnection in TestcontainersConfiguration) and drives it over
-    // genuine HTTP with TestRestTemplate — tests run against PostgreSQL, not H2
+    // Boots the whole app on a random port against a real PostgreSQL and a real MongoDB
+    // (Testcontainers, wired via @ServiceConnection in TestcontainersConfiguration) and drives
+    // it over genuine HTTP with TestRestTemplate — tests run against the real stores, not H2
 }
 ```
 
-Docker is required for tests; see `TestcontainersConfiguration` (which declares the `@ServiceConnection` PostgreSQL
-container).
+Docker is required for tests; see `TestcontainersConfiguration`, which declares both `@ServiceConnection`
+containers. The Mongo one is created with `.withReplicaSet()` — Testcontainers 2.x starts a standalone `mongod`
+otherwise, and the real `MongoTransactionManager` the showcase declares needs a replica set.
 
 ## Security
 
@@ -219,7 +264,8 @@ curl -u developer:developer http://localhost:8080/dal/v1/products
 **Articles (read-only for non-power-users):**
 
 - `developer` / `admin`: See all (DRAFT, PUBLISHED, ARCHIVED)
-- `user`: See only PUBLISHED articles (implicit filter in `defaultFilter()`)
+- `user`: See only PUBLISHED articles (implicit filter in `defaultFilter()`, built with the
+  compile-time-generated `ArticleFilter` type-safe builder — `Article` is annotated `@Filterable`)
 
 **Products (write restricted):**
 
@@ -284,14 +330,18 @@ telaio-showcase/
 ├── compose.yaml
 ├── src/main/java/com/paganbit/telaio/showcase/
 │   ├── TelaioShowcaseApplication.java
-│   ├── DataInitializer.java
+│   ├── DataInitializer.java      (runs every DemoSeeder bean at startup)
+│   ├── seed/
+│   │   ├── DemoSeeder.java
+│   │   └── AbstractDemoSeeder.java (idempotent "skip when not empty" guard)
 │   ├── config/
 │   │   ├── JacksonConfiguration.java
 │   │   ├── JpaConfiguration.java
+│   │   ├── MongoConfiguration.java   (qualified MongoTransactionManager — replica-set transactions)
 │   │   ├── SecurityConfiguration.java
-│   │   ├── ShowcaseRestClientConfig.java
+│   │   ├── TelaioRestClientConfig.java
 │   │   └── SwaggerConfiguration.java
-│   ├── dal/
+│   ├── dal/                       (each package: entity, repository, DAL service, *Seeder)
 │   │   ├── announcement/
 │   │   ├── article/
 │   │   ├── product/
@@ -301,7 +351,8 @@ telaio-showcase/
 │   │   ├── translation/
 │   │   ├── setting/
 │   │   ├── feed/
-│   │   └── ticket/       (SupportTicketDalService — DAL-to-DAL round-trip via the REST client)
+│   │   ├── ticket/       (SupportTicketDalService — DAL-to-DAL round-trip via the REST client)
+│   │   └── notification/ (NotificationDalService — the MongoDB-backed DAL)
 │   └── role/
 │       └── UserRole.java
 ├── src/main/resources/
@@ -350,7 +401,9 @@ Run tests:
 mvn -pl telaio-showcase test
 ```
 
-Tests run against a containerized PostgreSQL, not H2.
+Tests run against a containerized PostgreSQL and a containerized MongoDB replica set, not H2 or an embedded Mongo.
+`NotificationCrudIT` covers the Mongo DAL end-to-end; `TelaioShowcaseApplicationTests` asserts that the JPA and Mongo
+DALs run under two different transaction managers.
 
 ## See Also
 

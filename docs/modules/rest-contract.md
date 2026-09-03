@@ -35,10 +35,12 @@ The artifact is split in two layers so that a future `v2` can coexist without di
 - **`com.paganbit.telaio.rest.contract.v1`** — the types that define the `/dal/v1` wire shape:
   `DalApiV1` and `ValidationError`.
 
-The simple-vs-composite classification is delegated to `TypeUtil.isComplexType` from
-`telaio-introspection` (`DefaultSimpleTypePredicate`), evaluated on the **declared** ID type —
-the same input the server derives from `Dal#getIdClass()` and the typed client receives as
-`Class<ID>`.
+The simple-vs-composite classification is delegated to telaio-introspection's
+`DefaultSimpleTypePredicate`, evaluated on the **declared** ID type — the same input the server
+derives from `Dal#getIdClass()` and the typed client receives as `Class<ID>`. On the server the
+framework aggregates every `SimpleTypeContributor` bean into the predicate, so a persistence
+backend can classify its identifier type as simple. A `DalIdCodec` built
+without an explicit predicate uses the default classification.
 
 > **Note on paging parameter names:** `page`/`size`/`sort` are Spring Data's *default* web
 > parameter names. Server applications must not customize them (`spring.data.web.pageable.*` /

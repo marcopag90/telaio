@@ -10,8 +10,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -49,6 +48,27 @@ class DefaultDalMetricsFlushSchedulerTest {
 
         assertThat(first.received).hasSize(1);
         assertThat(second.received).hasSize(1);
+    }
+
+    @Test
+    void constructor_shouldRejectNonPositiveFlushInterval() {
+        StubAggregator aggregator = new StubAggregator();
+        assertThatIllegalArgumentException().isThrownBy(() ->
+            new DefaultDalMetricsFlushScheduler(aggregator, List.of(), Duration.ZERO));
+        assertThatIllegalArgumentException().isThrownBy(() ->
+            new DefaultDalMetricsFlushScheduler(aggregator, List.of(), Duration.ofSeconds(-1)));
+    }
+
+    @Test
+    void flushNow_whenDrainingFails_shouldLogAndNotPropagate() {
+        DalMetricsAggregator failing = mock(DalMetricsAggregator.class);
+        doThrow(new IllegalStateException("boom")).when(failing).drainCompleted();
+        RecordingStore store = new RecordingStore();
+        DalMetricsFlushScheduler scheduler = new DefaultDalMetricsFlushScheduler(
+            failing, List.of(store), Duration.ofMinutes(1));
+
+        assertThatCode(scheduler::flushNow).doesNotThrowAnyException();
+        assertThat(store.received).isEmpty();
     }
 
     @Test

@@ -3,18 +3,19 @@ package com.paganbit.telaio.core.validation;
 import com.paganbit.telaio.core.exception.DalEntityValidationException;
 
 /**
- * Interface for validating objects in the Telaio Data Access Layer.
- * Implementations of this interface provide validation logic for specific types.
+ * Validates entities in the Telaio Data Access Layer.
  *
- * @param <T> the type of object to validate
+ * @author Marco Pagan
+ * @since 2.0.0
  */
-public interface DalValidator<T> {
+public interface DalValidator {
 
     /**
      * Validates the provided target object.
      *
      * @param target the object to validate
+     * @param type   the entity type the object is validated as
      * @throws DalEntityValidationException if validation fails, containing the validation errors
      */
-    void validate(T target) throws DalEntityValidationException;
+    void validate(Object target, Class<?> type) throws DalEntityValidationException;
 }

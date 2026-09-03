@@ -13,10 +13,13 @@ import java.util.Map;
  * being performed. Telaio exposes the entity directly (there is no DTO layer), so {@code T} is the
  * entity type.</p>
  *
- * <p>Both methods are keyed by {@link DalOperationType} so a single implementation can differentiate
- * its behavior per operation (e.g., apply a stricter mask on update than on create) without widening
- * the contract. The default implementations are pass-through, so an implementor only overrides the
- * direction(s) it actually constrains; {@link NoopDalRbacAdapter} is exactly the no-op case.</p>
+ * <p>Both filtering methods are keyed by {@link DalOperationType} so a single implementation can
+ * differentiate its behavior per operation.
+ * A third hook, {@link #canFilterOn}, closes the read side: a property hidden from
+ * the response must not be usable as a filter criterion or as a sort key either, or its value could be
+ * inferred from the narrowed page or from the ordering. The default implementations are pass-through, so
+ * an implementor only overrides the direction(s) it actually constrains; {@link NoopDalRbacAdapter} is
+ * exactly the no-op case.</p>
  *
  * @param <T> the exposed entity type
  * @author Marco Pagan
@@ -62,6 +65,9 @@ public interface DalRbacAdapter<T> {
      * as a generated {@code id}), even when those properties are visible to the principal. The result is
      * serialized directly to the wire, so the entity stays the boundary object (no DTO layer).</p>
      *
+     * <p>An implementation that hides properties on read must also override {@link #canFilterOn}, or the
+     * hidden fields can still be filtered on through {@code q=} and sorted on through {@code sort=}.</p>
+     *
      * @param operation      the operation being performed
      * @param entity         the entity produced by the operation (can be {@code null})
      * @param authentication the current authentication context
@@ -74,5 +80,34 @@ public interface DalRbacAdapter<T> {
         Authentication authentication
     ) {
         return entity;
+    }
+
+    /**
+     * Whether the principal may reference {@code fieldPath} in the filter or in the sort of a
+     * {@link DalOperationType#READ} operation.
+     *
+     * <p>Invoked once per field referenced by the caller's filter and once per sort key of the caller's
+     * pageable, before the read runs — the rule is identical: hiding a field from the response is not
+     * enough, since a principal could still filter on it and work out its value from the rows that
+     * match, or sort on it and learn the relative order of the hidden values. The rule to implement is
+     * simple — return {@code true} exactly for the fields the principal can see in the read response. A
+     * denied field is rejected with the same generic {@code 400} client fault as an unknown field, so
+     * the answer does not reveal whether the field exists.</p>
+     *
+     * <p>{@code fieldPath} is the dot-notation path <em>as written by the caller</em>: it may use the JSON
+     * wire name of a property as well as its Java name — both are accepted by the backends — so
+     * implementations must resolve it against the entity rather than compare strings.</p>
+     *
+     * <p>The default accepts every field — a compatibility choice for adapters written before this hook
+     * existed. An adapter that constrains {@link #filterOutput} must override it, or the fields it hides
+     * can still be filtered and sorted on.</p>
+     *
+     * @param fieldPath      the field path referenced by the filter or the sort, as written by the caller
+     * @param authentication the current authentication context
+     * @return {@code true} to accept the reference, {@code false} to reject the whole request
+     * @since 2.0.0
+     */
+    default boolean canFilterOn(String fieldPath, Authentication authentication) {
+        return true;
     }
 }

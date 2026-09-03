@@ -3,6 +3,7 @@ package com.paganbit.telaio.openapi.generator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.paganbit.telaio.core.adapter.DalOperationType;
 import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
+import com.paganbit.telaio.introspection.DefaultSimpleTypePredicate;
 import com.paganbit.telaio.openapi.fixture.CompositeId;
 import com.paganbit.telaio.openapi.fixture.Product;
 import com.paganbit.telaio.openapi.introspection.DalEntitySchemaResolver;
@@ -34,9 +35,11 @@ class DalPathsGeneratorTest {
     private final DalEntitySchemaResolver schemaResolver = new DalEntitySchemaResolver();
 
     private DalPathsGenerator generator(boolean tagPerDal) {
-        FilterParameterDescriber describer =
-            new FilterParameterDescriber(new JsonPropertyPathResolver(JsonMapper.builder().build()), true);
-        return new DalPathsGenerator(schemaResolver, describer, JsonMapper.builder().build(), tagPerDal);
+        final var jsonPathResolver = new JsonPropertyPathResolver(JsonMapper.builder().build());
+        final var simpleTypePredicate = new DefaultSimpleTypePredicate();
+        final var describer = new FilterParameterDescriber(jsonPathResolver, simpleTypePredicate, true);
+        return new DalPathsGenerator(schemaResolver, describer, JsonMapper.builder().build(),
+            simpleTypePredicate, tagPerDal);
     }
 
     private OpenAPI generate(boolean tagPerDal, Class<?> idClass) {

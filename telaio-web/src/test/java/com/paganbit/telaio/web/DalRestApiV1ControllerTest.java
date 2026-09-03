@@ -1,6 +1,8 @@
 package com.paganbit.telaio.web;
 
 import com.paganbit.telaio.core.adapter.DalOperationAdapter;
+import com.paganbit.telaio.core.exception.DalInvalidFilterException;
+import com.paganbit.telaio.core.exception.DalInvalidSortException;
 import com.paganbit.telaio.core.exception.DalNotFoundException;
 import com.paganbit.telaio.core.registry.DalManager;
 import com.paganbit.telaio.web.adapter.WebDalOperationAdapter;
@@ -8,6 +10,7 @@ import com.paganbit.telaio.web.exception.TelaioWebExceptionHandler;
 import com.paganbit.telaio.web.registry.WebDalOperationAdapterRegistry;
 import com.turkraft.springfilter.converter.FilterStringConverter;
 import com.turkraft.springfilter.parser.InvalidSyntaxException;
+import com.turkraft.springfilter.parser.node.FieldNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -142,6 +145,63 @@ class DalRestApiV1ControllerTest {
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
             .andExpect(jsonPath("$.status").value(400))
             .andExpect(jsonPath("$.detail").value("Malformed filter expression"));
+    }
+
+    @Test
+    void readCompanies_unknownFilterFunction_shouldReturnBadRequest() throws Exception {
+        // Turkraft's parser rejects a function name it has no definition for with an
+        // UnsupportedOperationException; that is client input, not a server fault.
+        doThrow(new UnsupportedOperationException("Unrecognized function `nosuchfn`"))
+            .when(filterStringConverter).convert("nosuchfn(name) : 1");
+
+        mockMvc.perform(get("/dal/v1/company")
+                .param("q", "nosuchfn(name) : 1")
+                .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.detail").value("Invalid filter expression"));
+    }
+
+    @Test
+    void readCompanies_filterRejectedByBackend_shouldReturnBadRequest() throws Exception {
+        // A well-formed filter the backend cannot apply (unknown field, unconvertible literal) surfaces
+        // from the adapter as DalInvalidFilterException — on every backend — and maps to a generic 400.
+        FieldNode unknownField = new FieldNode("nope");
+        doReturn(unknownField).when(filterStringConverter).convert("nope:1");
+        @SuppressWarnings("unchecked")
+        WebDalOperationAdapter<Object, Long> rejecting = mock(WebDalOperationAdapter.class);
+        doThrow(DalInvalidFilterException.unknownField("nope", "nope"))
+            .when(rejecting).read(any(), any());
+        doReturn(rejecting).when(adapterRegistry).get("strict");
+
+        mockMvc.perform(get("/dal/v1/strict")
+                .param("q", "nope:1")
+                .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.detail").value("Invalid filter expression"));
+    }
+
+    @Test
+    void readCompanies_sortRejectedByBackend_shouldReturnBadRequest() throws Exception {
+        // A sort the read cannot honor (unknown property, hidden property) surfaces from the adapter as
+        // DalInvalidSortException — on every backend and from the security interceptor — and maps to a
+        // generic 400 distinct from the filter detail.
+        @SuppressWarnings("unchecked")
+        WebDalOperationAdapter<Object, Long> rejecting = mock(WebDalOperationAdapter.class);
+        doThrow(DalInvalidSortException.unknownProperty("nope", "nope"))
+            .when(rejecting).read(any(), any());
+        doReturn(rejecting).when(adapterRegistry).get("strict");
+
+        mockMvc.perform(get("/dal/v1/strict")
+                .param("sort", "nope,desc")
+                .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.detail").value("Invalid sort parameter"));
     }
 
     @Test

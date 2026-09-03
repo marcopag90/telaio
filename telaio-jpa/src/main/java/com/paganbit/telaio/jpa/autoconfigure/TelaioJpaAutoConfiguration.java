@@ -1,18 +1,17 @@
 package com.paganbit.telaio.jpa.autoconfigure;
 
 import com.paganbit.telaio.core.autoconfigure.TelaioCoreAutoConfiguration;
+import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
 import com.paganbit.telaio.jpa.filter.JsonAwareFilterSpecificationConverter;
 import com.turkraft.springfilter.converter.FilterSpecificationConverter;
 import com.turkraft.springfilter.converter.FilterSpecificationConverterImpl;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.json.JsonMapper;
 
 import javax.sql.DataSource;
 
@@ -45,20 +44,20 @@ public class TelaioJpaAutoConfiguration {
      * the converter injected into {@code JpaDal}.
      *
      * @param delegate     Turkraft's autoconfigured converter to delegate the actual conversion to
-     * @param objectMapper provider of the application {@link ObjectMapper} (falls back to a default
-     *                     mapper if none is defined), used to introspect {@code @JsonProperty} renames
+     * @param pathResolver the path resolver, used to translate {@code @JsonProperty} renames
      * @return the JSON-aware primary converter
      */
     @Bean
     @Primary
     @ConditionalOnBean(FilterSpecificationConverterImpl.class)
+    @ConditionalOnMissingBean(
+        value = FilterSpecificationConverter.class,
+        ignored = FilterSpecificationConverterImpl.class
+    )
     FilterSpecificationConverter jsonAwareFilterSpecificationConverter(
         FilterSpecificationConverterImpl delegate,
-        ObjectProvider<ObjectMapper> objectMapper
+        JsonPropertyPathResolver pathResolver
     ) {
-        return new JsonAwareFilterSpecificationConverter(
-            delegate,
-            objectMapper.getIfAvailable(() -> JsonMapper.builder().build())
-        );
+        return new JsonAwareFilterSpecificationConverter(delegate, pathResolver);
     }
 }

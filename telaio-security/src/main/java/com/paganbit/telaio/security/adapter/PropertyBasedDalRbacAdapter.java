@@ -126,14 +126,18 @@ public abstract class PropertyBasedDalRbacAdapter<T> implements DalRbacAdapter<T
     private ObjectMapper objectMapper = JsonMapper.builder().build();
 
     /**
-     * Resolves Java-property field paths to their JSON-name equivalents (caches per type/view).
+     * Resolves Java-property field paths to their JSON-name equivalents.
      */
     private JsonPropertyPathResolver pathResolver = new JsonPropertyPathResolver(objectMapper);
 
-    @Autowired(required = false)
+    @Autowired
     public void setObjectMapper(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
-        this.pathResolver = new JsonPropertyPathResolver(objectMapper);
+    }
+
+    @Autowired
+    public void setPathResolver(JsonPropertyPathResolver pathResolver) {
+        this.pathResolver = pathResolver;
     }
 
     @SuppressWarnings("unchecked")
@@ -297,13 +301,44 @@ public abstract class PropertyBasedDalRbacAdapter<T> implements DalRbacAdapter<T
     }
 
     // ------------------------------------------------------------------------
+    // Filter-field check (reads)
+    // ------------------------------------------------------------------------
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>The path is resolved to Java property names (JSON wire names and Java names are both accepted,
+     * as the backends do) and checked with the very rules {@link #pruneOutput} applies to the response:
+     * the property must be serialized (a write-only or {@code @JsonIgnore}d property never appears in the
+     * response, so it is not filterable even when listed in the readable map) and granted for read —
+     * exactly, or through a granted descendant (the field is then present as a pruned object). A bare
+     * grant on a parent does <em>not</em> extend to its children — they are pruned from the response, so
+     * they cannot be filtered on either. The keys below a {@code Map} property and the
+     * {@code $id}/{@code $ref}/{@code $db} accessors of a stored reference are not serialized properties
+     * and are never filterable through this adapter. An unresolvable path is denied.</p>
+     */
+    @Override
+    public boolean canFilterOn(String fieldPath, Authentication auth) {
+        final var resolvedJavaPath = pathResolver.resolveJavaPath(exposedType, fieldPath);
+        if (!resolvedJavaPath.resolved()) {
+            return false;
+        }
+        String javaPath = resolvedJavaPath.javaPath();
+        if (pathResolver.toJsonPath(exposedType, javaPath, true) == null) {
+            return false; // not part of the serialized form: the response never shows it
+        }
+        Set<String> allowedJavaFields = resolveEffectiveFields(auth, readReadable.get());
+        return allowedJavaFields.contains(javaPath) || hasDescendant(allowedJavaFields, javaPath);
+    }
+
+    // ------------------------------------------------------------------------
     // Java-property -> JSON name translation
     // ------------------------------------------------------------------------
 
     /**
      * Translates Java-property-name field paths into their JSON-name equivalents for the given root type,
      * honoring {@code PropertyNamingStrategy} and {@code @JsonProperty}. Paths that cannot be resolved are
-     * dropped (deny by default). Delegates to the shared {@link JsonPropertyPathResolver}.
+     * dropped (deny by default). Delegates to the {@link JsonPropertyPathResolver}.
      *
      * @param forSerialization {@code true} to use the serialization view (output), {@code false} for the
      *                         deserialization view (input)

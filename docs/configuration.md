@@ -208,7 +208,7 @@ curl "http://localhost:8080/actuator/telaiometrics?top=5"
 
 ## Security Configuration
 
-**Prefix**: `telaio.security`
+**Prefix**: none — security is not property-driven.
 
 Telaio does not define top-level security properties. Security is controlled via:
 

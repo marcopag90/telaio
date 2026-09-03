@@ -15,10 +15,20 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 class DefaultDalMetricsAggregatorTest {
 
     private final LatencyHistogramScale scale = LatencyHistogramScale.of(Duration.ofMillis(1), 2.0, 4);
+
+    @Test
+    void constructor_shouldRejectNonPositiveBucketDuration() {
+        Clock clock = Clock.fixed(Instant.parse("2026-06-12T10:00:00Z"), ZoneOffset.UTC);
+        assertThatIllegalArgumentException().isThrownBy(() ->
+            new DefaultDalMetricsAggregator(scale, Duration.ZERO, clock));
+        assertThatIllegalArgumentException().isThrownBy(() ->
+            new DefaultDalMetricsAggregator(scale, Duration.ofSeconds(-1), clock));
+    }
 
     /**
      * A clock whose instant can be advanced between calls, to drive bucket rotation deterministically.

@@ -5,13 +5,23 @@ import com.paganbit.telaio.metrics.autoconfigure.TelaioMetricsProperties.Jdbc.Sc
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.sql.init.AbstractScriptDatabaseInitializer.Scripts;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabase;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class JdbcDalMetricsSchemaInitializerTest {
 
@@ -98,6 +108,34 @@ class JdbcDalMetricsSchemaInitializerTest {
         assertThat(initialized).isTrue();
         assertThat(jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM telaio_metrics_bucket", Integer.class)).isZero();
+    }
+
+    @Test
+    void runScripts_shouldHonorAnExplicitEncodingAndSubstituteTheTableName() {
+        TelaioMetricsProperties.Jdbc jdbc = jdbc(SchemaInitialization.NEVER, null);
+        jdbc.setTableName("encoded_metrics");
+        JdbcDalMetricsSchemaInitializer initializer = new JdbcDalMetricsSchemaInitializer(database, jdbc);
+        Resource ddl = new ByteArrayResource(
+            "CREATE TABLE @@table_name@@ (id INT)".getBytes(StandardCharsets.UTF_8), "inline ddl");
+
+        initializer.runScripts(new Scripts(List.of(ddl)).encoding(StandardCharsets.UTF_8));
+
+        assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM encoded_metrics", Integer.class)).isZero();
+    }
+
+    @Test
+    void runScripts_withUnreadableScript_shouldFailWithTheScriptDescription() throws IOException {
+        JdbcDalMetricsSchemaInitializer initializer =
+            new JdbcDalMetricsSchemaInitializer(database, jdbc(SchemaInitialization.NEVER, null));
+        Resource broken = mock(Resource.class);
+        when(broken.getContentAsString(any())).thenThrow(new IOException("disk gone"));
+        when(broken.getDescription()).thenReturn("broken script");
+        Scripts scripts = new Scripts(List.of(broken));
+
+        assertThatThrownBy(() -> initializer.runScripts(scripts))
+            .isInstanceOf(UncheckedIOException.class)
+            .hasMessageContaining("broken script")
+            .hasCauseInstanceOf(IOException.class);
     }
 
     @Test

@@ -2,7 +2,13 @@ name: CI
 
 on:
   pull_request:
-    branches: [ development ]
+    # main accepts contributor hotfix PRs only (CONTRIBUTING.md): the `branches`
+    # filter matches the base branch, so PRs to main from non-hotfix/* head branches
+    # are filtered out by the job-level gate below instead. That gate is safe on main
+    # because "build" is a required check only on the development ruleset — on main
+    # a skipped run wedges nothing, and it must NOT become required there (it would
+    # block the release-finish/hotfix-finish direct pushes).
+    branches: [ development, main ]
     # NO paths filter here: "build" is the required status check on the development
     # ruleset. A workflow-level filter would leave docs-only PRs with the check stuck
     # on "Expected" (unmergeable). Docs-only PRs are handled by the "changes" job
@@ -43,6 +49,11 @@ jobs:
   # output) yields "run the build". This job is NOT a required check and its name
   # is free to change — do not add it to the ruleset.
   changes:
+    # PRs to main run CI only from hotfix/* head branches (the contributor hotfix
+    # flow); any other PR targeting main gets no CI on purpose. Skipping here also
+    # skips `build` (its `if` checks this job's result), and skipped is harmless on
+    # main — see the trigger comment at the top of this file.
+    if: github.event_name != 'pull_request' || github.base_ref != 'main' || startsWith(github.head_ref, 'hotfix/')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -96,21 +107,23 @@ jobs:
   build:
     name: build
     needs: changes
-    # Skip ONLY on an explicit code=false (docs-only PR): the skipped job reports
-    # "skipped", which satisfies the required check, so docs-only PRs merge without
-    # the Maven build. Any other state — changes failed, output missing — runs the
-    # build (fail open; note a job skipped because its dependency FAILED would also
+    # Skip on an explicit code=false (docs-only PR: the skipped job reports
+    # "skipped", which satisfies the required check, so the PR merges without the
+    # Maven build) or when `changes` was itself skipped by its main/hotfix gate —
+    # without the `result != 'skipped'` clause, !cancelled() would run the build
+    # anyway. Any other state — changes failed, output missing — runs the build
+    # (fail open; note a job skipped because its dependency FAILED would also
     # count as a passing check, which this condition deliberately prevents).
     # !cancelled() keeps cancel-in-progress working and suppresses the implicit
     # success() so the comparison alone decides.
-    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    if: ${{ !cancelled() && needs.changes.result != 'skipped' && needs.changes.outputs.code != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
 
       - name: Set up JDK 25
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '25'

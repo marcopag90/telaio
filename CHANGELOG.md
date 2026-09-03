@@ -6,6 +6,61 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-09-03
+
+MongoDB joins JPA as a shipped backend, field-level security now also covers filtering and
+sorting, and an invalid `q=` or `sort=` gives the same `400` on both backends. Validation and
+field-name resolution moved to application-wide beans, which breaks a few APIs.
+
+### ⭐ New Features
+
+- **MongoDB backend** (`telaio-mongo`): a second `Dal` implementation, on Spring Data MongoDB,
+  with the same filtering and sorting contract as JPA. It runs next to `telaio-jpa` behind one
+  `/dal/v1` surface, with its own transaction manager.
+- **Field-level security now covers `q=` and `sort=`.** A role that cannot read a field can no
+  longer filter or sort on it, so a hidden value cannot be inferred from the rows or the order
+  returned. Override `DalRbacAdapter.canFilterOn` to decide; both built-in adapters already follow
+  the read permissions. A rejected field gives the same generic `400` as an unknown one.
+- **Metrics can be stored in their own database.** `@TelaioMetricsDataSource` and
+  `@TelaioMetricsTransactionManager` pick the DataSource, and optionally the transaction manager,
+  the JDBC store writes through.
+
+### 🐞 Bug Fixes
+
+- **An unusable filter is a `400` on both backends.** A `q=` field the entity does not expose or
+  persist, or a function the backend cannot run, used to be a `500` on JPA and a silently empty
+  page on Mongo. Field names are accepted in their JSON or their Java spelling.
+- **An unusable sort is a `400` on both backends**, where an unknown property used to be a `500`
+  on JPA and silently ignored on Mongo. Sorting now accepts JSON field names too.
+- Reading with an unpaged and unsorted `Pageable` no longer fails while applying the default sort.
+- The metrics store no longer borrows the application's transaction manager. That broke startup
+  when several were present, and could write metrics into the wrong database.
+- Library modules build with JDK 21 again. The build required JDK 25 everywhere; it now follows
+  each module's target, and only the showcase needs 25.
+
+### ⛔ Deprecations & Removals
+
+- **Breaking:** validation and field-name resolution are now application-wide beans, one each
+  instead of one per DAL. `DalValidator` loses its type parameter, becoming
+  `validate(Object target, Class<?> type)`, and `DalMapConverterValidator` is gone. Code that
+  builds a DAL, a filter converter or the security interceptor by hand must pass the new beans;
+  everything wired by Spring is unaffected. An `ObjectMapper` bean is now required, and
+  `telaio-core` brings one.
+- **Breaking:** under field-level security, a field that does not exist is a validation failure
+  rather than a denied attempt. Only an existing but hidden field is audited as `DENIED`, an
+  unknown one as `VALIDATION`. Clients see the same generic `400` either way.
+- **Breaking:** `TypeUtil` is removed from `telaio-introspection`. Inject the
+  `DefaultSimpleTypePredicate` bean instead.
+
+### 📔 Documentation
+
+- Showcase: a MongoDB-backed `notifications` DAL runs next to the JPA ones, demonstrating both
+  backends on a single `/dal/v1` surface.
+
+### 🔨 Dependency Upgrades
+
+- Turkraft Spring Filter 4.0.1 → 4.1.1.
+
 ## [1.1.0] - 2026-07-29
 
 Telaio DALs can now be consumed remotely: three new modules add a typed, blocking REST client
@@ -137,7 +192,8 @@ First public release, available on Maven Central under the `com.paganbit` group 
   delete transaction (TOCTOU hardening); deleting an entity outside the filter now
   returns `404` (previously `204`).
 
-[unreleased]: https://github.com/marcopag90/telaio/compare/v1.1.0...HEAD
+[unreleased]: https://github.com/marcopag90/telaio/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/marcopag90/telaio/compare/v1.1.0...v2.0.0
 [1.1.0]: https://github.com/marcopag90/telaio/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/marcopag90/telaio/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/marcopag90/telaio/releases/tag/v1.0.0

@@ -1,17 +1,20 @@
 package com.paganbit.telaio.showcase.dal.announcement;
 
+import com.turkraft.springfilter.typesafe.Filterable;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.jspecify.annotations.Nullable;
 
 import java.time.LocalDateTime;
 
 @Getter
 @Setter
 @NoArgsConstructor
+@Filterable
 @Entity
 @Table(name = "announcements")
 public class Announcement {
@@ -37,5 +40,5 @@ public class Announcement {
     private LocalDateTime publishedAt;
 
     @Column
-    private LocalDateTime expiresAt;
+    private @Nullable LocalDateTime expiresAt;
 }

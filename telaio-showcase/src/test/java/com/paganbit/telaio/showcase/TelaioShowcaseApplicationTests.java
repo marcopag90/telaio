@@ -4,6 +4,11 @@ import com.paganbit.telaio.core.Dal;
 import com.paganbit.telaio.core.adapter.DalOperationAdapter;
 import com.paganbit.telaio.core.annotation.DalService;
 import com.paganbit.telaio.core.registry.DalManager;
+import com.paganbit.telaio.showcase.dal.announcement.AnnouncementDalService;
+import com.paganbit.telaio.showcase.dal.announcement.AnnouncementRepository;
+import com.paganbit.telaio.showcase.dal.notification.NotificationDalService;
+import com.paganbit.telaio.showcase.dal.notification.NotificationRepository;
+import com.paganbit.telaio.showcase.dal.product.ProductPriceHistoryRepository;
 import com.paganbit.telaio.web.registry.WebDalOperationAdapterRegistry;
 import com.turkraft.springfilter.parser.node.FilterNode;
 import org.jspecify.annotations.Nullable;
@@ -11,20 +16,23 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.MongoTransactionManager;
+import org.springframework.orm.jpa.JpaTransactionManager;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * End-to-end smoke test that boots the full Telaio stack (core + security + web + jpa) and verifies
- * that all DAL services are registered and their operation adapters are assembled.
+ * End-to-end smoke test that boots the full Telaio stack (core + security + web + jpa + mongo) and
+ * verifies that all DAL services are registered and their operation adapters are assembled, and that
+ * the two persistence backends coexist with their own transaction managers.
  * Also confirms that a DAL without {@code @DalSecurity} is denied by default.
  */
 @SpringBootTest(properties = "spring.docker.compose.enabled=false")
@@ -32,10 +40,19 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 class TelaioShowcaseApplicationTests {
 
     @Autowired
+    private ApplicationContext context;
+
+    @Autowired
     private DalManager dalManager;
 
     @Autowired
     private WebDalOperationAdapterRegistry adapterRegistry;
+
+    @Autowired
+    private AnnouncementDalService announcementDal;
+
+    @Autowired
+    private NotificationDalService notificationDal;
 
     @Test
     void articlesDalIsRegistered() {
@@ -63,12 +80,43 @@ class TelaioShowcaseApplicationTests {
     }
 
     @Test
+    void notificationsDalIsRegistered() {
+        assertNotNull(dalManager.getDefinitionByName("notifications"));
+    }
+
+    @Test
     void allOperationAdaptersAreAssembled() {
         assertNotNull(adapterRegistry.get("articles"));
         assertNotNull(adapterRegistry.get("products"));
         assertNotNull(adapterRegistry.get("announcements"));
         assertNotNull(adapterRegistry.get("employees"));
         assertNotNull(adapterRegistry.get("departments"));
+        assertNotNull(adapterRegistry.get("notifications"));
+    }
+
+    /**
+     * The repository scans are scoped per store with explicit include filters (see
+     * {@code JpaConfiguration}/{@code MongoConfiguration}), so cross-store candidates are never
+     * reported. This test pins the filters as inclusive enough: Telaio JPA repositories, plain
+     * Spring Data JPA repositories, and Mongo repositories must all still be registered.
+     */
+    @Test
+    void scopedRepositoryScansRegisterBothStores() {
+        assertNotNull(context.getBean(AnnouncementRepository.class));
+        assertNotNull(context.getBean(ProductPriceHistoryRepository.class));
+        assertNotNull(context.getBean(NotificationRepository.class));
+    }
+
+    /**
+     * Two backends, two transaction managers: the JPA DALs keep Boot's {@code JpaTransactionManager}
+     * (plain by-type autowiring), while the Mongo DAL receives the {@code MongoTransactionManager}
+     * declared under the qualified {@code telaioMongoTransactionManager} name — the qualified,
+     * non-default bean never disturbs the by-type resolution.
+     */
+    @Test
+    void twoBackendsUseTwoTransactionManagers() {
+        assertInstanceOf(JpaTransactionManager.class, announcementDal.getTransactionManager());
+        assertInstanceOf(MongoTransactionManager.class, notificationDal.getTransactionManager());
     }
 
     @Test

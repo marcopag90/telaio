@@ -1,9 +1,6 @@
 package com.paganbit.telaio.web.exception;
 
-import com.paganbit.telaio.core.exception.DalEntityNotFoundException;
-import com.paganbit.telaio.core.exception.DalEntityValidationException;
-import com.paganbit.telaio.core.exception.DalNotFoundException;
-import com.paganbit.telaio.core.exception.DalRegistryException;
+import com.paganbit.telaio.core.exception.*;
 import com.paganbit.telaio.rest.contract.DalIdCodecException;
 import com.paganbit.telaio.rest.contract.v1.DalApiV1;
 import com.paganbit.telaio.rest.contract.v1.ValidationError;
@@ -59,6 +56,35 @@ public class TelaioWebExceptionHandler {
     ProblemDetail handleInvalidFilterSyntax(InvalidSyntaxException ex) {
         log.debug("Malformed filter expression rejected: {}", ex.getMessage());
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Malformed filter expression");
+    }
+
+    /**
+     * Maps a well-formed {@code q} filter that cannot be applied to the target entity — an unknown or
+     * non-persistent field, a field the principal is not allowed to read, or a function that is unknown or
+     * unsupported by the persistence backend — to {@code 400 Bad Request}. Raised uniformly by every
+     * backend's filter converter (and, for the RBAC case, by the security interceptor before the read).
+     * The body carries a stable, generic detail; the field name stays in the on-demand debug log only.
+     */
+    @ExceptionHandler(DalInvalidFilterException.class)
+    ProblemDetail handleInvalidFilter(DalInvalidFilterException ex) {
+        // The wrapped cause names the failing conversion/function; its type is enough to tell the cases
+        // apart, and its message (which may echo the rejected literal) stays out of the log.
+        log.debug("Invalid filter expression rejected: {} ({})", ex.getMessage(),
+            ex.getCause() != null ? ex.getCause().getClass().getName() : "no cause");
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Invalid filter expression");
+    }
+
+    /**
+     * Maps a {@code sort} parameter the read cannot honor — an unknown or non-persistent property, a
+     * property the backend cannot order by, or one the principal is not allowed to read — to
+     * {@code 400 Bad Request}. Raised uniformly by every backend (and, for the RBAC case, by the
+     * security interceptor before the read). The body carries a stable, generic detail; the property
+     * name stays in the on-demand debug log only.
+     */
+    @ExceptionHandler(DalInvalidSortException.class)
+    ProblemDetail handleInvalidSort(DalInvalidSortException ex) {
+        log.debug("Invalid sort parameter rejected: {}", ex.getMessage());
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Invalid sort parameter");
     }
 
     /**

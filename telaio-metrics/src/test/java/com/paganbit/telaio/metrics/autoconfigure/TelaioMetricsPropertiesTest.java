@@ -58,6 +58,32 @@ class TelaioMetricsPropertiesTest {
     // ── Custom binding ────────────────────────────────────────────────────────
 
     @Test
+    void switchesAndRetentions_shouldBindCorrectly() {
+        contextRunner
+            .withPropertyValues(
+                "telaio.metrics.enabled=false",
+                "telaio.metrics.histogram.first-upper-bound=5ms",
+                "telaio.metrics.in-memory.retention=2h",
+                "telaio.metrics.jdbc.enabled=false",
+                "telaio.metrics.jdbc.retention=3d",
+                "telaio.metrics.micrometer.enabled=true",
+                "telaio.metrics.micrometer.metric-name=custom.dal.operation",
+                "telaio.metrics.in-house.enabled=true")
+            .run(context -> {
+                TelaioMetricsProperties p = context.getBean(TelaioMetricsProperties.class);
+
+                assertThat(p.isEnabled()).isFalse();
+                assertThat(p.getHistogram().getFirstUpperBound()).isEqualTo(Duration.ofMillis(5));
+                assertThat(p.getInMemory().getRetention()).isEqualTo(Duration.ofHours(2));
+                assertThat(p.getJdbc().isEnabled()).isFalse();
+                assertThat(p.getJdbc().getRetention()).isEqualTo(Duration.ofDays(3));
+                assertThat(p.getMicrometer().isEnabled()).isTrue();
+                assertThat(p.getMicrometer().getMetricName()).isEqualTo("custom.dal.operation");
+                assertThat(p.getInHouse().getEnabled()).isTrue();
+            });
+    }
+
+    @Test
     void customProperties_shouldBindCorrectly() {
         contextRunner
             .withPropertyValues(

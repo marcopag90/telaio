@@ -9,6 +9,11 @@ import java.util.function.Predicate;
 /**
  * A predicate implementation that determines whether a given class represents a simple type.
  *
+ * <p>Beyond the built-in classification, additional simple types can be contributed at
+ * construction time — typically aggregated from {@link SimpleTypeContributor} implementations, so
+ * that modules introducing backend-specific types (e.g. a persistence backend's identifier type)
+ * extend the classification without this module gaining any dependency on them.</p>
+ *
  * @author Marco Pagan
  * @since 1.0.0
  */
@@ -40,6 +45,28 @@ public class DefaultSimpleTypePredicate implements Predicate<Class<?>> {
     );
 
     /**
+     * Set of additional types contributed at construction time, checked for direct equality with
+     * the class being tested.
+     */
+    private final Set<Class<?>> contributedTypes;
+
+    /**
+     * Creates a predicate recognizing only the built-in simple types.
+     */
+    public DefaultSimpleTypePredicate() {
+        this(Set.of());
+    }
+
+    /**
+     * Creates a predicate recognizing the built-in simple types plus the given contributed ones.
+     *
+     * @param contributedTypes additional types to classify as simple, matched by direct equality
+     */
+    public DefaultSimpleTypePredicate(Collection<Class<?>> contributedTypes) {
+        this.contributedTypes = Set.copyOf(contributedTypes);
+    }
+
+    /**
      * Tests whether the given class represents a simple type.
      *
      * @param clazz The class to test
@@ -50,7 +77,8 @@ public class DefaultSimpleTypePredicate implements Predicate<Class<?>> {
         if (clazz == null) {
             return false;
         }
-        if (clazz.isArray() || clazz.isPrimitive() || clazz.isEnum() || BASE_TYPES.contains(clazz)) {
+        if (clazz.isArray() || clazz.isPrimitive() || clazz.isEnum() || BASE_TYPES.contains(clazz)
+            || contributedTypes.contains(clazz)) {
             return true;
         }
         for (Class<?> assignableType : ASSIGNABLE_TYPES) {

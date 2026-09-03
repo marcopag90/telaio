@@ -8,9 +8,13 @@ import com.paganbit.telaio.rest.client.blocking.TelaioRestClient;
 import com.paganbit.telaio.rest.client.blocking.v1.DalClient;
 import com.paganbit.telaio.rest.client.exception.DalClientNotFoundException;
 import com.paganbit.telaio.rest.client.exception.DalClientValidationException;
+import com.paganbit.telaio.showcase.dal.announcement.AnnouncementFilter;
+import com.turkraft.springfilter.builder.FilterBuilder;
+import com.turkraft.springfilter.parser.node.FilterNode;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.client.support.BasicAuthenticationInterceptor;
 import org.springframework.web.client.RestClient;
 
@@ -47,6 +51,9 @@ class TelaioClientRoundTripIT extends AbstractShowcaseIT {
 
     private DalClient<Announcement, Long> announcements;
     private DalClient<Translation, TranslationId> translations;
+
+    @Autowired
+    private FilterBuilder filterBuilder;
 
     @BeforeEach
     void setUpClient() {
@@ -116,8 +123,15 @@ class TelaioClientRoundTripIT extends AbstractShowcaseIT {
         announcements.create(new Announcement(null, marker + "-b", "Second.", "INFO"));
         announcements.create(new Announcement(null, marker + "-a", "First.", "INFO"));
 
+        // Built with the @Filterable-generated type-safe builder instead of a raw q string.
+        // The builder emits Java field names; on the wire they must match the JSON names, which
+        // holds for Announcement (no @JsonProperty renames) but not for every entity.
+        FilterNode filter = AnnouncementFilter.where(filterBuilder)
+            .title().startsWith(marker)
+            .build();
+
         DalPage<Announcement> page = announcements.read(
-            "title ~ '" + marker + "*'",
+            filter,
             DalPageRequest.of(0, 10).withSort(DalSort.asc("title")));
 
         assertThat(page.page().totalElements()).isEqualTo(2);

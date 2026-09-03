@@ -669,6 +669,103 @@ class PropertyBasedDalRbacAdapterTest {
     }
 
     // ------------------------------------------------------------------------
+    // Filter-field check (reads)
+    // ------------------------------------------------------------------------
+
+    @Test
+    void filter_readableFields_areAllowed() {
+        doReturn(List.of(UserAuthority.USER)).when(mockAuthentication).getAuthorities();
+
+        assertTrue(defaultAdapter.canFilterOn("name", mockAuthentication));
+        assertTrue(defaultAdapter.canFilterOn("address.city", mockAuthentication));
+    }
+
+    @Test
+    void filter_hiddenFields_areDenied() {
+        // USER cannot read 'role' (ADMIN-only) nor 'address.zipCode' (MANAGER/ADMIN): neither may be used
+        // as a filter criterion, or its value could be bisected from the narrowed page.
+        doReturn(List.of(UserAuthority.USER)).when(mockAuthentication).getAuthorities();
+
+        assertFalse(defaultAdapter.canFilterOn("role", mockAuthentication));
+        assertFalse(defaultAdapter.canFilterOn("address.zipCode", mockAuthentication));
+    }
+
+    @Test
+    void filter_usesTheUnionOfTheRoles() {
+        doReturn(List.of(UserAuthority.USER, UserAuthority.ADMIN)).when(mockAuthentication).getAuthorities();
+
+        assertTrue(defaultAdapter.canFilterOn("role", mockAuthentication));
+    }
+
+    @Test
+    void filter_renamedField_isCheckedUnderBothSpellings() {
+        // The grant is authored with the Java name; the filter may use the wire name or the Java name —
+        // both resolve to the same property, and the hidden one is denied under both spellings too.
+        RenameAdapter adapter = new RenameAdapter();
+        adapter.setObjectMapper(objectMapper);
+        doReturn(List.of(UserAuthority.USER)).when(mockAuthentication).getAuthorities();
+
+        assertTrue(adapter.canFilterOn("full_name", mockAuthentication));
+        assertTrue(adapter.canFilterOn("name", mockAuthentication));
+        assertFalse(adapter.canFilterOn("secret", mockAuthentication));
+    }
+
+    @Test
+    void filter_parentWithGrantedDescendant_isAllowedButUngrantedSiblingIsNot() {
+        // Mirrors output pruning: 'address' appears in the response (pruned to 'street'), so it may be
+        // referenced (e.g. `address is null`); 'address.city' is pruned away, so it may not.
+        DescendantReadableAdapter adapter = new DescendantReadableAdapter();
+        adapter.setObjectMapper(objectMapper);
+        doReturn(List.of(UserAuthority.USER)).when(mockAuthentication).getAuthorities();
+
+        assertTrue(adapter.canFilterOn("address", mockAuthentication));
+        assertTrue(adapter.canFilterOn("address.street", mockAuthentication));
+        assertFalse(adapter.canFilterOn("address.city", mockAuthentication));
+    }
+
+    @Test
+    void filter_childOfBareParentGrant_isDeniedLikeOnOutput() {
+        // A bare 'address' grant prunes every child from the response
+        // (output_parentGrantWithoutChildren_removesEmptiedNestedObject) — so the children are not
+        // filterable either; the parent itself still is.
+        ParentOnlyReadableAdapter adapter = new ParentOnlyReadableAdapter();
+        adapter.setObjectMapper(objectMapper);
+        doReturn(List.of(UserAuthority.USER)).when(mockAuthentication).getAuthorities();
+
+        assertTrue(adapter.canFilterOn("address", mockAuthentication));
+        assertFalse(adapter.canFilterOn("address.zipCode", mockAuthentication));
+    }
+
+    @Test
+    void filter_grantOnAPropertyTheResponseNeverShows_isDenied() {
+        // 'password' is write-only: listed as readable by mistake, it is still never serialized, so the
+        // filter must not open a channel the response does not have.
+        CredentialsAdapter adapter = new CredentialsAdapter();
+        adapter.setObjectMapper(objectMapper);
+        doReturn(List.of(UserAuthority.USER)).when(mockAuthentication).getAuthorities();
+
+        JsonNode output = (JsonNode) adapter.filterOutput(
+            DalOperationType.READ, new Credentials("bob", "s3cret"), mockAuthentication);
+
+        assertFalse(output.has("password"));
+        assertFalse(adapter.canFilterOn("password", mockAuthentication));
+        assertTrue(adapter.canFilterOn("name", mockAuthentication));
+    }
+
+    @Test
+    void filter_unknownField_isDenied() {
+        // Denied before the roles are even consulted: an unresolvable path is never readable.
+        assertFalse(defaultAdapter.canFilterOn("nope", mockAuthentication));
+        assertFalse(defaultAdapter.canFilterOn("address.nope", mockAuthentication));
+        assertFalse(defaultAdapter.canFilterOn("name.length", mockAuthentication), "segment on a scalar");
+    }
+
+    @Test
+    void filter_withoutAuthentication_isDenied() {
+        assertFalse(defaultAdapter.canFilterOn("name", null));
+    }
+
+    // ------------------------------------------------------------------------
     // Exposed-type resolution
     // ------------------------------------------------------------------------
 
@@ -843,6 +940,18 @@ class PropertyBasedDalRbacAdapterTest {
         @Override
         protected Map<GrantedAuthority, Set<String>> writableFieldsByRole() {
             return Map.of(UserAuthority.USER, Set.of("name"));
+        }
+    }
+
+    private static class CredentialsAdapter extends PropertyBasedDalRbacAdapter<Credentials> {
+        @Override
+        protected Map<GrantedAuthority, Set<String>> readableFieldsByRole() {
+            return Map.of(UserAuthority.USER, Set.of("name", "password"));
+        }
+
+        @Override
+        protected Map<GrantedAuthority, Set<String>> writableFieldsByRole() {
+            return Map.of(UserAuthority.USER, Set.of("name", "password"));
         }
     }
 
@@ -1072,6 +1181,16 @@ class PropertyBasedDalRbacAdapterTest {
         @JsonProperty("full_name")
         private String name;
         private String secret;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    static class Credentials {
+        private String name;
+        @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+        private String password;
     }
 
     @Getter

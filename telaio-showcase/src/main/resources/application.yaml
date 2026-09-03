@@ -35,7 +35,7 @@ telaio:
     connections:
       # The single "self" connection makes this app a client of its own DAL API, powering the
       # DAL-to-DAL round-trip in SupportTicketDalService. Being the only connection, it also backs
-      # the primary TelaioClient bean. Basic auth is added by ShowcaseRestClientConfig.
+      # the primary TelaioClient bean. Basic auth is added by TelaioRestClientConfig.
       self:
         base-url: http://localhost:8080
   web:
@@ -55,4 +55,3 @@ telaio:
     enabled: true
     include-examples: false
     tag-per-dal: true
-

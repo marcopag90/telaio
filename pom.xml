@@ -7,12 +7,12 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.1.0</version>
+        <version>4.1.1</version>
     </parent>
 
     <groupId>com.paganbit</groupId>
     <artifactId>telaio</artifactId>
-    <version>1.1.0</version>
+    <version>2.0.0</version>
     <packaging>pom</packaging>
 
     <name>Telaio</name>
@@ -58,6 +58,7 @@
         <testcontainers.image.mariadb>mariadb:11.4</testcontainers.image.mariadb>
         <testcontainers.image.sqlserver>mcr.microsoft.com/mssql/server:2022-latest</testcontainers.image.sqlserver>
         <testcontainers.image.oracle>gvenzl/oracle-xe:21-slim</testcontainers.image.oracle>
+        <testcontainers.image.mongodb>mongo:8</testcontainers.image.mongodb>
     </properties>
 
     <modules>
@@ -70,6 +71,7 @@
         <module>telaio-web</module>
         <module>telaio-openapi</module>
         <module>telaio-jpa</module>
+        <module>telaio-mongo</module>
         <module>telaio-rest-client-shared</module>
         <module>telaio-rest-client</module>
         <module>telaio-bom</module>
@@ -103,6 +105,7 @@
                             <testcontainers.image.mariadb>${testcontainers.image.mariadb}</testcontainers.image.mariadb>
                             <testcontainers.image.sqlserver>${testcontainers.image.sqlserver}</testcontainers.image.sqlserver>
                             <testcontainers.image.oracle>${testcontainers.image.oracle}</testcontainers.image.oracle>
+                            <testcontainers.image.mongodb>${testcontainers.image.mongodb}</testcontainers.image.mongodb>
                         </systemPropertyVariables>
                         <!--@formatter:on-->
                     </configuration>
@@ -141,10 +144,11 @@
                         <configuration>
                             <rules>
                                 <requireJavaVersion>
-                                    <version>[25,)</version>
+                                    <version>[${maven.compiler.release},)</version>
                                     <message>
-                                        This project must be built with JDK 25 or newer (telaio-showcase targets
-                                        Java 25). Library modules still emit Java 21 bytecode via --release 21.
+                                        This module targets Java ${maven.compiler.release} and must be built with JDK
+                                        ${maven.compiler.release} or newer. Library modules need JDK 21+ (they emit
+                                        Java 21 bytecode via --release 21); only telaio-showcase needs JDK 25+.
                                     </message>
                                 </requireJavaVersion>
                             </rules>

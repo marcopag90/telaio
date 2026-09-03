@@ -23,6 +23,59 @@ Telaio enforces security at **four distinct layers**:
 
 A request reaches each layer only if the earlier layers pass.
 
+## The Running Example: `Product`
+
+Every `products` example in this guide builds on one entity — the showcase's `Product`, trimmed to what matters here.
+Given the entity:
+
+```java
+@Entity
+public class Product {
+
+    @Id
+    @GeneratedValue
+    private Long id;
+
+    @NotBlank
+    private String name;
+
+    private String description;
+
+    @NotNull
+    private BigDecimal price;
+
+    /** Sensitive: what the product costs us. Renamed on the wire. */
+    @JsonProperty("cost_price")
+    private BigDecimal costPrice;
+
+    /** Derived from price and costPrice by the DAL hooks — never accepted from the client. */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private BigDecimal marginPercentage;
+
+    /** Not persisted, computed after every read/write, still serialized. */
+    @Transient
+    private BigDecimal profit;
+
+    private String sku;
+
+    /** Sensitive: internal warehouse code. Renamed on the wire. */
+    @JsonProperty("internal_sku")
+    private String internalSku;
+
+    private String category;
+
+    private Boolean available;
+}
+```
+
+Three traits of this entity drive the examples that follow:
+
+- **Sensitive fields with wire renames.** `costPrice` and `internalSku` must stay hidden from most roles, and both
+  carry a `@JsonProperty` rename (`cost_price`, `internal_sku`) — so the wire name and the Java name differ, which the
+  RBAC examples have to handle.
+- **Computed fields.** `marginPercentage` and `profit` are produced by the DAL, readable but never writable.
+- **Roles.** The principals are the showcase's `UserRole.DEVELOPER`, `ADMIN` and `USER` (set up in Layer 2).
+
 ## Layer 1: Exposure (Structural Boundaries)
 
 **Purpose**: Hide operations from the API surface entirely.
@@ -193,8 +246,8 @@ to the client.
 
 **Mechanism**: `DalRbacAdapter<T>`
 
-Even if a principal is authorized to CREATE a PRODUCT, the RBAC adapter might remove sensitive fields like `costPrice`
-from the request, or hide them from the response.
+Even if a principal is authorized to CREATE a `Product`, the RBAC adapter might remove sensitive fields like
+`costPrice` from the request, or hide them from the response.
 
 ### Contract
 
@@ -203,14 +256,48 @@ public interface DalRbacAdapter<T> {
     Map<String, Object> filterInput(DalOperationType operation, Map<String, Object> input, Authentication auth);
 
     Object filterOutput(DalOperationType operation, T entity, Authentication auth);
+
+    boolean canFilterOn(String fieldPath, Authentication auth);
 }
 ```
+
+### Filters and sorting
+
+Hiding a field from the response is not enough: a principal who cannot see `costPrice` could still send
+`q=cost_price>100` and work out its value from the rows that come back — or `sort=cost_price,desc&size=1` and learn
+which row holds the highest hidden value. `canFilterOn` closes both gaps — the `DalSecurityInterceptor` asks it for
+every field the caller's filter references *and for every `sort=` key*, before the read runs, and rejects the request
+with the same generic client fault as an unknown field (`400 "Invalid filter expression"` for a filter field,
+`400 "Invalid sort parameter"` for a sort key), so neither parameter can be used to probe which hidden properties
+exist.
+
+Both built-in adapters implement the same rule: **a field is filterable — and sortable — exactly when it appears in
+the read response**. `PropertyBasedDalRbacAdapter` checks the read readable map, `JsonViewDalRbacAdapter` the active
+read view; the fine print for nested paths and `Map` properties is in each adapter's Javadoc. The field path is
+checked as written — wire name or Java name — so a rename offers no bypass. Server-side default filters
+(`defaultFilter()`) and the DAL's `defaultSort()` are applied inside the DAL, after this check, and are never subject
+to it. With `telaio-audit` enabled, a rejected filter field or sort key that exists on the entity is recorded as a
+**DENIED** event (like an
+authorization failure), so repeated probing of hidden fields is visible in the audit trail even though the client only
+sees a generic 400.
+
+The DENIED outcome is reserved for fields that **exist and are hidden**. A referenced field that does not exist on the
+entity at all falls through the security check and is rejected by the read's own strict validation — the same generic
+400 on the wire, but a **VALIDATION** audit event. Server-side, the two cases stay distinguishable: a typo (or a blind
+probe of a name that resolves to nothing) is a validation failure, while a probe of a real hidden property — including
+one that exists in Java but is never serialized, such as a `@JsonIgnore` field — is a denied attempt. The audit
+event's `errorType` carries the exact exception (`DalFilterFieldNotReadableException` /
+`DalSortFieldNotReadableException` for denied fields, `DalInvalidFilterException` / `DalInvalidSortException` for
+validation). The existence check uses the same path resolver as the read itself (one application-wide
+`JsonPropertyPathResolver` bean, built on the application's `ObjectMapper`), so the two can never disagree; custom
+`Dal` backends must keep rejecting unknown fields in their strict filter/sort validation, since an unknown field now
+reaches them even on an RBAC-guarded DAL.
 
 ### Strategy 1: Property-Based RBAC
 
 Use `PropertyBasedDalRbacAdapter` for a simple role → field set mapping.
 
-**From the showcase** (`ProductRbacAdapter.java`):
+**From the showcase** (`ProductRbacAdapter.java`, for the `Product` entity defined at the top of this guide):
 
 ```java
 @Component
@@ -294,15 +381,9 @@ public class ProductRbacAdapter extends PropertyBasedDalRbacAdapter<Product> {
 **Derived fields**: Fields like `marginPercentage` are computed and only readable (not in the writable map). They appear
 in responses but a client cannot set them.
 
-**JSON property names**: The adapter references Java property names (`Product::getCostPrice`), but the framework
-translates to JSON names automatically. If your entity has:
-
-```java
-@JsonProperty("cost_price")
-private Double costPrice;
-```
-
-The adapter still uses `propertyName(Product::getCostPrice)`, and the translation to `cost_price` is transparent.
+**JSON property names**: The adapter references Java property names (`Product::getCostPrice`) even though the entity
+declares `@JsonProperty("cost_price")` — the framework translates to the JSON wire name automatically, so the rename is
+transparent to the adapter.
 
 ### Strategy 2: JsonView-Based RBAC
 
@@ -449,7 +530,8 @@ and passes it to your adapters.
    filtering.
 
 4. **Test your adapters**: Write unit tests for your `DalAuthAdapter` and `DalRbacAdapter` to ensure the filtering is
-   correct.
+   correct. If you write a `DalRbacAdapter` from scratch, implement `canFilterOn` too — the default accepts every
+   field, which leaves hidden values open to inference through `q=` and `sort=`.
 
 5. **Log authorization denials**: Telaio automatically logs them to `telaio-audit`, so configure your log aggregator to
    flag denials.
@@ -459,27 +541,8 @@ and passes it to your adapters.
 
 ## Example: Full Security Setup
 
-**Entity**:
-
-```java
-@Entity
-public class Product {
-    @Id
-    @GeneratedValue
-    private Long id;
-
-    @NotBlank
-    private String name;
-
-    @NotNull
-    private Double price;
-
-    @JsonProperty("cost_price")
-    private Double costPrice;
-
-    private String category;
-}
-```
+Putting the layers together for the `Product` entity defined at the top of this guide (the RBAC maps below use a
+reduced field set to keep the example readable).
 
 **Authorization adapter** (the showcase's actual `ProductAuthAdapter`: admins and developers can write;
 everyone can read):

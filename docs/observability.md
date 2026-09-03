@@ -240,6 +240,13 @@ which is indistinguishable by design (client fault, HTTP 404). Useful to spot id
 The DENIED outcome is useful for security auditing — it shows denied access attempts and who tried
 them. `errorType`/`errorMessage` are present whenever the outcome is not `SUCCESS`.
 
+DENIED covers only references to things that **exist**: an operation the principal may not perform, or a
+`q=`/`sort=` field that exists and is hidden from them (`DalFilterFieldNotReadableException` /
+`DalSortFieldNotReadableException` in `errorType`). A filter or sort key that does not exist on the
+entity at all — a typo, or a blind probe — is audited as **VALIDATION** instead, even on an RBAC-guarded
+DAL, so the trail separates real probing of hidden fields from client mistakes. The wire response is the
+same generic 400 in both cases.
+
 > **Compatibility note for dashboard owners:** the `outcome` value space is extensible — new
 > values may be introduced in future versions without changing the field schema (name and string
 > type stay stable). Consumers of the trail should tolerate unknown outcome strings.

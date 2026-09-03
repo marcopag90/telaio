@@ -15,8 +15,8 @@ Type introspection utilities enabling:
 
 | Type                         | Purpose                                                                                                                            |
 |------------------------------|------------------------------------------------------------------------------------------------------------------------------------|
-| `TypeUtil`                   | Utility methods for type checking (simple/complex classification)                                                                  |
-| `DefaultSimpleTypePredicate` | Predicate identifying primitive-like types: `Boolean`, `Character`, `String`, `UUID`, `Number`, `Enum`, `Date`, `Temporal`, `Optional`, `Collection`, `Map` (plus primitives and arrays) |
+| `DefaultSimpleTypePredicate` | Predicate identifying primitive-like types: `Boolean`, `Character`, `String`, `UUID`, `Number`, `Enum`, `Date`, `Temporal`, `Optional`, `Collection`, `Map` (plus primitives and arrays); accepts additional contributed types at construction |
+| `SimpleTypeContributor`      | Contribution SPI: modules expose a bean with the extra types to classify as simple; the framework aggregates every contribution into the shared predicate |
 | `PropertyNameResolver`       | Resolves property names from lambda method references with caching                                                                 |
 | `PropertyRef`                | Represents a property reference for introspection                                                                                  |
 
@@ -25,38 +25,42 @@ Type introspection utilities enabling:
 The introspection module is used internally by Telaio but is also exposed as a public utility. Most common use:
 **refactor-safe property name resolution** in filter expressions and field lists.
 
-Instead of magic strings:
+There are two complementary ways to build a filter expression without magic strings — pick per situation:
 
-```java
-filterBuilder.field("status").equal("PUBLISHED")
-```
+1. **Generated type-safe builder** (Spring Filter's `typesafe` + `typesafe-processor` artifacts, both managed by the
+   Telaio BOM) — annotate the entity with `@Filterable` and use the compile-time-generated `<Entity>Filter` class.
+   Field names *and* operators are checked by the compiler. Prefer this when you own the entity and can annotate it.
+   This is what the showcase's `ArticleDalService` uses for its `defaultFilter()`:
 
-Use method references:
+   ```java
+   @Override
+   protected @Nullable FilterNode defaultFilter() {
+       Authentication auth = DalSecurityContextHelper.getCurrentAuthentication();
+       boolean isPowerUser = auth != null && auth.getAuthorities().stream()
+           .anyMatch(a -> UserRole.DEVELOPER.equals(a) || UserRole.ADMIN.equals(a));
+       if (isPowerUser) {
+           return null;
+       }
+       return ArticleFilter.where(filterBuilder)
+           .status().equal(ArticleStatus.PUBLISHED)
+           .build();
+   }
+   ```
 
-```java
-import static com.paganbit.telaio.introspection.PropertyNameResolver.propertyName;
+2. **`propertyName(...)` + the plain `FilterBuilder`** — no code generation; the method reference resolves the
+   property name, refactor-safe. Use it for one-off expressions, classes you cannot annotate, or dynamic field
+   selection:
 
-filterBuilder.field(propertyName(Article::getStatus))
-    .equal(filterBuilder.input(ArticleStatus.PUBLISHED))
-    .get()
-```
+   ```java
+   import static com.paganbit.telaio.introspection.PropertyNameResolver.propertyName;
 
-This is used in the showcase's `ArticleDalService` to define the `defaultFilter()`:
+   filterBuilder.field(propertyName(Article::getStatus))
+       .equal(filterBuilder.input(ArticleStatus.PUBLISHED))
+       .get()
+   ```
 
-```java
-@Override
-protected @Nullable FilterNode defaultFilter() {
-    Authentication auth = DalSecurityContextHelper.getCurrentAuthentication();
-    boolean isPowerUser = auth != null && auth.getAuthorities().stream()
-        .anyMatch(a -> UserRole.DEVELOPER.equals(a) || UserRole.ADMIN.equals(a));
-    if (isPowerUser) {
-        return null;
-    }
-    return filterBuilder.field(propertyName(Article::getStatus))
-        .equal(filterBuilder.input(ArticleStatus.PUBLISHED))
-        .get();
-}
-```
+Both produce a `FilterNode` carrying **Java property names**: fine anywhere server-side (the JPA converter handles
+them), but when sending a `FilterNode` over the wire via the REST client the names must match the JSON field names.
 
 ## No Configuration
 

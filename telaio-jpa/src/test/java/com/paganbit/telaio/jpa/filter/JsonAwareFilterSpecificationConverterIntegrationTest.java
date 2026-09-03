@@ -26,11 +26,14 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.format.support.DefaultFormattingConversionService;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.beanvalidation.SpringValidatorAdapter;
+
 
 import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 
 /**
  * Demonstrates the {@code @JsonProperty} filter bug and its fix end-to-end against a real JPA metamodel
@@ -46,10 +49,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Turkraft's auto-configurations, which this test needs.</p>
  */
 @SpringBootTest(
-    classes = JsonAwareFilterSpecificationConverterIT.TestApp.class,
-    webEnvironment = SpringBootTest.WebEnvironment.NONE)
+    classes = JsonAwareFilterSpecificationConverterIntegrationTest.TestApp.class,
+    webEnvironment = SpringBootTest.WebEnvironment.NONE
+)
 @Transactional
-class JsonAwareFilterSpecificationConverterIT {
+class JsonAwareFilterSpecificationConverterIntegrationTest {
 
     @Autowired
     private TestApp.ProductRepository repository;
@@ -149,6 +153,11 @@ class JsonAwareFilterSpecificationConverterIT {
         @Bean
         ConversionService defaultConversionService() {
             return new DefaultFormattingConversionService();
+        }
+
+        @Bean
+        SpringValidatorAdapter validatorAdapter() {
+            return new SpringValidatorAdapter(mock(jakarta.validation.Validator.class));
         }
     }
 }

@@ -1,11 +1,12 @@
 package com.paganbit.telaio.rest.contract;
 
-import com.paganbit.telaio.introspection.TypeUtil;
+import com.paganbit.telaio.introspection.DefaultSimpleTypePredicate;
 import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Objects;
+import java.util.function.Predicate;
 
 /**
  * Encodes and decodes DAL entity IDs to and from their single-string representation, as used in
@@ -26,8 +27,27 @@ public final class DalIdCodec {
 
     private final ObjectMapper objectMapper;
 
+    private final Predicate<Class<?>> simpleTypePredicate;
+
+    /**
+     * Creates a codec with the default simple-type classification.
+     *
+     * @param objectMapper the mapper performing the (de)serialization
+     */
     public DalIdCodec(ObjectMapper objectMapper) {
+        this(objectMapper, new DefaultSimpleTypePredicate());
+    }
+
+    /**
+     * Creates a codec with the given simple-type classification.
+     *
+     * @param objectMapper        the mapper performing the (de)serialization
+     * @param simpleTypePredicate the classification deciding raw-vs-Base64 travel
+     */
+    public DalIdCodec(ObjectMapper objectMapper, Predicate<Class<?>> simpleTypePredicate) {
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
+        this.simpleTypePredicate =
+            Objects.requireNonNull(simpleTypePredicate, "simpleTypePredicate must not be null");
     }
 
     /**
@@ -43,7 +63,7 @@ public final class DalIdCodec {
         Objects.requireNonNull(id, "id must not be null");
         Objects.requireNonNull(idType, "idType must not be null");
         try {
-            if (TypeUtil.isComplexType(idType)) {
+            if (!simpleTypePredicate.test(idType)) {
                 String json = objectMapper.writeValueAsString(id);
                 return Base64.getUrlEncoder().withoutPadding()
                     .encodeToString(json.getBytes(StandardCharsets.UTF_8));
@@ -69,7 +89,7 @@ public final class DalIdCodec {
     public Object decode(String rawId, Class<?> idType) {
         Objects.requireNonNull(rawId, "rawId must not be null");
         Objects.requireNonNull(idType, "idType must not be null");
-        if (TypeUtil.isComplexType(idType)) {
+        if (!simpleTypePredicate.test(idType)) {
             String decodedJson = decodeFromBase64(rawId);
             try {
                 return objectMapper.readValue(decodedJson, objectMapper.constructType(idType));
