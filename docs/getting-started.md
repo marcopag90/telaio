@@ -18,7 +18,7 @@ each one. For a minimal setup:
 
 ```xml
 <properties>
-    <telaio.version>1.1.0</telaio.version>
+    <telaio.version>2.0.0</telaio.version>
 </properties>
 
 <dependencyManagement>
