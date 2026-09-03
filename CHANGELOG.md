@@ -57,8 +57,7 @@ field-name resolution moved to application-wide beans, which breaks a few APIs.
 
 ### 🔨 Dependency Upgrades
 
-- Turkraft Spring Filter 4.0.1 → 4.1.0 (BSON-native Mongo filter conversion, `@DBRef` filtering,
-  xor fix)
+- Turkraft Spring Filter 4.0.1 → 4.1.1.
 
 ## [1.1.0] - 2026-07-29
 

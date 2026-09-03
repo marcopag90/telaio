@@ -54,13 +54,12 @@ import static org.mockito.Mockito.mock;
  * six-row dataset, and asserts the rows each filter selects.
  *
  * <p>The vocabulary under test is the 21 shared core definitions plus the 45 functions of
- * {@code jpa-language}, two of which cannot run here: {@code jsonText} compiles to PostgreSQL's
- * {@code jsonb_extract_path_text} (no H2 equivalent) and {@code countDistinct} has no JPA processor
- * (asserted as a rejected filter). Backend-specific semantics are pinned as they are — {@code today()} is
- * the current day <em>name</em>, {@code ~} keeps SQL {@code %}/{@code _} wildcards live, {@code is empty}
- * on a string never matches — so a change in Turkraft's behavior fails here first. Error classification
- * is pinned too: unknown fields and unsupported functions are client faults, unconvertible literals are
- * server faults, the same way on every backend.</p>
+ * {@code jpa-language}, one of which cannot run here: {@code jsonText} compiles to PostgreSQL's
+ * {@code jsonb_extract_path_text} (no H2 equivalent). Backend-specific semantics are pinned as they are —
+ * {@code today()} is the current day <em>name</em>, {@code ~} keeps SQL {@code %}/{@code _} wildcards live,
+ * {@code is empty} on a string never matches — so a change in Turkraft's behavior fails here first. Error
+ * classification is pinned too: unknown fields and unsupported functions are client faults, unconvertible
+ * literals are server faults, the same way on every backend.</p>
  *
  * <p>Uses a plain {@code @SpringBootTest} because {@code @DataJpaTest} excludes Turkraft's and telaio's
  * autoconfigurations; the class-level transaction rolls the seed back after each test.</p>
@@ -185,6 +184,12 @@ class JpaDalFilterLanguageIntegrationTest {
             c("lines.status : 'shipped'", 1, 3, 5, 6),
             c("lines.amount > 200", 3, 5),
             c("lines is empty", 2),
+            // Each side of `or`/`xor` is its own EXISTS. An empty collection on one side no longer drops the
+            // row, and `tags : 'a' xor tags : 'b'` reads as "has a" xor "has b".
+            c("tags : 'red' or tags is empty", 1, 2, 4, 6),
+            c("quantity : 0 or lines.status : 'shipped'", 1, 2, 3, 5, 6),
+            c("tags : 'red' xor tags : 'blue'", 1, 3),
+            c("lines.status : 'shipped' xor lines.amount > 200", 1, 6),
             c("supplier.name : 'Acme'", 1, 2),
             c("supplier.country in ['US', 'DE']", 3, 5, 6),
             c("supplier is null", 4),
@@ -238,6 +243,7 @@ class JpaDalFilterLanguageIntegrationTest {
             c("max(lines.amount) >: 100", 1, 3, 5),
             c("min(lines.amount) < 20", 4),
             c("count(lines) > 1", 1, 4, 6),
+            c("countDistinct(lines.status) > 1", 1, 4),
             c("greatest(lines.amount) > 400", 5),
             c("least(lines.amount) < 30", 4, 6),
             c("exists(lines.status : 'pending' and lines.amount > 15)", 1, 4),
@@ -277,9 +283,7 @@ class JpaDalFilterLanguageIntegrationTest {
             Arguments.of("createdAt.nano : 0"),
             // properties the wire exposes but the persistence unit does not map (@Transient), root and nested
             Arguments.of("profit > 10"),
-            Arguments.of("lines.subtotal > 1"),
-            // a function the parser knows but the JPA backend has no processor for
-            Arguments.of("countDistinct(lines.status) > 1")
+            Arguments.of("lines.subtotal > 1")
         );
     }
 
