@@ -12,6 +12,9 @@ import com.turkraft.springfilter.converter.FilterSpecificationConverter;
 import com.turkraft.springfilter.converter.FilterStringConverter;
 import com.turkraft.springfilter.parser.node.FilterNode;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Root;
 import jakarta.persistence.metamodel.EntityType;
 import jakarta.persistence.metamodel.Metamodel;
 import jakarta.validation.Validator;
@@ -19,6 +22,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -262,15 +266,26 @@ class JpaDalTest {
     }
 
     @Test
-    void executeRead_withoutFilter_usesPageableOverloadAndSkipsConverter() {
+    @SuppressWarnings("unchecked")
+    void executeRead_withoutFilter_usesUnrestrictedSpecificationAndSkipsConverter() {
         TestJpaDal dal = readyDal();
         Pageable pageable = PageRequest.of(0, 10);
         Page<TestEntity> page = new PageImpl<>(List.of(new TestEntity()));
-        doReturn(page).when(repository).findAll(pageable);
+        doReturn(page).when(repository).findAll(any(Specification.class), eq(pageable));
 
         assertThat(dal.executeRead(null, pageable)).isSameAs(page);
-        verify(repository).findAll(pageable);
+
+        ArgumentCaptor<Specification<TestEntity>> captor = ArgumentCaptor.forClass(Specification.class);
+        verify(repository).findAll(captor.capture(), eq(pageable));
+        verify(repository, never()).findAll(any(Pageable.class));
         verifyNoInteractions(specificationConverter);
+
+        Root<TestEntity> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        CriteriaBuilder builder = mock(CriteriaBuilder.class);
+        assertThat(captor.getValue().toPredicate(root, query, builder))
+            .as("a null filter maps to an unrestricted specification (no WHERE clause)")
+            .isNull();
     }
 
     @Test
@@ -287,6 +302,7 @@ class JpaDalTest {
         assertThat(dal.executeRead(filter, pageable)).isSameAs(page);
         verify(specificationConverter).convert(filter);
         verify(repository).findAll(spec, pageable);
+        verify(repository, never()).findAll(any(Pageable.class));
     }
 
     @Test

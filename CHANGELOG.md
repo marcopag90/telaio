@@ -6,6 +6,23 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-09-06
+
+### 🔄 Improvements
+
+- **One repository override covers the whole list read on JPA.** `JpaDal` now lists through
+  `findAll(Specification, Pageable)` only, passing an unrestricted specification when no filter is
+  given. An `@EntityGraph` (or any other customization) on the list read is one override instead of
+  two; an existing `findAll(Pageable)` override keeps compiling but is no longer used by the DAL.
+  If you customized `findAll(Pageable)` (entity graph, lock, query hints), move the annotation to
+  `findAll(Specification, Pageable)`.
+- **One read path on Mongo too.** `MongoDal` runs every list, filtered or not, as a `Query` on
+  `MongoOperations`; the repository is used for writes only. An unfiltered list no longer issues an
+  unconditional count before the page is fetched. A `findAll(Pageable)` override in a
+  `MongoDalRepository` keeps compiling but is no longer reached by the DAL, and repository-level
+  read annotations (`@ReadPreference`, `@Meta`, `@Hint`) no longer affect DAL reads either.
+  Customize reads by overriding `executeRead` or `executeReadOne` on the DAL.
+
 ## [2.0.0] - 2026-09-03
 
 MongoDB joins JPA as a shipped backend, field-level security now also covers filtering and
@@ -192,7 +209,8 @@ First public release, available on Maven Central under the `com.paganbit` group 
   delete transaction (TOCTOU hardening); deleting an entity outside the filter now
   returns `404` (previously `204`).
 
-[unreleased]: https://github.com/marcopag90/telaio/compare/v2.0.0...HEAD
+[unreleased]: https://github.com/marcopag90/telaio/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/marcopag90/telaio/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/marcopag90/telaio/compare/v1.1.0...v2.0.0
 [1.1.0]: https://github.com/marcopag90/telaio/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/marcopag90/telaio/compare/v1.0.0...v1.0.1

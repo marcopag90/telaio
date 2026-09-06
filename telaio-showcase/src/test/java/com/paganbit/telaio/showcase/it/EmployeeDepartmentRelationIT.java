@@ -61,6 +61,28 @@ class EmployeeDepartmentRelationIT extends AbstractShowcaseIT {
     }
 
     @Test
+    void departmentIsReadAsANestedObjectOnList() {
+        long engineeringId = departmentId("Engineering");
+        String employeeId = createEmployee(engineeringId);
+
+        JsonNode filtered = employeeInList(list(DEVELOPER, EMPLOYEES, "q=id:" + employeeId), employeeId);
+        assertThat(filtered.get("department").get("name").asString()).isEqualTo("Engineering");
+
+        JsonNode unfiltered = employeeInList(list(DEVELOPER, EMPLOYEES, "size=100&sort=id,desc"), employeeId);
+        assertThat(unfiltered.get("department").get("name").asString()).isEqualTo("Engineering");
+    }
+
+    private JsonNode employeeInList(ResponseEntity<String> response, String employeeId) {
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        for (JsonNode employee : tree(response).get("content")) {
+            if (employeeId.equals(employee.get("id").asString())) {
+                return employee;
+            }
+        }
+        throw new AssertionError("employee " + employeeId + " not found in the list");
+    }
+
+    @Test
     void repointMovesEmployeeToAnotherDepartmentViaWriteOnlyId() {
         long engineeringId = departmentId("Engineering");
         long designId = departmentId("Design");

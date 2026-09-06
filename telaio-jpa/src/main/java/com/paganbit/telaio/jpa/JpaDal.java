@@ -159,10 +159,8 @@ public class JpaDal<E, I> extends AbstractDal<E, I> implements JpaDalMetadata<E,
     protected Page<E> executeRead(@Nullable FilterNode filter, Pageable pageable) {
         Specification<E> specification = filter != null
             ? specificationConverter().convert(filter)
-            : null;
-        return specification != null
-            ? getRepository().findAll(specification, pageable)
-            : getRepository().findAll(pageable);
+            : Specification.unrestricted();
+        return getRepository().findAll(specification, pageable);
     }
 
     @Override

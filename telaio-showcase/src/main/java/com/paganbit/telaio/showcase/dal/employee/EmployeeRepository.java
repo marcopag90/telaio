@@ -13,10 +13,11 @@ import java.util.Optional;
  * entity graph} to the read methods the DAL uses, so the {@code LAZY} {@code department} association is
  * fetched on those paths (and serialized outside the session) without a global EAGER fetch.
  *
- * <p>{@code JpaDal} reads exclusively through these methods — {@code findOne(Specification)} for
- * {@code readOne} (also the re-read at the end of {@code update}) and {@code findAll(...)} for the list —
- * so overriding them with {@code @EntityGraph("Employee.withDepartment")} is enough to cover every read.
- * Writes ({@code save}, {@code deleteById}) and {@code findById} (unused by the DAL) need no graph.</p>
+ * <p>{@code JpaDal} reads exclusively through these two methods. {@code findOne(Specification)} serves
+ * {@code readOne}, the re-read at the end of {@code update} and the pre-check of {@code delete};
+ * {@code findAll(Specification, Pageable)} serves the list, filtered or not. Overriding them with
+ * {@code @EntityGraph("Employee.withDepartment")} is therefore enough to cover every read.
+ * Writes ({@code save}, {@code delete}) and {@code findById} (unused by the DAL) need no graph.</p>
  */
 public interface EmployeeRepository extends JpaDalRepository<Employee, Long> {
 
@@ -27,8 +28,4 @@ public interface EmployeeRepository extends JpaDalRepository<Employee, Long> {
     @EntityGraph("Employee.withDepartment")
     @Override
     Page<Employee> findAll(Specification<Employee> spec, Pageable pageable);
-
-    @EntityGraph("Employee.withDepartment")
-    @Override
-    Page<Employee> findAll(Pageable pageable);
 }

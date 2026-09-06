@@ -27,8 +27,8 @@ import java.util.Optional;
 /**
  * MongoDB-based implementation of {@link com.paganbit.telaio.core.Dal Dal}.
  * <p>
- * Provides CRUD execution through {@link MongoDalRepository} and exposes Mongo-specific
- * metadata through {@link MongoDalMetadata}.
+ * Writes go through {@link MongoDalRepository}; every read runs as a {@link Query} on
+ * {@link MongoOperations}. Mongo-specific metadata is exposed through {@link MongoDalMetadata}.
  * <p>
  * Like {@link AbstractDal}, this class relies on setter-based injection so that concrete
  * subclasses stay free of boilerplate. In a Spring context a subclass typically needs no
@@ -72,7 +72,7 @@ public class MongoDal<E, I> extends AbstractDal<E, I> implements MongoDalMetadat
     private static final String RAW_ID_FIELD = "_id";
 
     /**
-     * The repository used for CRUD operations on the entity.
+     * The repository used for writes ({@code save}, {@code delete}) on the entity.
      * This repository is expected to be a Mongo repository that extends {@link MongoDalRepository}.
      * {@code null} only between construction and setter injection; non-null once the bean is fully
      * initialized (see {@link #afterPropertiesSet()}). Access internally via {@link #getRepository()}.
@@ -80,7 +80,7 @@ public class MongoDal<E, I> extends AbstractDal<E, I> implements MongoDalMetadat
     protected @Nullable MongoDalRepository<E, I> repository;
 
     /**
-     * The template-level Mongo access used for filtered reads and by-id lookups.
+     * The template-level Mongo access used for every read: lists and by-id lookups.
      * This is typically injected by Spring and provides access to the MongoDB context.
      * {@code null} only between construction and setter injection.
      */
@@ -209,10 +209,9 @@ public class MongoDal<E, I> extends AbstractDal<E, I> implements MongoDalMetadat
 
     @Override
     protected Page<E> executeRead(@Nullable FilterNode filter, Pageable pageable) {
-        if (filter == null) {
-            return getRepository().findAll(pageable);
-        }
-        Query query = queryConverter().convert(filter, getEntityClass());
+        Query query = filter != null
+            ? queryConverter().convert(filter, getEntityClass())
+            : new Query();
         List<E> content = mongoOperations().find(Query.of(query).with(pageable), getEntityClass());
         return PageableExecutionUtils.getPage(content, pageable,
             () -> mongoOperations().count(Query.of(query).limit(-1).skip(-1), getEntityClass()));
