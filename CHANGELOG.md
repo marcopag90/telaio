@@ -14,6 +14,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   two; an existing `findAll(Pageable)` override keeps compiling but is no longer used by the DAL.
   If you customized `findAll(Pageable)` (entity graph, lock, query hints), move the annotation to
   `findAll(Specification, Pageable)`.
+- **One read path on Mongo too.** `MongoDal` runs every list, filtered or not, as a `Query` on
+  `MongoOperations`; the repository is used for writes only. An unfiltered list no longer issues an
+  unconditional count before the page is fetched. A `findAll(Pageable)` override in a
+  `MongoDalRepository` keeps compiling but is no longer reached by the DAL, and repository-level
+  read annotations (`@ReadPreference`, `@Meta`, `@Hint`) no longer affect DAL reads either.
+  Customize reads by overriding `executeRead` or `executeReadOne` on the DAL.
 
 ## [2.0.0] - 2026-09-03
 
