@@ -20,7 +20,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mapping.context.MappingContext;
@@ -272,16 +271,43 @@ class MongoDalTest {
     }
 
     @Test
-    void executeRead_withoutFilter_usesPageableOverloadAndSkipsConverter() {
+    void executeRead_withoutFilter_usesEmptyQueryViaMongoOperationsAndSkipsConverter() {
         TestMongoDal dal = readyDal();
         Pageable pageable = PageRequest.of(0, 10);
-        Page<TestEntity> page = new PageImpl<>(List.of(new TestEntity()));
-        doReturn(page).when(repository).findAll(pageable);
+        TestEntity entity = new TestEntity();
+        doReturn(List.of(entity)).when(mongoOperations).find(any(Query.class), eq(TestEntity.class));
 
-        assertThat(dal.executeRead(null, pageable)).isSameAs(page);
-        verify(repository).findAll(pageable);
+        Page<TestEntity> page = dal.executeRead(null, pageable);
+
+        assertThat(page.getContent()).containsExactly(entity);
+        assertThat(page.getTotalElements()).isEqualTo(1);
         verifyNoInteractions(queryConverter);
-        verify(mongoOperations, never()).find(any(Query.class), eq(TestEntity.class));
+        verifyNoInteractions(repository);
+        ArgumentCaptor<Query> queryCaptor = ArgumentCaptor.forClass(Query.class);
+        verify(mongoOperations).find(queryCaptor.capture(), eq(TestEntity.class));
+        assertThat(queryCaptor.getValue().getQueryObject()).isEmpty();
+        assertThat(queryCaptor.getValue().getLimit()).isEqualTo(10);
+        assertThat(queryCaptor.getValue().getSkip()).isZero();
+        verify(mongoOperations, never()).count(any(Query.class), eq(TestEntity.class));
+    }
+
+    @Test
+    void executeRead_withoutFilterAndFullPage_countsWithPagingCleared() {
+        TestMongoDal dal = readyDal();
+        Pageable pageable = PageRequest.of(1, 2);
+        doReturn(List.of(new TestEntity(), new TestEntity()))
+            .when(mongoOperations).find(any(Query.class), eq(TestEntity.class));
+        doReturn(7L).when(mongoOperations).count(any(Query.class), eq(TestEntity.class));
+
+        Page<TestEntity> page = dal.executeRead(null, pageable);
+
+        assertThat(page.getTotalElements()).isEqualTo(7);
+        ArgumentCaptor<Query> countCaptor = ArgumentCaptor.forClass(Query.class);
+        verify(mongoOperations).count(countCaptor.capture(), eq(TestEntity.class));
+        assertThat(countCaptor.getValue().getQueryObject()).isEmpty();
+        assertThat(countCaptor.getValue().isLimited()).isFalse();
+        assertThat(countCaptor.getValue().getSkip()).isLessThanOrEqualTo(0);
+        verifyNoInteractions(repository);
     }
 
     @Test

@@ -1,16 +1,17 @@
 # Telaio: Mongo Module
 
 The Mongo module is the **MongoDB backend implementation** of the persistence-agnostic DAL abstraction, built on Spring
-Data MongoDB. It delegates CRUD operations to a Spring Data Mongo repository and converts Turkraft filter expressions to
-Mongo queries.
+Data MongoDB. It writes through a Spring Data Mongo repository, reads through `MongoOperations`, and converts Turkraft
+filter expressions to Mongo queries.
 
 The core contract knows nothing about MongoDB — `Dal`/`AbstractDal` use only Spring Data's paging/sorting abstractions,
 and a backend implements the `execute*` SPI.
 
 ## Purpose
 
-- **Spring Data MongoDB integration:** Transparent delegation to your repository (plus `MongoOperations` for filtered
-  reads — `MongoRepository` has no specification-executor analogue)
+- **Spring Data MongoDB integration:** Writes go through your repository; every read (list, filtered or not, and by-id)
+  runs as a `Query` on `MongoOperations` — `MongoRepository` has no specification-executor analogue, and the DAL keeps
+  a single read path, so the repository is never on it
 - **Filter-to-Mongo conversion:** Dynamic Turkraft filter queries → Mongo `Query` (`$expr`-based)
 - **Type-safe repository definitions:** Minimal boilerplate interface declarations
 - **Setter-based injection:** Concrete DAL classes need no constructor in Spring
@@ -24,8 +25,8 @@ and a backend implements the `execute*` SPI.
 
 | Type                       | Purpose                                                                                                                                                                                                                                                     |
 |----------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `MongoDal<E, I>`           | Extends `AbstractDal`, implements `MongoDalMetadata`. Delegates CRUD to `MongoDalRepository`, runs filtered reads through `MongoOperations`, converts filters via `FilterQueryConverter`. Setter-injects `repository`, `mongoOperations`, `queryConverter`. |
-| `MongoDalRepository<E, I>` | Spring Data `@NoRepositoryBean` interface extending `MongoRepository`. Developers write: `interface XRepository extends MongoDalRepository<X, String> {}`. No custom methods needed.                                                                        |
+| `MongoDal<E, I>`           | Extends `AbstractDal`, implements `MongoDalMetadata`. Writes through `MongoDalRepository`, runs every read through `MongoOperations`, converts filters via `FilterQueryConverter`. Setter-injects `repository`, `mongoOperations`, `queryConverter`.       |
+| `MongoDalRepository<E, I>` | Spring Data `@NoRepositoryBean` interface extending `MongoRepository`. Developers write: `interface XRepository extends MongoDalRepository<X, String> {}`. No custom methods needed; the DAL never reads through it, so overriding its read methods has no effect. |
 | `MongoDalMetadata<E, I>`   | Read-only: `MongoDalRepository<E,I> getRepository()` + `MongoPersistentEntity<E> getPersistentEntity()`. Exposes the backing repository and Spring Data mapping metadata.                                                                                   |
 
 ### Support

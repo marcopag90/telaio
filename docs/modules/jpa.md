@@ -25,7 +25,7 @@ querying) are on the roadmap and plug into the same contract.
 | Type                     | Purpose                                                                                                                                                                                                       |
 |--------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `JpaDal<E, I>`           | Extends `AbstractDal`, implements `JpaDalMetadata`. Delegates CRUD to `JpaDalRepository` and converts filters to JPA `Specification`. Setter-injects `repository`, `entityManager`, `specificationConverter`. |
-| `JpaDalRepository<T, I>` | Spring Data `@NoRepositoryBean` interface extending `JpaRepositoryImplementation`. Developers write: `interface XRepository extends JpaDalRepository<X, Long> {}`. No custom methods needed.                  |
+| `JpaDalRepository<T, I>` | Spring Data `@NoRepositoryBean` interface extending `JpaRepositoryImplementation`. Developers write: `interface XRepository extends JpaDalRepository<X, Long> {}`. No custom methods needed; reads can be customized by overriding `findOne(Specification)` and `findAll(Specification, Pageable)` (see 3b). |
 | `JpaDalMetadata<E, I>`   | Read-only: `JpaDalRepository<E,I> getRepository()` + `EntityType<E> getEntityType()`. Exposes the backing repository and JPA metamodel introspection.                                                         |
 
 ### Support
@@ -106,6 +106,31 @@ public class ProductDalService extends JpaDal<Product, Long> {
     }
 }
 ```
+
+### 3b. (Optional) Apply an Entity Graph to Reads
+
+`JpaDal` reads through exactly two repository methods: `findOne(Specification)` for single-entity reads
+(`readOne`, the re-read at the end of `update`, the pre-check of `delete`) and `findAll(Specification, Pageable)`
+for lists. A list without a filter still goes through `findAll(Specification, Pageable)`, with
+`Specification.unrestricted()`. Overriding those two methods is therefore enough to customize every read,
+for example to fetch a `LAZY` association with a named entity graph:
+
+```java
+public interface EmployeeRepository extends JpaDalRepository<Employee, Long> {
+
+    @EntityGraph("Employee.withDepartment")
+    @Override
+    Optional<Employee> findOne(Specification<Employee> spec);
+
+    @EntityGraph("Employee.withDepartment")
+    @Override
+    Page<Employee> findAll(Specification<Employee> spec, Pageable pageable);
+}
+```
+
+The DAL does not read through `findById`; `save` and `delete` are write paths. None of them need an override.
+An existing `findAll(Pageable)` override is no longer reached by the DAL: move its annotations to
+`findAll(Specification, Pageable)`.
 
 ### 4. Override Lifecycle Hooks
 

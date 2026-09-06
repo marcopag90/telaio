@@ -156,6 +156,19 @@ class MongoDalIntegrationTest {
         assertThat(page.getContent()).hasSize(2);
     }
 
+    @Test
+    void executeRead_withoutFilterAndFullPage_countsTheWholeCollection() {
+        persisted("a");
+        persisted("b");
+        persisted("c");
+
+        Page<TestEntity> page = dal.executeRead(null, PageRequest.of(0, 2, Sort.by("id")));
+
+        assertThat(page.getContent()).extracting(TestEntity::getName).containsExactly("a", "b");
+        assertThat(page.getTotalElements()).isEqualTo(3);
+        assertThat(page.getTotalPages()).isEqualTo(2);
+    }
+
     /**
      * Runs the exact query shape {@code JsonAwareFilterQueryConverter} produces ({@code $expr}
      * aggregation expression) through {@code find} + {@code count} + paging against a real server —
