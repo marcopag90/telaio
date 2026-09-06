@@ -6,6 +6,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### 🔄 Improvements
+
+- **One repository override covers the whole list read on JPA.** `JpaDal` now lists through
+  `findAll(Specification, Pageable)` only, passing an unrestricted specification when no filter is
+  given. An `@EntityGraph` (or any other customization) on the list read is one override instead of
+  two; an existing `findAll(Pageable)` override keeps compiling but is no longer used by the DAL.
+  If you customized `findAll(Pageable)` (entity graph, lock, query hints), move the annotation to
+  `findAll(Specification, Pageable)`.
+
 ## [2.0.0] - 2026-09-03
 
 MongoDB joins JPA as a shipped backend, field-level security now also covers filtering and
