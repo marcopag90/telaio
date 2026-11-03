@@ -7,7 +7,9 @@ import com.paganbit.telaio.core.exception.DalNotFoundException;
  *
  * <p>Populated at startup by the {@link DalOperationAdapterAssembler}; every remote boundary resolves the
  * adapter of a DAL from here instead of reaching the {@link com.paganbit.telaio.core.Dal} bean directly,
- * so the cross-cutting interceptors woven around it always apply.</p>
+ * so the cross-cutting interceptors woven around it always apply. Per-operation exposure is one of those
+ * interceptors, contributed by the boundary module that enforces it; the registry itself does not
+ * enforce it.</p>
  *
  * @author Marco Pagan
  * @since 3.0.0

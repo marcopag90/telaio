@@ -14,8 +14,9 @@ import java.util.Optional;
  * Base {@link DalOperationAdapter} backed by a {@link Dal}, exposing the entity directly to the caller.
  *
  * <p>Every operation delegates to the corresponding {@code Dal} method. A {@link #readOne(Object)} that
- * finds nothing raises a {@link DalEntityNotFoundException}, the same failure the {@code Dal} raises on
- * update and delete, so a missing entity is reported identically on every operation.</p>
+ * finds nothing raises a {@link DalEntityNotFoundException}, the same failure
+ * {@link com.paganbit.telaio.core.AbstractDal} raises on update and delete, so a missing entity is
+ * reported identically on every operation.</p>
  *
  * @param <E> the entity type
  * @param <I> the entity identifier type

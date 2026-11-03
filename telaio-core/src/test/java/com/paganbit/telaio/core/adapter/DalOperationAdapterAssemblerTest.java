@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -110,6 +111,48 @@ class DalOperationAdapterAssemblerTest {
         assembler.afterSingletonsInstantiated();
 
         assertEquals(TestDalService.CREATED, registry.get("testDal").create(Map.of()));
+    }
+
+    @Test
+    void shouldHandProvidersTheContextOfTheDalBeingAssembled() {
+        AtomicReference<DalAdapterContext> seen = new AtomicReference<>();
+        final var provider = new DalAdapterInterceptorProvider() {
+            @Override
+            public @Nullable MethodInterceptor getInterceptor(DalAdapterContext context) {
+                seen.set(context);
+                return null;
+            }
+
+            @Override
+            public int getOrder() {
+                return 0;
+            }
+        };
+
+        new DalOperationAdapterAssembler(dalManager, registry, List.of(provider)).afterSingletonsInstantiated();
+
+        DalAdapterContext context = seen.get();
+        assertNotNull(context);
+        assertEquals("testDal", context.dalName());
+        assertEquals(TestDalService.class, context.dalBeanClass());
+        assertSame(dalManager, context.dalManager());
+    }
+
+    @Test
+    void shouldRegisterEveryNonInternalDalAndSkipTheInternalOnes() {
+        when(dalManager.getAllDefinitions()).thenReturn(List.of(
+            new DalDefinitionEntry("first", TestDalService.class),
+            new DalDefinitionEntry("hidden", TestDalService.class, true),
+            new DalDefinitionEntry("second", TestDalService.class)));
+        doReturn(new TestDalService()).when(dalManager).getServiceByName("first");
+        doReturn(new TestDalService()).when(dalManager).getServiceByName("second");
+
+        new DalOperationAdapterAssembler(dalManager, registry, List.of()).afterSingletonsInstantiated();
+
+        assertNotNull(registry.get("first"));
+        assertNotNull(registry.get("second"));
+        assertThrows(DalNotFoundException.class, () -> registry.get("hidden"));
+        verify(dalManager, never()).getServiceByName("hidden");
     }
 
     @Test

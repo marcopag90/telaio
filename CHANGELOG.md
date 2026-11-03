@@ -14,9 +14,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `web.registry.DefaultWebDalOperationAdapterRegistry` → `InMemoryDalOperationAdapterRegistry`,
   `web.registry.WebDalOperationAdapterAssembler` → `DalOperationAdapterAssembler`,
   `com.paganbit.telaio.web.adapter.WebDalOperationAdapter` → `DelegatingDalOperationAdapter`. Methods and
-  bean names (`dalOperationAdapterRegistry`, `dalOperationAdapterAssembler`) are unchanged. Migration:
-  change the imports to `com.paganbit.telaio.core.adapter`; a custom registry bean implements the core
-  interface and still replaces the default.
+  bean names (`dalOperationAdapterRegistry`, `dalOperationAdapterAssembler`) are unchanged. The assembler
+  now runs in every application context that has `telaio-core`, not only in servlet web applications, so
+  the adapter classes named by `@DalSecurity` must be beans in every such context. Migration: change the
+  imports to `com.paganbit.telaio.core.adapter`; a custom registry bean implements the core interface and
+  still replaces the default.
 - **Breaking:** `com.paganbit.telaio.web.exception.DalResourceNotFoundException` is removed. An empty
   `readOne` now throws core's `DalEntityNotFoundException`, as update and delete already did, and the
   existing 404 mapping applies. Migration: catch or handle `DalEntityNotFoundException` where you caught

@@ -29,8 +29,8 @@ import static org.mockito.Mockito.when;
 
 /**
  * Proves the REST exposure provider plugs into core's {@link DalOperationAdapterAssembler} like any other
- * {@code DalAdapterInterceptorProvider}: a partially exposed DAL is assembled with the interceptor, a fully
- * exposed one without.
+ * {@code DalAdapterInterceptorProvider}: a partially exposed DAL is assembled with the interceptor, and the
+ * provider contributes no interceptor for a fully exposed DAL.
  */
 @ExtendWith(MockitoExtension.class)
 class WebDalExposureInterceptorProviderTest {

@@ -19,8 +19,8 @@ import java.util.List;
  *
  * <p>The base adapter (a {@link DelegatingDalOperationAdapter} over the {@link Dal} itself, exposing the
  * entity directly) is wrapped with the interceptors supplied by the available
- * {@link DalAdapterInterceptorProvider}s, in their declared order. Internal DALs are skipped: they are
- * never exposed on a remote boundary.</p>
+ * {@link DalAdapterInterceptorProvider}s in {@code Ordered} order, lowest value outermost. Internal DALs
+ * are skipped: they are never exposed on a remote boundary.</p>
  *
  * <p>Assembly runs once every singleton exists, so providers contributed by any module are collected
  * regardless of the order in which their auto-configurations were processed.</p>
