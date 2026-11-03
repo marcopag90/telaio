@@ -12,6 +12,7 @@ import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Rejects calls to CRUD operations a DAL does not expose on the remote boundary.
@@ -76,12 +77,10 @@ public class WebDalExposureInterceptor implements MethodInterceptor {
         }
 
         final var uriGroup = COLLECTION_OPERATIONS.contains(operation) ? COLLECTION_OPERATIONS : ITEM_OPERATIONS;
-        Set<HttpMethod> allowed = new LinkedHashSet<>();
-        for (DalOperationType groupOperation : uriGroup) {
-            if (exposedOperations.contains(groupOperation)) {
-                allowed.add(HTTP_METHODS.get(groupOperation));
-            }
-        }
+        Set<HttpMethod> allowed = uriGroup.stream()
+            .filter(exposedOperations::contains)
+            .map(HTTP_METHODS::get)
+            .collect(Collectors.toCollection(LinkedHashSet::new));
         throw new DalOperationNotExposedException(dalName, operation, allowed, allowed.isEmpty());
     }
 }
