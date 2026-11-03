@@ -98,29 +98,29 @@ sequenceDiagram
     participant PostProc as DalDefinitionBeanPostProcessor
     participant Manager as DalManager
     participant Assembler as DalOperationAdapterAssembler
-    participant WebReg as DalOperationAdapterRegistry
+    participant Registry as DalOperationAdapterRegistry
     participant Controller as DalRestApiV1Controller
     Code ->> Spring: @DalService public class ProductDalService extends JpaDal
     Spring ->> PostProc: Detect @DalService
     PostProc ->> Manager: Register DAL with name "products"
     Manager ->> Manager: Store definition (name, operations, internal, etc.)
     Note over Assembler: At startup
-    Assembler ->> WebReg: Assemble operation adapters (if not internal)
+    Assembler ->> Registry: Assemble operation adapters (if not internal)
     Note over Controller: At request time
     Client ->> Controller: POST /dal/v1/products { name, price, ... }
-    Controller ->> WebReg: Lookup "products" adapter
-    WebReg ->> Controller: Return DalOperationAdapter
-    Controller ->> WebReg: Invoke adapter.create(input)
-    Note over WebReg: Adapter chain executes
-    WebReg ->> WebReg: 1. WebDalExposureInterceptor (check if op exposed)
-    WebReg ->> WebReg: 2. DalAuditDeniedInterceptor (record if denied)
-    WebReg ->> WebReg: 3. DalSecurityInterceptor (authz + RBAC field filtering)
-    WebReg ->> WebReg: 4. DelegatingDalOperationAdapter (call Dal.create)
-    WebReg ->> Manager: Get Dal bean
+    Controller ->> Registry: Lookup "products" adapter
+    Registry ->> Controller: Return DalOperationAdapter
+    Controller ->> Registry: Invoke adapter.create(input)
+    Note over Registry: Adapter chain executes
+    Registry ->> Registry: 1. WebDalExposureInterceptor (check if op exposed)
+    Registry ->> Registry: 2. DalAuditDeniedInterceptor (record if denied)
+    Registry ->> Registry: 3. DalSecurityInterceptor (authz + RBAC field filtering)
+    Registry ->> Registry: 4. DelegatingDalOperationAdapter (call Dal.create)
+    Registry ->> Manager: Get Dal bean
     Manager ->> Code: Dal.create(map)
     Code ->> Code: Validate input, persist
-    Code ->> WebReg: Return entity
-    WebReg ->> Controller: Return entity
+    Code ->> Registry: Return entity
+    Registry ->> Controller: Return entity
     Controller ->> Client: 201 { id, name, price, ... }
 ```
 
@@ -139,7 +139,8 @@ sequenceDiagram
 
 ## Per-Request Adapter Chain (REST Boundary)
 
-When a REST request arrives at `DalRestApiV1Controller`, it flows through the **web adapter chain**. This chain is
+When a REST request arrives at `DalRestApiV1Controller`, it flows through the **adapter chain** assembled by `telaio-core`, to which `telaio-web`
+contributes the exposure check. This chain is
 responsible for exposure control, security checks, and RBAC filtering. Note that RBAC is not a separate interceptor:
 the `DalSecurityInterceptor` first checks authorization via the `DalAuthAdapter`, then applies the `DalRbacAdapter`
 to check the filter's field references and to filter fields — the diagram shows them as distinct steps only to make
@@ -180,7 +181,7 @@ graph TD
 
 ## Channel-Agnostic Dal Interception
 
-Independent of the web chain, the core `DalInterceptionBeanPostProcessor` wraps every `Dal` bean with interceptors from
+Independent of the adapter chain, the core `DalInterceptionBeanPostProcessor` wraps every `Dal` bean with interceptors from
 `DalInterceptorProvider` beans. This path applies to **all channels** — REST, messaging, direct calls:
 
 ```mermaid
@@ -286,7 +287,7 @@ graph LR
     C["telaio-security<br/>TelaioSecurityAutoConfiguration"] -->|Registers| D["DalSecurityInterceptorProvider<br/>(creates DalSecurityInterceptor)"]
     E["telaio-audit<br/>TelaioAuditAutoConfiguration"] -->|Registers| F["DalAuditInterceptorProvider<br/>DalAuditEventStore"]
     G["telaio-metrics<br/>TelaioMetricsAutoConfiguration"] -->|Registers| H["DalMetricsInterceptorProvider<br/>DalMetricsStore<br/>DalMetricsFlushScheduler"]
-    I["telaio-web<br/>TelaioWebAutoConfiguration"] -->|Registers via @Import| J["DalRestApiV1Controller<br/>WebDalExposureInterceptorProvider"]
+    I["telaio-web<br/>TelaioWebAutoConfiguration"] -->|Registers via @Import / @Bean| J["DalRestApiV1Controller<br/>WebDalExposureInterceptorProvider"]
     K["telaio-openapi<br/>TelaioOpenApiAutoConfiguration"] -->|Registers| L["DalOpenApiCustomizer<br/>DalPathsGenerator"]
 ```
 
@@ -411,7 +412,8 @@ Telaio separates concerns across layers:
 - **Core** (`telaio-core`): DAL abstraction, registration, CRUD contracts.
 - **Wire contract** (`telaio-rest-contract`): The frozen `/dal/v1` shape — constants, ID codec, validation-error
   payload — shared by server and client.
-- **Boundary** (`telaio-web`): REST routing, exposure control, the adapter chain.
+- **Boundary** (`telaio-web`): REST routing and the exposure check, contributed to the adapter chain that
+  `telaio-core` assembles.
 - **Remote client** (`telaio-rest-client-shared`, `telaio-rest-client`): A typed client of the DAL REST API, built on
   the same wire contract the server serves.
 - **Cross-cutting** (`telaio-security`, `telaio-audit`, `telaio-metrics`): Interceptors and adapters plugged into both

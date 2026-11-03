@@ -50,20 +50,28 @@ directly.
 
 ### Operation adapter assembly
 
-Every remote boundary (REST today, agent tools in the `ai` family) calls a DAL through a `DalOperationAdapter`
-rather than through the `Dal` bean, so that the boundary-level interceptors (exposure, denied-attempt audit,
-security and field-level RBAC) always apply. Since 3.0.0 the chain is assembled by `telaio-core`, package
+Every remote boundary (REST today) calls a DAL through a `DalOperationAdapter`
+rather than through the `Dal` bean, so that the boundary-level interceptors (denied-attempt audit, security and
+field-level RBAC, plus the exposure check the boundary module contributes) always apply. Exposure
+(`@DalService(operations)`) is enforced by the interceptor the boundary module contributes (`telaio-web` for
+REST); the registry itself does not enforce it. Since 3.0.0 the chain is assembled by `telaio-core`, package
 `com.paganbit.telaio.core.adapter`:
 
 | Type                            | Purpose                                                                                                                                                                                                                                              |
 |---------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `DelegatingDalOperationAdapter` | Base adapter backed by a `Dal`: `create`, `read`, `readOne`, `update`, `delete` delegate to the `Dal` and return the entity directly. An empty `readOne` throws `DalEntityNotFoundException`, the same failure update and delete raise.            |
 | `DalOperationAdapterAssembler`  | Runs once every singleton exists: for each non-internal DAL it wraps the base adapter with the interceptors contributed by every `DalAdapterInterceptorProvider` bean (lowest order outermost) and publishes the proxy to the registry. Internal DALs get no adapter. |
-| `DalOperationAdapterRegistry`   | Holds the assembled adapters by DAL name: `register(String, DalOperationAdapter)` and `get(String)` (throws `DalNotFoundException` for an unknown name). The default `InMemoryDalOperationAdapterRegistry` is `@ConditionalOnMissingBean`; first registration wins. |
+| `DalOperationAdapterRegistry`   | Holds the assembled adapters by DAL name: `register(String, DalOperationAdapter)` and `get(String)` (throws `DalNotFoundException` for an unknown name). The default bean (`InMemoryDalOperationAdapterRegistry`) is registered `@ConditionalOnMissingBean`; first registration wins. |
 
 `DalAdapterInterceptorProvider` is the SPI a module implements to join this chain (`telaio-web` contributes the
 REST exposure check, `telaio-audit` the denied-attempt audit, `telaio-security` authorization and RBAC); prefer
 the channel-agnostic `DalInterceptorProvider` above unless the concern only exists at a remote boundary.
+
+Channel modules resolve adapters from `DalOperationAdapterRegistry`; `telaio-web` does so for every REST call.
+At the REST boundary an empty `readOne` becomes a `404` whose `detail` is
+`<Entity> was not found for id: [<id>]`, the same text update and delete already return. Assembly runs in
+every application that includes `telaio-core`, with or without a remote boundary; its cost is one proxy per
+non-internal DAL at startup.
 
 ### Exceptions
 
@@ -73,7 +81,7 @@ the channel-agnostic `DalInterceptorProvider` above unless the concern only exis
 | `DalEntityValidationException`       | Validation fails (includes field-level details)                                                                                                                   |
 | `DalDefinitionException`             | DAL misconfiguration (e.g. duplicate name, invalid `@DalService` attributes)                                                                                      |
 | `DalRegistryException`               | DAL lookup fails                                                                                                                                                  |
-| `DalNotFoundException`               | No DAL registered under the requested name (subclass of `DalRegistryException`, → 404 at the web boundary)                                                        |
+| `DalNotFoundException`               | No DAL registered under the requested name (subclass of `DalRegistryException`, → 404 at the remote boundary)                                                        |
 | `DalInvalidFilterException`          | A well-formed `q=` filter the entity cannot honor: unknown or non-persistent field, unknown or backend-unsupported function (→ 400 `"Invalid filter expression"`) |
 | `DalInvalidSortException`            | A `sort=` property the read cannot honor: unknown, non-persistent or non-orderable (→ 400 `"Invalid sort parameter"`)                                             |
 | `DalFilterFieldNotReadableException` | Subclass of `DalInvalidFilterException` raised by `telaio-security` when a `q=` field exists but the principal may not read it (same 400; audited `DENIED`)       |

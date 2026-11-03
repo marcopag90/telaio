@@ -127,7 +127,7 @@ public class TelaioCoreAutoConfiguration {
     /**
      * Assembles one interceptor-wrapped adapter per non-internal DAL after all singletons exist and
      * publishes it to the {@link DalOperationAdapterRegistry}. Providers from every module (audit,
-     * security, web) are collected regardless of autoconfiguration order.
+     * security, any remote-boundary module) are collected regardless of autoconfiguration order.
      */
     @Bean
     DalOperationAdapterAssembler dalOperationAdapterAssembler(

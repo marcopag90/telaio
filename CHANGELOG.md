@@ -10,16 +10,20 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - **Breaking:** the operation-adapter assembly moved from `telaio-web` to `telaio-core`, package
   `com.paganbit.telaio.core.adapter`, so every remote boundary shares one chain. Renamed on the way:
-  `WebDalOperationAdapterRegistry` → `DalOperationAdapterRegistry`,
-  `DefaultWebDalOperationAdapterRegistry` → `InMemoryDalOperationAdapterRegistry`,
-  `WebDalOperationAdapterAssembler` → `DalOperationAdapterAssembler`,
-  `WebDalOperationAdapter` → `DelegatingDalOperationAdapter`. Methods and bean names
-  (`dalOperationAdapterRegistry`, `dalOperationAdapterAssembler`) are unchanged; a custom registry bean
-  now implements the core interface and still replaces the default. The web module's
-  `DalResourceNotFoundException` is removed: an empty `readOne` throws core's
-  `DalEntityNotFoundException`, as update and delete already did. On the wire, the 404 `detail` of
-  `GET /dal/v1/{dalName}/{id}` for a missing entity now reads `"<Entity> was not found for id: [<id>]"`
-  instead of `"Resource not found with ID: <id>"`; status, title and media type are unchanged.
+  `com.paganbit.telaio.web.registry.WebDalOperationAdapterRegistry` → `DalOperationAdapterRegistry`,
+  `web.registry.DefaultWebDalOperationAdapterRegistry` → `InMemoryDalOperationAdapterRegistry`,
+  `web.registry.WebDalOperationAdapterAssembler` → `DalOperationAdapterAssembler`,
+  `com.paganbit.telaio.web.adapter.WebDalOperationAdapter` → `DelegatingDalOperationAdapter`. Methods and
+  bean names (`dalOperationAdapterRegistry`, `dalOperationAdapterAssembler`) are unchanged. Migration:
+  change the imports to `com.paganbit.telaio.core.adapter`; a custom registry bean implements the core
+  interface and still replaces the default.
+- **Breaking:** `com.paganbit.telaio.web.exception.DalResourceNotFoundException` is removed. An empty
+  `readOne` now throws core's `DalEntityNotFoundException`, as update and delete already did, and the
+  existing 404 mapping applies. Migration: catch or handle `DalEntityNotFoundException` where you caught
+  the removed type.
+- **Breaking** on the wire: the 404 `detail` of `GET /dal/v1/{dalName}/{id}` for a missing entity now reads
+  `"<Entity> was not found for id: [<id>]"` instead of `"Resource not found with ID: <id>"`; status, title
+  and media type are unchanged. Migration: a client or test that matched the old text matches the new one.
 
 ## [2.0.1] - 2026-09-06
 
