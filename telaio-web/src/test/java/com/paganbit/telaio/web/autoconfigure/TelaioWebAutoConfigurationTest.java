@@ -1,10 +1,9 @@
 package com.paganbit.telaio.web.autoconfigure;
 
+import com.paganbit.telaio.core.adapter.DalOperationAdapterRegistry;
 import com.paganbit.telaio.core.autoconfigure.TelaioCoreAutoConfiguration;
 import com.paganbit.telaio.web.annotation.DalIdArgumentResolver;
-import com.paganbit.telaio.web.registry.DefaultWebDalOperationAdapterRegistry;
-import com.paganbit.telaio.web.registry.WebDalOperationAdapterAssembler;
-import com.paganbit.telaio.web.registry.WebDalOperationAdapterRegistry;
+import com.paganbit.telaio.web.interceptor.WebDalExposureInterceptorProvider;
 import com.turkraft.springfilter.converter.FilterStringConverter;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -34,24 +33,12 @@ class TelaioWebAutoConfigurationTest {
         .withBean(FilterStringConverter.class, () -> mock(FilterStringConverter.class));
 
     @Test
-    void byDefault_shouldRegisterCoreWebBeans() {
+    void byDefault_shouldRegisterWebBeans() {
         contextRunner.run(context -> {
-            assertThat(context).hasSingleBean(WebDalOperationAdapterRegistry.class);
-            assertThat(context.getBean(WebDalOperationAdapterRegistry.class))
-                .isInstanceOf(DefaultWebDalOperationAdapterRegistry.class);
-            assertThat(context).hasSingleBean(WebDalOperationAdapterAssembler.class);
             assertThat(context).hasSingleBean(DalIdArgumentResolver.class);
+            assertThat(context).hasSingleBean(WebDalExposureInterceptorProvider.class);
+            assertThat(context).hasSingleBean(DalOperationAdapterRegistry.class);
         });
-    }
-
-    @Test
-    void customAdapterRegistry_shouldReplaceDefault() {
-        contextRunner
-            .withBean(WebDalOperationAdapterRegistry.class, () -> mock(WebDalOperationAdapterRegistry.class))
-            .run(context -> {
-                assertThat(context).hasSingleBean(WebDalOperationAdapterRegistry.class);
-                assertThat(context).doesNotHaveBean(DefaultWebDalOperationAdapterRegistry.class);
-            });
     }
 
     @Test
@@ -59,6 +46,6 @@ class TelaioWebAutoConfigurationTest {
         new ReactiveWebApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(TelaioWebAutoConfiguration.class))
             .run(context ->
-                assertThat(context).doesNotHaveBean(WebDalOperationAdapterRegistry.class));
+                assertThat(context).doesNotHaveBean(DalIdArgumentResolver.class));
     }
 }
