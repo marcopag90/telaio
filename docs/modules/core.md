@@ -48,6 +48,23 @@ directly.
 | `DalTransactionPolicy`          | SPI for transaction management per DAL                                                                                                                            |
 | `PassThroughTransactionManager` | No-op `PlatformTransactionManager` fallback for backends with no real transaction manager available                                                               |
 
+### Operation adapter assembly
+
+Every remote boundary (REST today, agent tools in the `ai` family) calls a DAL through a `DalOperationAdapter`
+rather than through the `Dal` bean, so that the boundary-level interceptors (exposure, denied-attempt audit,
+security and field-level RBAC) always apply. Since 3.0.0 the chain is assembled by `telaio-core`, package
+`com.paganbit.telaio.core.adapter`:
+
+| Type                            | Purpose                                                                                                                                                                                                                                              |
+|---------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `DelegatingDalOperationAdapter` | Base adapter backed by a `Dal`: `create`, `read`, `readOne`, `update`, `delete` delegate to the `Dal` and return the entity directly. An empty `readOne` throws `DalEntityNotFoundException`, the same failure update and delete raise.            |
+| `DalOperationAdapterAssembler`  | Runs once every singleton exists: for each non-internal DAL it wraps the base adapter with the interceptors contributed by every `DalAdapterInterceptorProvider` bean (lowest order outermost) and publishes the proxy to the registry. Internal DALs get no adapter. |
+| `DalOperationAdapterRegistry`   | Holds the assembled adapters by DAL name: `register(String, DalOperationAdapter)` and `get(String)` (throws `DalNotFoundException` for an unknown name). The default `InMemoryDalOperationAdapterRegistry` is `@ConditionalOnMissingBean`; first registration wins. |
+
+`DalAdapterInterceptorProvider` is the SPI a module implements to join this chain (`telaio-web` contributes the
+REST exposure check, `telaio-audit` the denied-attempt audit, `telaio-security` authorization and RBAC); prefer
+the channel-agnostic `DalInterceptorProvider` above unless the concern only exists at a remote boundary.
+
 ### Exceptions
 
 | Exception                            | When                                                                                                                                                              |

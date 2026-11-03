@@ -6,6 +6,21 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### ⛔ Deprecations & Removals
+
+- **Breaking:** the operation-adapter assembly moved from `telaio-web` to `telaio-core`, package
+  `com.paganbit.telaio.core.adapter`, so every remote boundary shares one chain. Renamed on the way:
+  `WebDalOperationAdapterRegistry` → `DalOperationAdapterRegistry`,
+  `DefaultWebDalOperationAdapterRegistry` → `InMemoryDalOperationAdapterRegistry`,
+  `WebDalOperationAdapterAssembler` → `DalOperationAdapterAssembler`,
+  `WebDalOperationAdapter` → `DelegatingDalOperationAdapter`. Methods and bean names
+  (`dalOperationAdapterRegistry`, `dalOperationAdapterAssembler`) are unchanged; a custom registry bean
+  now implements the core interface and still replaces the default. The web module's
+  `DalResourceNotFoundException` is removed: an empty `readOne` throws core's
+  `DalEntityNotFoundException`, as update and delete already did. On the wire, the 404 `detail` of
+  `GET /dal/v1/{dalName}/{id}` for a missing entity now reads `"<Entity> was not found for id: [<id>]"`
+  instead of `"Resource not found with ID: <id>"`; status, title and media type are unchanged.
+
 ## [2.0.1] - 2026-09-06
 
 ### 🔄 Improvements

@@ -18,9 +18,9 @@ import java.time.Clock;
  * with {@link DalAudit}.
  *
  * <p>Ordered as {@link DalAdapterInterceptorProvider#AUDIT_PRECEDENCE} — outside the security
- * phase, so authorization rejections are observed. This provider is only consulted where the
- * operation-adapter pipeline is assembled (the web module); without it the bean stays dormant and
- * DAL-level auditing still applies.</p>
+ * phase, so authorization rejections are observed. This provider is consulted by core's
+ * {@code DalOperationAdapterAssembler} when it builds the adapter of each DAL, so the interceptor
+ * applies on every remote boundary; the Dal-level audit interceptor applies regardless.</p>
  *
  * @author Marco Pagan
  * @since 1.0.0

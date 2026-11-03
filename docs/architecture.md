@@ -97,25 +97,25 @@ sequenceDiagram
     participant Spring as Spring Context
     participant PostProc as DalDefinitionBeanPostProcessor
     participant Manager as DalManager
-    participant Assembler as WebDalOperationAdapterAssembler
-    participant WebReg as WebDalOperationAdapterRegistry
+    participant Assembler as DalOperationAdapterAssembler
+    participant WebReg as DalOperationAdapterRegistry
     participant Controller as DalRestApiV1Controller
     Code ->> Spring: @DalService public class ProductDalService extends JpaDal
     Spring ->> PostProc: Detect @DalService
     PostProc ->> Manager: Register DAL with name "products"
     Manager ->> Manager: Store definition (name, operations, internal, etc.)
     Note over Assembler: At startup
-    Assembler ->> WebReg: Assemble web adapters (if not internal)
+    Assembler ->> WebReg: Assemble operation adapters (if not internal)
     Note over Controller: At request time
     Client ->> Controller: POST /dal/v1/products { name, price, ... }
     Controller ->> WebReg: Lookup "products" adapter
-    WebReg ->> Controller: Return WebDalOperationAdapter
+    WebReg ->> Controller: Return DalOperationAdapter
     Controller ->> WebReg: Invoke adapter.create(input)
     Note over WebReg: Adapter chain executes
     WebReg ->> WebReg: 1. WebDalExposureInterceptor (check if op exposed)
     WebReg ->> WebReg: 2. DalAuditDeniedInterceptor (record if denied)
     WebReg ->> WebReg: 3. DalSecurityInterceptor (authz + RBAC field filtering)
-    WebReg ->> WebReg: 4. WebDalOperationAdapter (call Dal.create)
+    WebReg ->> WebReg: 4. DelegatingDalOperationAdapter (call Dal.create)
     WebReg ->> Manager: Get Dal bean
     Manager ->> Code: Dal.create(map)
     Code ->> Code: Validate input, persist
@@ -127,14 +127,15 @@ sequenceDiagram
 **Key points**:
 
 1. **Registration** happens once at startup via `DalDefinitionBeanPostProcessor` and `DalFactoryPostProcessor`; the
-   web adapters are assembled separately by `WebDalOperationAdapterAssembler` (in `telaio-web`).
+   operation adapters are assembled separately by `DalOperationAdapterAssembler` (in `telaio-core`) and published
+   to the `DalOperationAdapterRegistry`, from which `telaio-web` resolves them.
 2. **Exposure check** (step 1) returns 404 or 405 for non-exposed operations before reaching the DAL.
 3. **Audit denied** (step 2) records failed authorization attempts.
 4. **Security** (step 3) runs the `DalAuthAdapter` to check if the principal can perform the operation, then applies
    the `DalRbacAdapter` to filter input/output fields by role and to reject a filter that references a field the
    principal cannot read — all inside the single `DalSecurityInterceptor` (RBAC is not a separate interceptor in the
    chain).
-5. **Web operation** (step 4) calls the underlying `Dal` method with the filtered input.
+5. **Delegation** (step 4) calls the underlying `Dal` method with the filtered input.
 
 ## Per-Request Adapter Chain (REST Boundary)
 
@@ -156,7 +157,7 @@ graph TD
     G -->|No<br/>Access Denied| H["403<br/>ProblemDetail<br/>generic body"]
     H -->|Response| Z
     G -->|Yes| I["DalRbacAdapter<br/>(field filtering, applied by<br/>DalSecurityInterceptor)"]
-    I -->|Filter input<br/>by role| J["WebDalOperationAdapter<br/>(calls Dal method)"]
+    I -->|Filter input<br/>by role| J["DelegatingDalOperationAdapter<br/>(calls Dal method)"]
     J -->|Invoke<br/>Dal.create input| K["Dal Bean"]
     K -->|Business logic:<br/>validate, merge,<br/>persist| L["Entity"]
     J -->|Filter output<br/>by role| M["Filtered Entity"]
@@ -208,7 +209,7 @@ When a REST request reaches the `Dal` bean, the following happens:
 
 ```mermaid
 graph TD
-    A["WebDalOperationAdapter<br/>receives input Map"] -->|1: UPDATE only| B["Fetch existing entity<br/>(executeReadOne), then<br/>DalPropertyMerger"]
+    A["DelegatingDalOperationAdapter<br/>receives input Map"] -->|1: UPDATE only| B["Fetch existing entity<br/>(executeReadOne), then<br/>DalPropertyMerger"]
     B -->|Merge partial<br/>patch into<br/>fetched entity| C["Entity with<br/>merged values"]
     C -->|2| D["DalValidator<br/>(Bean Validation)"]
     D -->|Validate against<br/>@NotNull, @NotBlank,<br/>etc. constraints| E{Valid?}
@@ -281,11 +282,11 @@ self-contained and testable:
 
 ```mermaid
 graph LR
-    A["telaio-core<br/>TelaioCoreAutoConfiguration"] -->|Registers| B["DalManager<br/>DalPropertyMerger<br/>DalTransactionPolicy<br/>TelaioVersionProvider"]
+    A["telaio-core<br/>TelaioCoreAutoConfiguration"] -->|Registers| B["DalManager<br/>DalOperationAdapterRegistry<br/>DalOperationAdapterAssembler<br/>DalPropertyMerger<br/>DalTransactionPolicy<br/>TelaioVersionProvider"]
     C["telaio-security<br/>TelaioSecurityAutoConfiguration"] -->|Registers| D["DalSecurityInterceptorProvider<br/>(creates DalSecurityInterceptor)"]
     E["telaio-audit<br/>TelaioAuditAutoConfiguration"] -->|Registers| F["DalAuditInterceptorProvider<br/>DalAuditEventStore"]
     G["telaio-metrics<br/>TelaioMetricsAutoConfiguration"] -->|Registers| H["DalMetricsInterceptorProvider<br/>DalMetricsStore<br/>DalMetricsFlushScheduler"]
-    I["telaio-web<br/>TelaioWebAutoConfiguration"] -->|Registers via @Import| J["DalRestApiV1Controller<br/>WebDalOperationAdapterRegistry"]
+    I["telaio-web<br/>TelaioWebAutoConfiguration"] -->|Registers via @Import| J["DalRestApiV1Controller<br/>WebDalExposureInterceptorProvider"]
     K["telaio-openapi<br/>TelaioOpenApiAutoConfiguration"] -->|Registers| L["DalOpenApiCustomizer<br/>DalPathsGenerator"]
 ```
 
@@ -309,7 +310,7 @@ graph TD
     C -->|403<br/>Access Denied| F["AccessDeniedException<br/>(Spring Security)"]
     F -->|Mapped by| G["TelaioAccessDeniedExceptionHandler"]
     G -->|Response| H["ProblemDetail<br/>status: 403<br/>title: Forbidden<br/>detail: (omitted)"]
-    C -->|404<br/>Not Found| I["DalEntityNotFoundException<br/>DalResourceNotFoundException"]
+    C -->|404<br/>Not Found| I["DalEntityNotFoundException<br/>DalNotFoundException"]
     I -->|Response| J["ProblemDetail<br/>status: 404"]
     C -->|409<br/>Conflict| P["OptimisticLockingFailureException<br/>(@Version race)"]
     P -->|Response| Q["ProblemDetail<br/>status: 409<br/>detail: generic"]
@@ -341,7 +342,7 @@ Here's a complete walkthrough of a PATCH request to update a product:
 2. DalRestApiV1Controller receives the request
    ↓
 
-3. WebDalOperationAdapter.update() is called
+3. DalOperationAdapter.update() is called (the chain assembled by telaio-core)
    ↓
 
 4. WebDalExposureInterceptor checks: Is UPDATE in @DalService(operations = {…})?
@@ -363,7 +364,7 @@ Here's a complete walkthrough of a PATCH request to update a product:
    - Result: same (all fields are writable)
    ↓
 
-8. WebDalOperationAdapter delegates to Dal.update(id, filteredInput)
+8. DelegatingDalOperationAdapter delegates to Dal.update(id, filteredInput)
    ↓
 
 9. AbstractDal fetches the existing entity via executeReadOne(id),
