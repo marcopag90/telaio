@@ -1,15 +1,12 @@
 package com.paganbit.telaio.web.interceptor;
 
 import com.paganbit.telaio.core.Dal;
-import com.paganbit.telaio.core.adapter.DalAdapterContext;
-import com.paganbit.telaio.core.adapter.DalOperationAdapter;
-import com.paganbit.telaio.core.adapter.DalOperationAdapterAssembler;
-import com.paganbit.telaio.core.adapter.DalOperationType;
-import com.paganbit.telaio.core.adapter.InMemoryDalOperationAdapterRegistry;
+import com.paganbit.telaio.core.adapter.*;
 import com.paganbit.telaio.core.registry.DalDefinitionEntry;
 import com.paganbit.telaio.core.registry.DalManager;
 import com.paganbit.telaio.web.exception.DalOperationNotExposedException;
 import com.turkraft.springfilter.parser.node.FilterNode;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -74,36 +71,42 @@ class WebDalExposureInterceptorProviderTest {
         static final Object CREATED = new Object();
 
         @Override
-        public Object create(Map<String, Object> properties) {
+        @NonNull
+        public Object create(@NonNull Map<String, Object> properties) {
             return CREATED;
         }
 
         @Override
-        public Page<Object> read(@Nullable FilterNode filter, Pageable pageable) {
+        @NonNull
+        public Page<Object> read(@Nullable FilterNode filter, @NonNull Pageable pageable) {
             return Page.empty();
         }
 
         @Override
-        public Optional<Object> readOne(Long id) {
+        @NonNull
+        public Optional<Object> readOne(@NonNull Long id) {
             return Optional.empty();
         }
 
         @Override
-        public Optional<Object> update(Long id, Map<String, Object> properties) {
+        @NonNull
+        public Optional<Object> update(@NonNull Long id, @NonNull Map<String, Object> properties) {
             return Optional.empty();
         }
 
         @Override
-        public void delete(Long id) {
+        public void delete(@NonNull Long id) {
             //noop
         }
 
         @Override
+        @NonNull
         public Class<Object> getEntityClass() {
             return Object.class;
         }
 
         @Override
+        @NonNull
         public Class<Long> getIdClass() {
             return Long.class;
         }

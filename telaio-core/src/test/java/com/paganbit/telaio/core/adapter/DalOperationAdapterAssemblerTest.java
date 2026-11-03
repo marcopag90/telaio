@@ -115,7 +115,7 @@ class DalOperationAdapterAssemblerTest {
 
     @Test
     void shouldHandProvidersTheContextOfTheDalBeingAssembled() {
-        AtomicReference<DalAdapterContext> seen = new AtomicReference<>();
+        AtomicReference<@Nullable DalAdapterContext> seen = new AtomicReference<>();
         final var provider = new DalAdapterInterceptorProvider() {
             @Override
             public @Nullable MethodInterceptor getInterceptor(DalAdapterContext context) {
