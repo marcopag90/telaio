@@ -48,7 +48,7 @@ public final class LatencyHistogramScale {
             throw new IllegalArgumentException("bucketCount must be at least 2");
         }
         long[] bounds = new long[bucketCount - 1];
-        double bound = firstUpperBound.toNanos();
+        double bound = (double) firstUpperBound.toNanos();
         for (int i = 0; i < bounds.length; i++) {
             bounds[i] = Math.clamp((long) bound, 0, Long.MAX_VALUE);
             bound *= growthFactor;

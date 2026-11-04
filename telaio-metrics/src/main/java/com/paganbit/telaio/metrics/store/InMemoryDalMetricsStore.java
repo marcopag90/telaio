@@ -67,21 +67,19 @@ public class InMemoryDalMetricsStore implements DalMetricsStore, DalMetricsQuery
 
     @Override
     public List<String> dalNames(Instant from, Instant to) {
-        TreeSet<String> names = new TreeSet<>();
-        for (DalMetricsBucket bucket : range(from, to)) {
-            names.add(bucket.dalName());
-        }
-        return List.copyOf(names);
+        return range(from, to).stream()
+            .map(DalMetricsBucket::dalName)
+            .distinct()
+            .sorted()
+            .toList();
     }
 
     @Override
     public DalMetricsStats stats(String dalName, @Nullable DalOperationType operation, Instant from, Instant to) {
-        List<DalMetricsBucket> matching = new ArrayList<>();
-        for (DalMetricsBucket bucket : range(from, to)) {
-            if (bucket.dalName().equals(dalName) && (operation == null || bucket.operation() == operation)) {
-                matching.add(bucket);
-            }
-        }
+        List<DalMetricsBucket> matching = range(from, to).stream()
+            .filter(bucket -> bucket.dalName().equals(dalName))
+            .filter(bucket -> operation == null || bucket.operation() == operation)
+            .toList();
         return merger.merge(dalName, operation, from, to, matching);
     }
 
@@ -124,17 +122,13 @@ public class InMemoryDalMetricsStore implements DalMetricsStore, DalMetricsQuery
         Instant from,
         Instant to
     ) {
-        List<DalMetricsBucket> result = new ArrayList<>();
-        for (DalMetricsBucket bucket : range(from, to)) {
-            if ((dalName == null || bucket.dalName().equals(dalName))
-                && (operation == null || bucket.operation() == operation)) {
-                result.add(bucket);
-            }
-        }
-        return result;
+        return range(from, to).stream()
+            .filter(bucket -> dalName == null || bucket.dalName().equals(dalName))
+            .filter(bucket -> operation == null || bucket.operation() == operation)
+            .toList();
     }
 
-    private Iterable<DalMetricsBucket> range(Instant from, Instant to) {
+    private Collection<DalMetricsBucket> range(Instant from, Instant to) {
         return buckets.subMap(BucketKey.lowerBound(from), true, BucketKey.lowerBound(to), false)
             .values();
     }
