@@ -141,7 +141,7 @@ sequenceDiagram
    chain).
 5. **Delegation** (step 4) calls the underlying `Dal` method with the filtered input.
 
-## Per-Request Adapter Chain (REST Boundary)
+## Per-Request Adapter Chain (REST Channel)
 
 When a REST request arrives at `DalRestApiV1Controller`, it flows through the `rest` **adapter chain** assembled by
 `telaio-core` from the exposure `telaio-web` declares through its `DalChannelDefinition`. This chain is
@@ -171,8 +171,9 @@ graph TD
 
 **Exit points (errors return `ProblemDetail`):**
 
-- **404 / 405** (Exposure): Operation not on the exposed list. 405 includes `Allow: POST,GET,…` header. 404 if no
-  operations are exposed.
+- **404 / 405** (Exposure): Operation not on the exposed list. 405 includes `Allow: POST,GET,…` header; 404 with an
+  empty body if the URI exposes no operation. A DAL declared `@DalWeb(operations = {})` or `internal = true` has
+  no chain on REST and answers the unknown-name `ProblemDetail` 404 instead.
 - **403** (Security): `DalAuthAdapter` denied the principal. Body is generic (no detail leaks per OWASP).
 - **400** (Validation): Entity validation failed. Body includes field-level `errors` extension.
 - **404** (Not Found): Entity with the given ID doesn't exist.
@@ -351,7 +352,7 @@ Here's a complete walkthrough of a PATCH request to update a product:
    ↓
 
 4. DalExposureInterceptor (core) checks: Is UPDATE in @DalWeb(operations = {…})?
-   If not → DalOperationNotExposedException, translated by telaio-web to 404 or 405 (empty body)
+   If not → DalOperationNotExposedException, translated by telaio-web to 405 + Allow or 404 (both empty body)
    If yes → continue
    ↓
 
@@ -416,8 +417,9 @@ Telaio separates concerns across layers:
 - **Core** (`telaio-core`): DAL abstraction, registration, CRUD contracts.
 - **Wire contract** (`telaio-rest-contract`): The frozen `/dal/v1` shape — constants, ID codec, validation-error
   payload — shared by server and client.
-- **Boundary** (`telaio-web`): REST routing and the exposure check, contributed to the adapter chain that
-  `telaio-core` assembles.
+- **REST channel** (`telaio-web`): REST routing, the `@DalWeb` declaration of exposed operations (its
+  `DalChannelDefinition`), and the translation of core's rejections into 404/405 responses; the exposure check
+  itself runs in core.
 - **Remote client** (`telaio-rest-client-shared`, `telaio-rest-client`): A typed client of the DAL REST API, built on
   the same wire contract the server serves.
 - **Cross-cutting** (`telaio-security`, `telaio-audit`, `telaio-metrics`): Interceptors and adapters plugged into both

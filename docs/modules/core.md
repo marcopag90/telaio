@@ -35,8 +35,8 @@ directly.
 | Type                 | Purpose                                                                              |
 |----------------------|--------------------------------------------------------------------------------------|
 | `DalRegistry`        | Read-only interface: `getServiceByName(String)` → `Dal<?,?>`                         |
-| `DalCatalog`         | Read-only view: `DalRegistry` + `DalDefinitionRegistry` (no registration); what interception providers receive |
-| `DalManager`         | Composite registry (single entry point for querying and registering DALs)            |
+| `DalCatalog`         | Read-only view: `DalRegistry` + `DalDefinitionRegistry` (no registration); reached by adapter interceptor providers through `DalAdapterContext.catalog()` |
+| `DalManager`         | Composite registry: `DalCatalog` + `DalAdapterRegistry` + `DalRegistryWriter` (single entry point for querying and registering DALs) |
 | `DalDefinitionEntry` | Identity snapshot: DAL name, concrete `Dal` class, internal flag                     |
 | `DalOperationType`   | Enum: `CREATE`, `READ`, `READ_ONE`, `UPDATE`, `DELETE`                               |
 | `DalChannel`         | Open value type naming an invocation channel (`DalChannel.of("rest")`, `DalChannel.IN_PROCESS`); not an enum, so a third-party channel plugs in without touching core |

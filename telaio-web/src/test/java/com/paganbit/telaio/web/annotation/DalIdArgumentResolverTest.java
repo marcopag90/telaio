@@ -7,6 +7,8 @@ import com.paganbit.telaio.core.registry.DalManager;
 import com.paganbit.telaio.introspection.DefaultSimpleTypePredicate;
 import com.paganbit.telaio.rest.contract.DalIdCodecException;
 import com.paganbit.telaio.web.DalRestApiV1;
+import com.paganbit.telaio.web.annotation.DalWeb;
+import com.paganbit.telaio.web.channel.DalRestChannelDefinition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -54,13 +56,15 @@ class DalIdArgumentResolverTest {
 
     private static final DalDefinitionEntry EXPOSED = new DalDefinitionEntry("testDal", StubDal.class);
     private static final DalDefinitionEntry INTERNAL = new DalDefinitionEntry("testDal", StubDal.class, true);
+    private static final DalDefinitionEntry HIDDEN = new DalDefinitionEntry("testDal", HiddenDal.class);
 
     private DalIdArgumentResolver resolver;
     private Map<String, String> pathVariables;
 
     @BeforeEach
     void setUp() {
-        resolver = new DalIdArgumentResolver(dalManager, objectMapper, new DefaultSimpleTypePredicate());
+        resolver = new DalIdArgumentResolver(
+            dalManager, new DalRestChannelDefinition(), objectMapper, new DefaultSimpleTypePredicate());
         pathVariables = new HashMap<>();
         pathVariables.put(DalRestApiV1.PATH_VARIABLE_DAL_NAME, "testDal");
         pathVariables.put(DalRestApiV1.PATH_VARIABLE_ID, "123");
@@ -160,6 +164,26 @@ class DalIdArgumentResolverTest {
             resolver.resolveArgument(parameter, null, webRequest, binderFactory));
         assertEquals("DAL service not found: testDal", ex.getMessage());
         verify(dalManager, never()).getServiceByName(anyString());
+    }
+
+    @Test
+    void resolveArgument_dalHiddenFromRest_shouldRaiseNotFoundBeforeDecodingTheId() throws NoSuchMethodException {
+        Method method = TestController.class.getMethod("methodWithDalId", Object.class);
+        MethodParameter parameter = new MethodParameter(method, 0);
+
+        // A malformed id must not turn into a 400 that reveals the DAL exists.
+        pathVariables.put(DalRestApiV1.PATH_VARIABLE_ID, "not-an-id");
+        when(webRequest.getAttribute(
+            HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE,
+            RequestAttributes.SCOPE_REQUEST
+        )).thenReturn(pathVariables);
+        doReturn(HIDDEN).when(dalManager).getDefinitionByName("testDal");
+
+        DalNotFoundException ex = assertThrows(DalNotFoundException.class, () ->
+            resolver.resolveArgument(parameter, null, webRequest, binderFactory));
+        assertEquals("DAL service not found: testDal", ex.getMessage());
+        verify(dalManager, never()).getServiceByName(anyString());
+        verifyNoInteractions(objectMapper);
     }
 
     @Test
@@ -287,5 +311,9 @@ class DalIdArgumentResolverTest {
     }
 
     abstract static class StubDal implements Dal<Object, Object> {
+    }
+
+    @DalWeb(operations = {})
+    abstract static class HiddenDal implements Dal<Object, Object> {
     }
 }

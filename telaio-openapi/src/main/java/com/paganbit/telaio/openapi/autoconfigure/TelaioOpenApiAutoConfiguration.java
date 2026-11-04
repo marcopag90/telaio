@@ -25,8 +25,8 @@ import tools.jackson.databind.ObjectMapper;
  * the dynamic Telaio REST endpoints. Active only in a servlet web application that has springdoc on the
  * classpath and a {@link DalManager} bean, and unless {@code telaio.openapi.enabled=false}. The customizer
  * itself additionally requires a {@link DalRestChannelDefinition} bean: with no REST channel there is
- * nothing to document. Every
- * collaborator is a {@code @ConditionalOnMissingBean} so consumers can override any single piece.</p>
+ * nothing to document. Every collaborator is a {@code @ConditionalOnMissingBean} so consumers can override
+ * any single piece.</p>
  *
  * @author Marco Pagan
  * @since 1.0.0

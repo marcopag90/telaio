@@ -7,11 +7,14 @@ import org.springframework.core.Ordered;
 /**
  * Supplies a {@link MethodInterceptor} that applies a cross-cutting concern to a DAL operation adapter.
  *
- * <p>Providers are consulted once per DAL during adapter assembly and applied in {@link Ordered}
- * order, with the lowest order value being the outermost interceptor. The {@code *_PRECEDENCE}
- * constants define the order of the built-in phases and leave room for custom providers between
- * and around them; two providers sharing the same order value are applied in bean definition
- * order.
+ * <p>Providers are consulted once per (channel, DAL) chain during adapter assembly and applied in
+ * {@link Ordered} order, with the lowest order value being the outermost interceptor after core's own
+ * exposure interceptor. The {@code *_PRECEDENCE} constants define the order of the built-in phases and
+ * leave room for custom providers between and around them; two providers sharing the same order value
+ * are applied in bean definition order. The {@link DalAdapterContext} names the channel, so a provider
+ * whose behavior depends on it can read it; a provider that only reports what happened belongs at the
+ * {@link com.paganbit.telaio.core.Dal} level instead (see
+ * {@link com.paganbit.telaio.core.interceptor.DalInterceptorProvider}).</p>
  *
  * @author Marco Pagan
  * @since 1.0.0

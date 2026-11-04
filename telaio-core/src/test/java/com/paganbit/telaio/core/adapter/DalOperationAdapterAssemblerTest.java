@@ -72,9 +72,10 @@ class DalOperationAdapterAssemblerTest {
         DalOperationAdapter<Object> agentAdapter = registry.get(AGENT, "testDal");
         assertNotSame(restAdapter, agentAdapter);
         // The same DAL, two exposure rules: CREATE passes on rest and is rejected on agent.
-        assertEquals(TestDalService.CREATED, restAdapter.create(Map.of()));
+        Map<String, Object> input = Map.of();
+        assertEquals(TestDalService.CREATED, restAdapter.create(input));
         DalOperationNotExposedException rejected =
-            assertThrows(DalOperationNotExposedException.class, () -> agentAdapter.create(Map.of()));
+            assertThrows(DalOperationNotExposedException.class, () -> agentAdapter.create(input));
         assertEquals(AGENT, rejected.channel());
         assertEquals("testDal", rejected.dalName());
         assertEquals(DalOperationType.CREATE, rejected.operation());
@@ -92,12 +93,23 @@ class DalOperationAdapterAssemblerTest {
     }
 
     @Test
-    void duplicateChannelDefinition_shouldFailFast() {
+    void duplicateChannelDefinition_shouldFailFastBeforeRegisteringAnything() {
         DalOperationAdapterAssembler assembler =
             assembler(List.of(exposingAll(REST), exposingAll(DalChannel.of("rest"))), List.of());
 
         DalDefinitionException ex = assertThrows(DalDefinitionException.class, assembler::afterSingletonsInstantiated);
         assertTrue(ex.getMessage().contains("rest"));
+        assertThrows(DalNotFoundException.class, () -> registry.get(REST, "testDal"));
+    }
+
+    @Test
+    void inProcessChannelDefinition_shouldBeRejected() {
+        DalOperationAdapterAssembler assembler =
+            assembler(List.of(exposingAll(DalChannel.IN_PROCESS)), List.of());
+
+        DalDefinitionException ex = assertThrows(DalDefinitionException.class, assembler::afterSingletonsInstantiated);
+        assertTrue(ex.getMessage().contains("in-process"));
+        verify(dalManager, never()).getServiceByName(any());
     }
 
     @Test

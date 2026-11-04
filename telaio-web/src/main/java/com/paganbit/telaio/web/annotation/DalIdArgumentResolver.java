@@ -6,6 +6,7 @@ import com.paganbit.telaio.core.registry.DalCatalog;
 import com.paganbit.telaio.core.registry.DalDefinitionEntry;
 import com.paganbit.telaio.rest.contract.DalIdCodec;
 import com.paganbit.telaio.web.DalRestApiV1;
+import com.paganbit.telaio.web.channel.DalRestChannelDefinition;
 import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.NonNull;
 import org.springframework.core.MethodParameter;
@@ -30,9 +31,9 @@ import java.util.function.Predicate;
  * (composite keys), which are expected to be passed as Base64-encoded JSON objects.</p>
  *
  * <p>The conversion itself is delegated to the {@link DalIdCodec}. The target DAL is resolved through its
- * registered definition, never by looking a bean up under the client-supplied path segment: an unknown name
- * and an internal DAL both raise {@link DalNotFoundException}, so the item routes answer exactly like the
- * collection route and reveal neither.</p>
+ * registered definition, never by looking a bean up under the client-supplied path segment: an unknown
+ * name, an internal DAL and a DAL that exposes nothing on REST all raise {@link DalNotFoundException}, so
+ * the item routes answer exactly like the collection route and reveal none of them.</p>
  *
  * @author Marco Pagan
  * @see DalId
@@ -42,6 +43,7 @@ import java.util.function.Predicate;
 public class DalIdArgumentResolver implements HandlerMethodArgumentResolver {
 
     private final DalCatalog catalog;
+    private final DalRestChannelDefinition restChannel;
     private final DalIdCodec dalIdCodec;
 
     /**
@@ -49,15 +51,18 @@ public class DalIdArgumentResolver implements HandlerMethodArgumentResolver {
      * aggregated predicate carrying backend-contributed types.
      *
      * @param catalog             the registry resolving the target DAL and its definition by name
+     * @param restChannel         the REST channel definition, telling whether the DAL is on REST at all
      * @param objectMapper        the mapper backing the id codec
      * @param simpleTypePredicate the classification deciding raw-vs-Base64 id travel
      */
     public DalIdArgumentResolver(
         DalCatalog catalog,
+        DalRestChannelDefinition restChannel,
         ObjectMapper objectMapper,
         Predicate<Class<?>> simpleTypePredicate
     ) {
         this.catalog = catalog;
+        this.restChannel = restChannel;
         this.dalIdCodec = new DalIdCodec(objectMapper, simpleTypePredicate);
     }
 
@@ -98,12 +103,13 @@ public class DalIdArgumentResolver implements HandlerMethodArgumentResolver {
 
     /**
      * Resolves the DAL named by the path segment through its definition. An unknown name is rejected by
-     * the registry; an internal DAL is rejected here with the same exception, so that it is
-     * indistinguishable from a name that does not exist.
+     * the registry; an internal DAL, or one that exposes nothing on REST, is rejected here with the same
+     * exception, so that neither is distinguishable from a name that does not exist — not even by the
+     * shape of its id, which is never decoded for them.
      */
     private Dal<?, ?> exposedDal(String dalName) {
         DalDefinitionEntry definition = catalog.getDefinitionByName(dalName);
-        if (definition.internal()) {
+        if (definition.internal() || restChannel.exposedOperations(definition.dalClass()).isEmpty()) {
             throw new DalNotFoundException(dalName);
         }
         return catalog.getServiceByName(definition.name());

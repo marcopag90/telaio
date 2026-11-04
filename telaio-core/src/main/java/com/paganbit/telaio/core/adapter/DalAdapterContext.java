@@ -36,6 +36,8 @@ public record DalAdapterContext(DalDefinitionEntry definition, DalChannel channe
 
     /**
      * The registration name of the DAL.
+     *
+     * @since 3.0.0
      */
     public String dalName() {
         return definition.name();
@@ -43,6 +45,8 @@ public record DalAdapterContext(DalDefinitionEntry definition, DalChannel channe
 
     /**
      * The user-declared class of the {@link Dal} bean (never a proxy class).
+     *
+     * @since 3.0.0
      */
     public Class<? extends Dal<?, ?>> dalBeanClass() {
         return definition.dalClass();

@@ -121,7 +121,7 @@ DELETE /dal/v1/announcements/{id}
 
 | Property           | Type    | Default                                 | Purpose                                                            |
 |--------------------|---------|-----------------------------------------|--------------------------------------------------------------------|
-| `enabled`          | Boolean | `true` (when telaio-openapi is present) | Whether the branded `TELAIO` OpenAPI group is registered           |
+| `enabled`          | Boolean | `true` (when telaio-openapi is present) | Whether the per-DAL OpenAPI customizer is registered (it also needs telaio-web's REST channel definition) |
 | `include-examples` | Boolean | `false`                                 | Whether to include example values in operation descriptions        |
 | `tag-per-dal`      | Boolean | `true`                                  | Whether each DAL gets its own OpenAPI tag (grouping in Swagger UI) |
 

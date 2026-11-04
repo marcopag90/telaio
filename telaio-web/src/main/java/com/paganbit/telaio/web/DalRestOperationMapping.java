@@ -58,6 +58,7 @@ public final class DalRestOperationMapping {
      * {@link #COLLECTION_PATH} gives the templated form {@code /dal/v1/{dalName}}.
      *
      * @param dalName the DAL name, or a path template
+     * @return the absolute path
      */
     public static String collectionPath(String dalName) {
         return DalApiV1.BASE_PATH + "/" + dalName;
@@ -68,6 +69,7 @@ public final class DalRestOperationMapping {
      * {@link #COLLECTION_PATH} gives the fully templated form {@code /dal/v1/{dalName}/{id}}.
      *
      * @param dalName the DAL name, or a path template
+     * @return the absolute path template
      */
     public static String itemPath(String dalName) {
         return collectionPath(dalName) + "/{" + DalApiV1.PATH_VARIABLE_ID + "}";
@@ -75,6 +77,9 @@ public final class DalRestOperationMapping {
 
     /**
      * Returns the HTTP method serving the given operation.
+     *
+     * @param operation the operation
+     * @return its HTTP method
      */
     public static HttpMethod httpMethod(DalOperationType operation) {
         return Objects.requireNonNull(HTTP_METHODS.get(operation));
@@ -82,6 +87,9 @@ public final class DalRestOperationMapping {
 
     /**
      * Returns the operations sharing the URI of the given one, the operation itself included.
+     *
+     * @param operation the operation
+     * @return the operations served by the same URI
      */
     public static Set<DalOperationType> uriGroup(DalOperationType operation) {
         return COLLECTION_OPERATIONS.contains(operation) ? COLLECTION_OPERATIONS : ITEM_OPERATIONS;

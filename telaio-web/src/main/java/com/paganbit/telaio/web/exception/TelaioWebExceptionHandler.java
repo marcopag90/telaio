@@ -168,7 +168,7 @@ public class TelaioWebExceptionHandler {
      * {@code Allow} header listing the methods the target URI still serves, computed from the DAL's
      * {@code @DalWeb} through the REST channel definition) or, when the URI serves nothing, to
      * {@code 404 Not Found} so the URI's existence is not revealed. Both intentionally carry an empty body
-     * (the {@code 404} variant must not hint that the operation exists), so this branch does not use
+     * (the {@code 404} variant must not hint that the operation exists), so this method does not return a
      * {@link ProblemDetail}.
      */
     @ExceptionHandler(DalOperationNotExposedException.class)
@@ -184,9 +184,18 @@ public class TelaioWebExceptionHandler {
             .build();
     }
 
+    /**
+     * The methods the target URI still serves. Core raises the exception only for a registered DAL, but a
+     * host component may raise it with a name of its own: an unknown name then answers {@code 404} rather
+     * than failing inside the handler.
+     */
     private Set<HttpMethod> allowedMethods(DalOperationNotExposedException ex) {
-        Class<?> dalClass = definitions.getDefinitionByName(ex.dalName()).dalClass();
-        return DalRestOperationMapping.allowedMethods(restChannel.exposedOperations(dalClass), ex.operation());
+        try {
+            Class<?> dalClass = definitions.getDefinitionByName(ex.dalName()).dalClass();
+            return DalRestOperationMapping.allowedMethods(restChannel.exposedOperations(dalClass), ex.operation());
+        } catch (DalNotFoundException unknownDal) {
+            return Set.of();
+        }
     }
 
     private List<ValidationError> toValidationErrors(List<FieldError> fieldErrors) {

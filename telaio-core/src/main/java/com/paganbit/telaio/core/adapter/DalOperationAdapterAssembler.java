@@ -45,6 +45,12 @@ public class DalOperationAdapterAssembler implements SmartInitializingSingleton 
     private final List<DalChannelDefinition> channelDefinitions;
     private final List<DalAdapterInterceptorProvider> interceptorProviders;
 
+    /**
+     * @param catalog              the registry of DALs and their definitions
+     * @param registry             where the assembled adapters are published
+     * @param channelDefinitions   one definition per channel module present; empty when none is
+     * @param interceptorProviders the providers contributing interceptors to every chain
+     */
     public DalOperationAdapterAssembler(
         DalCatalog catalog,
         DalOperationAdapterRegistry registry,
@@ -64,15 +70,30 @@ public class DalOperationAdapterAssembler implements SmartInitializingSingleton 
             log.debug("No channel definition present — no operation adapter is assembled");
             return;
         }
+        validateChannels();
+        for (DalChannelDefinition channelDefinition : channelDefinitions) {
+            for (DalDefinitionEntry entry : catalog.getAllDefinitions()) {
+                assembleIfExposed(channelDefinition, entry);
+            }
+        }
+    }
+
+    /**
+     * Rejects a misconfigured set of definitions before any chain is registered: two definitions for the
+     * same channel, or a definition claiming the in-process channel, where no chain ever runs.
+     */
+    private void validateChannels() {
         Set<DalChannel> seen = new HashSet<>();
         for (DalChannelDefinition channelDefinition : channelDefinitions) {
             DalChannel channel = channelDefinition.channel();
+            if (DalChannel.IN_PROCESS.equals(channel)) {
+                throw new DalDefinitionException(
+                    "Channel '%s' is reserved for direct calls and cannot be declared by a DalChannelDefinition"
+                        .formatted(channel));
+            }
             if (!seen.add(channel)) {
                 throw new DalDefinitionException(
                     "Channel '%s' is declared by more than one DalChannelDefinition".formatted(channel));
-            }
-            for (DalDefinitionEntry entry : catalog.getAllDefinitions()) {
-                assembleIfExposed(channelDefinition, entry);
             }
         }
     }

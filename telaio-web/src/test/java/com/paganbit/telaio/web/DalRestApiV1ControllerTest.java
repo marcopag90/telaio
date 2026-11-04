@@ -267,6 +267,27 @@ class DalRestApiV1ControllerTest {
     }
 
     @Test
+    void malformedIdOnItemRoute_shouldBeTranslatedBeforeTheHandlerMethodRuns() throws Exception {
+        // The codec failure arises during @DalId argument resolution, outside the handler method body:
+        // the controller-scoped advice must still translate it.
+        mockMvc.perform(get("/dal/v1/company/not-a-number").accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+            .andExpect(jsonPath("$.detail").value("Malformed resource identifier"));
+    }
+
+    @Test
+    void internalDalOnItemRoute_shouldAnswerLikeAnUnknownName() throws Exception {
+        doReturn(new DalDefinitionEntry("secret", DalRestApiV1ControllerTestConfig.MockDalService.class, true))
+            .when(dalManager).getDefinitionByName("secret");
+
+        mockMvc.perform(get("/dal/v1/secret/1").accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.detail").value("DAL service not found: secret"));
+        verify(dalManager, never()).getServiceByName("secret");
+    }
+
+    @Test
     void updateCompany_concurrentModification_shouldReturnConflict() throws Exception {
         DalOperationAdapter<Object> adapter = mock();
         doThrow(new OptimisticLockingFailureException("Row was updated by another transaction"))

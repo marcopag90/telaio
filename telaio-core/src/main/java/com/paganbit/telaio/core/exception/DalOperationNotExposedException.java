@@ -18,8 +18,13 @@ public class DalOperationNotExposedException extends RuntimeException {
 
     private final String dalName;
     private final DalOperationType operation;
-    private final transient DalChannel channel;
+    private final DalChannel channel;
 
+    /**
+     * @param dalName   the registration name of the DAL
+     * @param operation the operation that was attempted
+     * @param channel   the channel the call arrived through
+     */
     public DalOperationNotExposedException(String dalName, DalOperationType operation, DalChannel channel) {
         super("Operation %s of DAL '%s' is not exposed on channel '%s'".formatted(operation, dalName, channel));
         this.dalName = dalName;

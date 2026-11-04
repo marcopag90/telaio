@@ -33,6 +33,8 @@ public class DalExposureInterceptor implements MethodInterceptor {
     private final Set<DalOperationType> exposedOperations;
 
     /**
+     * Creates the interceptor guarding one chain.
+     *
      * @param dalName           the registration name of the DAL
      * @param channel           the channel of the adapter chain this interceptor guards
      * @param exposedOperations the operations the DAL exposes on that channel; copied

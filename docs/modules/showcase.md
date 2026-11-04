@@ -25,7 +25,7 @@ itself is compiled to and distributed as Java 21, so this is a property of the d
 | **departments**   | Simple CRUD example                                                                    | `DepartmentDalService`   |
 | **translations**  | Composite ID (`TranslationId`) — [Base64 `{id}` segment](../rest-api.md#composite-ids) | `TranslationDalService`  |
 | **app-settings**  | Internal DAL (no REST/OpenAPI)                                                         | `AppSettingDalService`   |
-| **feed**          | Append-only, `@DalWeb(operations={CREATE,READ})`                                       | `FeedEntryDalService`    |
+| **feed**          | Append-only, `@DalWeb(operations = {CREATE, READ})`                                    | `FeedEntryDalService`    |
 | **tickets**       | Calls another DAL over the remote `telaio-rest-client` (DAL-to-DAL round-trip)         | `SupportTicketDalService`|
 | **notifications** | MongoDB backend (`MongoDal`, `String` id, `@Version`), real `MongoTransactionManager` on a replica set, audit on a non-JPA store | `NotificationDalService` |
 

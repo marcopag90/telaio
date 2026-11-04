@@ -97,7 +97,9 @@ public class DalPathsGenerator {
         PathItem collection = new PathItem();
         PathItem item = new PathItem();
         for (DalOperationType operation : exposedOperations) {
-            PathItem target = DalRestOperationMapping.COLLECTION_OPERATIONS.contains(operation) ? collection : item;
+            PathItem target = DalRestOperationMapping.uriGroup(operation) == DalRestOperationMapping.COLLECTION_OPERATIONS
+                ? collection
+                : item;
             PathItem.HttpMethod method =
                 PathItem.HttpMethod.valueOf(DalRestOperationMapping.httpMethod(operation).name());
             target.operation(method,

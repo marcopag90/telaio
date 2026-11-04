@@ -2,6 +2,9 @@ package com.paganbit.telaio.core.channel;
 
 import org.jspecify.annotations.Nullable;
 
+import java.io.Serial;
+import java.io.Serializable;
+
 /**
  * Identifies an invocation channel: the kind of caller a DAL operation reaches the DAL through.
  *
@@ -16,7 +19,10 @@ import org.jspecify.annotations.Nullable;
  * @author Marco Pagan
  * @since 3.0.0
  */
-public final class DalChannel {
+public final class DalChannel implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     /**
      * The channel of direct, in-process calls to a {@link com.paganbit.telaio.core.Dal} bean: no

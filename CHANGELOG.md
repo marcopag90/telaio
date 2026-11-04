@@ -40,7 +40,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   (`exposedOperations(dalClass)`) instead of the entry.
 - **Breaking (telaio-core):** `DalOperationAdapterRegistry` is keyed by channel: `register(DalChannel, String,
   DalOperationAdapter)` and `get(DalChannel, String)`. Migration: `registry.get(DalChannels.REST, name)` for the REST
-  chain; a custom registry bean implements the new signatures.
+  chain; a custom registry bean implements the new signatures. `DalAdapterInterceptorProvider.getInterceptor` is now
+  called once per (channel, DAL) rather than once per DAL: a provider that caches per DAL name must key by channel too.
 - **Breaking (telaio-core):** `DalOperationAdapter<I, E>` becomes `DalOperationAdapter<I>` with `Object` results
   (`Object create`, `Page<Object> read`, `Object readOne`, `Optional<Object> update`): the result is the entity or its
   role-filtered JSON projection, which the old `E` never was. `DelegatingDalOperationAdapter<E, I>` becomes
@@ -62,8 +63,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   handlers for its own controllers gets Spring's defaults again (Spring Security's 401/redirect for an
   `AccessDeniedException`). Migration: add your own `@RestControllerAdvice` for your controllers.
 - **Breaking (telaio-web, telaio-security):** constructor changes on `TelaioWebExceptionHandler` (now takes
-  `DalDefinitionRegistry` and `DalRestChannelDefinition`), `DalIdArgumentResolver` (`DalCatalog` instead of
-  `DalManager`), `DalOpenApiCustomizer` (gains `DalRestChannelDefinition`) and `DalSecurityInterceptorProvider` (gains a
+  `DalDefinitionRegistry` and `DalRestChannelDefinition`), `DalIdArgumentResolver` (`DalCatalog` and
+  `DalRestChannelDefinition` instead of `DalManager`), `DalOpenApiCustomizer` (gains `DalRestChannelDefinition`) and `DalSecurityInterceptorProvider` (gains a
   `DalAdapterRegistry`, since the context no longer carries `DalManager`). Migration: only code constructing these
   classes by hand (tests) is affected; the auto-configurations wire them.
 - **Breaking:** the operation-adapter assembly moved from `telaio-web` to `telaio-core`, package
@@ -74,7 +75,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `com.paganbit.telaio.web.adapter.WebDalOperationAdapter` → `DelegatingDalOperationAdapter`. Methods and
   bean names (`dalOperationAdapterRegistry`, `dalOperationAdapterAssembler`) are unchanged. The assembler
   now runs in every application context that has `telaio-core`, not only in servlet web applications, so
-  the adapter classes named by `@DalSecurity` must be beans in every such context. Migration: change the
+  the adapter classes named by `@DalSecurity` must be beans in every context that has a channel module (the only
+  place a chain is built). Migration: change the
   imports to `com.paganbit.telaio.core.adapter`; a custom registry bean implements the core interface and
   still replaces the default.
 - **Breaking:** `com.paganbit.telaio.web.exception.DalResourceNotFoundException` is removed. An empty

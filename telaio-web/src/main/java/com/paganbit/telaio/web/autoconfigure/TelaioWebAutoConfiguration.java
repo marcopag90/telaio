@@ -19,6 +19,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -53,6 +54,7 @@ public class TelaioWebAutoConfiguration {
      * operations each DAL exposes over REST.
      */
     @Bean
+    @ConditionalOnMissingBean(DalRestChannelDefinition.class)
     DalRestChannelDefinition dalRestChannelDefinition() {
         return new DalRestChannelDefinition();
     }
@@ -60,17 +62,18 @@ public class TelaioWebAutoConfiguration {
     @Bean
     DalIdArgumentResolver dalIdArgumentResolver(
         DalManager dalManager,
+        DalRestChannelDefinition restChannel,
         ObjectMapper objectMapper,
         ObjectProvider<DefaultSimpleTypePredicate> simpleTypePredicate
     ) {
         final var providedTypePredicate = simpleTypePredicate.getIfAvailable(DefaultSimpleTypePredicate::new);
-        return new DalIdArgumentResolver(dalManager, objectMapper, providedTypePredicate);
+        return new DalIdArgumentResolver(dalManager, restChannel, objectMapper, providedTypePredicate);
     }
 
     /**
      * Maps Spring Security's {@code AccessDeniedException} to a generic {@code 403} {@link ProblemDetail},
      * registered only when Spring Security is on the classpath so the web module needs it merely
-     * {@code optional}. Kept separate from {@link TelaioWebExceptionHandler} so that core handler never
+     * {@code optional}. Kept separate from {@link TelaioWebExceptionHandler} so that handler never
      * references a Spring Security type.
      */
     @Bean

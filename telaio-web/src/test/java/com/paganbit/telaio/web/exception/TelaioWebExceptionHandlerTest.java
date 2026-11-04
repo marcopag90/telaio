@@ -126,6 +126,18 @@ class TelaioWebExceptionHandlerTest {
     }
 
     @Test
+    void handleOperationNotExposed_forANameCoreNeverRegistered_shouldReturn404() throws Exception {
+        // A host component raising the core exception with a name of its own must not break the handler.
+        doThrow(new DalNotFoundException("ghost")).when(dalManager).getDefinitionByName("ghost");
+        doThrow(new DalOperationNotExposedException("ghost", DalOperationType.READ, DalChannels.REST))
+            .when(adapter).read(any(), any());
+
+        mockMvc.perform(get(COLLECTION))
+            .andExpect(status().isNotFound())
+            .andExpect(content().string(""));
+    }
+
+    @Test
     void handleEntityNotFound_shouldReturn404ProblemDetail() throws Exception {
         doThrow(new DalEntityNotFoundException(Object.class, 42L)).when(adapter).readOne(any());
 
@@ -256,10 +268,12 @@ class TelaioWebExceptionHandlerTest {
     void advices_shouldNotApplyToAForeignController() {
         // The same exceptions raised by a host controller are not Telaio's to translate: they propagate
         // untouched (MockMvc surfaces them as a ServletException wrapping the original).
-        assertThatThrownBy(() -> mockMvc.perform(get(ForeignController.NOT_FOUND)))
+        var notFound = get(ForeignController.NOT_FOUND);
+        assertThatThrownBy(() -> mockMvc.perform(notFound))
             .isInstanceOf(ServletException.class)
             .hasCauseInstanceOf(DalEntityNotFoundException.class);
-        assertThatThrownBy(() -> mockMvc.perform(get(ForeignController.ACCESS_DENIED)))
+        var accessDenied = get(ForeignController.ACCESS_DENIED);
+        assertThatThrownBy(() -> mockMvc.perform(accessDenied))
             .isInstanceOf(ServletException.class)
             .hasCauseInstanceOf(AccessDeniedException.class);
     }

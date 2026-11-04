@@ -135,8 +135,8 @@ via the core `DalInterceptorProvider` SPI, separate from the operation adapter c
 visibility. Ship with `PropertyBased` and `JsonView` implementations, or provide your own.
 
 **Channel Control**: `@DalService(internal = true)` hides a DAL from every channel. Each channel module declares the
-operations a DAL exposes on it with its own annotation: `@DalWeb(operations = {…})` for REST (the rest return
-404/405; `{}` hides the DAL from REST).
+operations a DAL exposes on it with its own annotation: `@DalWeb(operations = {…})` for REST (REST answers 404 or
+405 for the others; `{}` hides the DAL from REST).
 
 ## Module Dependency Graph
 

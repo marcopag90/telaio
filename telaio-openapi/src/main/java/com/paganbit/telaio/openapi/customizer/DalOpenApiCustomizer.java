@@ -51,6 +51,12 @@ public class DalOpenApiCustomizer implements TelaioOpenApiGroupCustomizer {
     private final DalPathsGenerator pathsGenerator;
     private final DalEntitySchemaResolver schemaResolver;
 
+    /**
+     * @param catalog        the registry of DALs and their definitions
+     * @param restChannel    the REST channel definition answering which operations each DAL exposes
+     * @param pathsGenerator the per-DAL path synthesizer
+     * @param schemaResolver the entity and error-body schema resolver
+     */
     public DalOpenApiCustomizer(
         DalCatalog catalog,
         DalRestChannelDefinition restChannel,
