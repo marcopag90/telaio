@@ -7,9 +7,9 @@ import com.paganbit.telaio.core.Dal;
  * <p>
  * This interface combines:
  * <ul>
- *   <li>{@link DalRegistry} – for retrieving active {@link Dal} instances</li>
+ *   <li>{@link DalCatalog} – the read-only view: {@link DalRegistry} for retrieving active {@link Dal}
+ *       instances and {@link DalDefinitionRegistry} for accessing {@link DalDefinitionEntry} metadata</li>
  *   <li>{@link DalAdapterRegistry} - for retrieving DAL adapters </li>
- *   <li>{@link DalDefinitionRegistry} – for accessing {@link DalDefinitionEntry} metadata</li>
  *   <li>{@link DalRegistryWriter} – for registration of DAL services</li>
  * </ul>
  *
@@ -20,12 +20,10 @@ import com.paganbit.telaio.core.Dal;
  *
  * @author Marco Pagan
  * @see Dal
- * @see DalRegistry
+ * @see DalCatalog
  * @see DalAdapterRegistry
- * @see DalDefinitionRegistry
  * @see DalRegistryWriter
  * @since 1.0.0
  */
-public interface DalManager
-    extends DalRegistry, DalAdapterRegistry, DalDefinitionRegistry, DalRegistryWriter {
+public interface DalManager extends DalCatalog, DalAdapterRegistry, DalRegistryWriter {
 }

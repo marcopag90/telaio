@@ -229,4 +229,17 @@ class InMemoryDalManagerTest {
         verify(beanFactory).getBean(TestAdapterImpl.class);
         verify(beanFactory).getBeansOfType(TestAdapterImpl.class);
     }
+
+    @Test
+    void shouldBeUsableAsAReadOnlyCatalog() {
+        String dalName = "testDal";
+        DalDefinitionEntry definition = mock(DalDefinitionEntry.class);
+        when(definition.name()).thenReturn(dalName);
+        registryManager.register(definition);
+
+        DalCatalog catalog = registryManager;
+
+        assertSame(definition, catalog.getDefinitionByName(dalName));
+        assertEquals(1, catalog.getAllDefinitions().size());
+    }
 }
