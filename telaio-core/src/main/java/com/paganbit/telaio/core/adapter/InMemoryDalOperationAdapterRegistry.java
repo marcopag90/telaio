@@ -1,17 +1,16 @@
-package com.paganbit.telaio.web.registry;
+package com.paganbit.telaio.core.adapter;
 
-import com.paganbit.telaio.core.adapter.DalOperationAdapter;
 import com.paganbit.telaio.core.exception.DalNotFoundException;
 
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * In-memory {@link WebDalOperationAdapterRegistry}. The first registration for a given name wins.
+ * In-memory {@link DalOperationAdapterRegistry}. The first registration for a given name wins.
  *
  * @author Marco Pagan
- * @since 1.0.0
+ * @since 3.0.0
  */
-public class DefaultWebDalOperationAdapterRegistry implements WebDalOperationAdapterRegistry {
+public class InMemoryDalOperationAdapterRegistry implements DalOperationAdapterRegistry {
 
     private final ConcurrentHashMap<String, DalOperationAdapter<?, ?>> adapters = new ConcurrentHashMap<>();
 

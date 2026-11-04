@@ -190,7 +190,7 @@ class TelaioRestClientTest {
             .andRespond(withStatus(HttpStatus.NOT_FOUND)
                 .contentType(MediaType.APPLICATION_PROBLEM_JSON)
                 .body("""
-                    {"status": 404, "detail": "Resource not found with ID: 42"}"""));
+                    {"status": 404, "detail": "Product was not found for id: [42]"}"""));
 
         assertThat(products.readOne(42L)).isEmpty();
     }
@@ -243,7 +243,7 @@ class TelaioRestClientTest {
             .andRespond(withStatus(HttpStatus.NOT_FOUND)
                 .contentType(MediaType.APPLICATION_PROBLEM_JSON)
                 .body("""
-                    {"status": 404, "detail": "Resource not found with ID: 99"}"""));
+                    {"status": 404, "detail": "Product was not found for id: [99]"}"""));
 
         var patch = Map.of("name", "x");
         assertThatThrownBy(() -> products.update(99L, patch))

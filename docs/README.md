@@ -129,7 +129,7 @@ input and output to respect role-based visibility.
 autoconfigurations self-contained and testable.
 
 **Channel-Agnostic Interception**: Audit and metrics apply to every invocation channel (REST, messaging, programmatic)
-via the core `DalInterceptorProvider` SPI, separate from the web adapter chain.
+via the core `DalInterceptorProvider` SPI, separate from the operation adapter chain.
 
 **Pluggable Security**: `DalAuthAdapter` controls operation-level authorization; `DalRbacAdapter` controls field
 visibility. Ship with `PropertyBased` and `JsonView` implementations, or provide your own.

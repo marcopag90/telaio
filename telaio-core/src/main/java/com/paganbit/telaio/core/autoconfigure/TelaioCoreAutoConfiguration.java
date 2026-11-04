@@ -1,5 +1,9 @@
 package com.paganbit.telaio.core.autoconfigure;
 
+import com.paganbit.telaio.core.adapter.DalAdapterInterceptorProvider;
+import com.paganbit.telaio.core.adapter.DalOperationAdapterAssembler;
+import com.paganbit.telaio.core.adapter.DalOperationAdapterRegistry;
+import com.paganbit.telaio.core.adapter.InMemoryDalOperationAdapterRegistry;
 import com.paganbit.telaio.core.beans.DalPropertyMerger;
 import com.paganbit.telaio.core.beans.DefaultDalPropertyMerger;
 import com.paganbit.telaio.core.beans.registration.DalDefinitionBeanPostProcessor;
@@ -28,6 +32,7 @@ import org.springframework.context.annotation.Role;
 import org.springframework.validation.beanvalidation.SpringValidatorAdapter;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.List;
 import java.util.stream.Collectors;
 
 /**
@@ -111,5 +116,26 @@ public class TelaioCoreAutoConfiguration {
         ObjectProvider<DalInterceptorProvider> interceptorProviders
     ) {
         return new DalInterceptionBeanPostProcessor(interceptorProviders);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    DalOperationAdapterRegistry dalOperationAdapterRegistry() {
+        return new InMemoryDalOperationAdapterRegistry();
+    }
+
+    /**
+     * Assembles one interceptor-wrapped adapter per non-internal DAL after all singletons exist and
+     * publishes it to the {@link DalOperationAdapterRegistry}.
+     * Providers from every module (audit, security, any remote-boundary module)
+     * are collected regardless of autoconfiguration order.
+     */
+    @Bean
+    DalOperationAdapterAssembler dalOperationAdapterAssembler(
+        DalManager dalManager,
+        DalOperationAdapterRegistry registry,
+        List<DalAdapterInterceptorProvider> interceptorProviders
+    ) {
+        return new DalOperationAdapterAssembler(dalManager, registry, interceptorProviders);
     }
 }

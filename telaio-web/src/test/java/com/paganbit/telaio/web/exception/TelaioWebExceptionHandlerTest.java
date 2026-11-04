@@ -36,7 +36,6 @@ class TelaioWebExceptionHandlerTest {
     private static final String OPERATION_NOT_EXPOSED_404 = "/operation-not-exposed-404";
     private static final String ENTITY_NOT_FOUND_EXCEPTION = "/entity-not-found-exception";
     private static final String DAL_NOT_FOUND_EXCEPTION = "/dal-not-found-exception";
-    private static final String RESOURCE_NOT_FOUND_EXCEPTION = "/resource-not-found-exception";
     private static final String REGISTRY_EXCEPTION = "/registry-exception";
     private static final String OPTIMISTIC_LOCK_EXCEPTION = "/optimistic-lock-exception";
     private static final String MALFORMED_ID_EXCEPTION = "/malformed-id-exception";
@@ -95,15 +94,6 @@ class TelaioWebExceptionHandlerTest {
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
             .andExpect(jsonPath("$.status").value(404))
             .andExpect(jsonPath("$.detail").value("DAL service not found: feed"));
-    }
-
-    @Test
-    void handleResourceNotFound_shouldReturn404ProblemDetail() throws Exception {
-        mockMvc.perform(MockMvcRequestBuilders.get(RESOURCE_NOT_FOUND_EXCEPTION))
-            .andExpect(MockMvcResultMatchers.status().isNotFound())
-            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-            .andExpect(jsonPath("$.status").value(404))
-            .andExpect(jsonPath("$.detail").value("Resource not found with ID: 7"));
     }
 
     @Test
@@ -197,11 +187,6 @@ class TelaioWebExceptionHandlerTest {
         @GetMapping(DAL_NOT_FOUND_EXCEPTION)
         public void throwDalNotFoundException() {
             throw new DalNotFoundException("feed");
-        }
-
-        @GetMapping(RESOURCE_NOT_FOUND_EXCEPTION)
-        public void throwDalResourceNotFoundException() {
-            throw new DalResourceNotFoundException(7);
         }
 
         @GetMapping(REGISTRY_EXCEPTION)

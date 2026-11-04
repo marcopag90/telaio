@@ -1,5 +1,8 @@
 package com.paganbit.telaio.core.autoconfigure;
 
+import com.paganbit.telaio.core.adapter.DalOperationAdapterAssembler;
+import com.paganbit.telaio.core.adapter.DalOperationAdapterRegistry;
+import com.paganbit.telaio.core.adapter.InMemoryDalOperationAdapterRegistry;
 import com.paganbit.telaio.core.beans.DalPropertyMerger;
 import com.paganbit.telaio.core.beans.DefaultDalPropertyMerger;
 import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
@@ -130,6 +133,26 @@ class TelaioCoreAutoConfigurationTest {
             .withBean("customSimpleTypePredicate", DefaultSimpleTypePredicate.class, () -> custom)
             .run(context ->
                 assertThat(context.getBean(DefaultSimpleTypePredicate.class)).isSameAs(custom));
+    }
+
+    @Test
+    void shouldProvideOperationAdapterAssembly() {
+        applicationContextRunner.run(context -> {
+            assertThat(context).hasSingleBean(DalOperationAdapterRegistry.class);
+            assertThat(context.getBean(DalOperationAdapterRegistry.class))
+                .isInstanceOf(InMemoryDalOperationAdapterRegistry.class);
+            assertThat(context).hasSingleBean(DalOperationAdapterAssembler.class);
+        });
+    }
+
+    @Test
+    void customOperationAdapterRegistry_shouldReplaceDefault() {
+        applicationContextRunner
+            .withBean(DalOperationAdapterRegistry.class, () -> mock(DalOperationAdapterRegistry.class))
+            .run(context -> {
+                assertThat(context).hasSingleBean(DalOperationAdapterRegistry.class);
+                assertThat(context).doesNotHaveBean(InMemoryDalOperationAdapterRegistry.class);
+            });
     }
 
     private static final class ContributedType {

@@ -1,8 +1,7 @@
-package com.paganbit.telaio.web.adapter;
+package com.paganbit.telaio.core.adapter;
 
 import com.paganbit.telaio.core.Dal;
-import com.paganbit.telaio.core.adapter.DalOperationAdapter;
-import com.paganbit.telaio.web.exception.DalResourceNotFoundException;
+import com.paganbit.telaio.core.exception.DalEntityNotFoundException;
 import com.turkraft.springfilter.parser.node.FilterNode;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Page;
@@ -12,19 +11,23 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Web-boundary {@link DalOperationAdapter} backed by a {@link Dal}, exposing the entity directly to
- * the caller.
+ * Base {@link DalOperationAdapter} backed by a {@link Dal}, exposing the entity directly to the caller.
+ *
+ * <p>Every operation delegates to the corresponding {@code Dal} method. A {@link #readOne(Object)} that
+ * finds nothing raises a {@link DalEntityNotFoundException}, the same failure
+ * {@link com.paganbit.telaio.core.AbstractDal} raises on update and delete, so a missing entity is
+ * reported identically on every operation.</p>
  *
  * @param <E> the entity type
  * @param <I> the entity identifier type
  * @author Marco Pagan
- * @since 1.0.0
+ * @since 3.0.0
  */
-public class WebDalOperationAdapter<E, I> implements DalOperationAdapter<I, E> {
+public class DelegatingDalOperationAdapter<E, I> implements DalOperationAdapter<I, E> {
 
     private final Dal<E, I> dal;
 
-    public WebDalOperationAdapter(Dal<E, I> dal) {
+    public DelegatingDalOperationAdapter(Dal<E, I> dal) {
         this.dal = dal;
     }
 
@@ -40,7 +43,7 @@ public class WebDalOperationAdapter<E, I> implements DalOperationAdapter<I, E> {
 
     @Override
     public E readOne(I id) {
-        return dal.readOne(id).orElseThrow(() -> new DalResourceNotFoundException(id));
+        return dal.readOne(id).orElseThrow(() -> new DalEntityNotFoundException(dal.getEntityClass(), id));
     }
 
     @Override

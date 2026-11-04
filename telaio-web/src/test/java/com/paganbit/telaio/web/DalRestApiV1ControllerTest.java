@@ -1,13 +1,13 @@
 package com.paganbit.telaio.web;
 
 import com.paganbit.telaio.core.adapter.DalOperationAdapter;
+import com.paganbit.telaio.core.adapter.DalOperationAdapterRegistry;
+import com.paganbit.telaio.core.adapter.DelegatingDalOperationAdapter;
 import com.paganbit.telaio.core.exception.DalInvalidFilterException;
 import com.paganbit.telaio.core.exception.DalInvalidSortException;
 import com.paganbit.telaio.core.exception.DalNotFoundException;
 import com.paganbit.telaio.core.registry.DalManager;
-import com.paganbit.telaio.web.adapter.WebDalOperationAdapter;
 import com.paganbit.telaio.web.exception.TelaioWebExceptionHandler;
-import com.paganbit.telaio.web.registry.WebDalOperationAdapterRegistry;
 import com.turkraft.springfilter.converter.FilterStringConverter;
 import com.turkraft.springfilter.parser.InvalidSyntaxException;
 import com.turkraft.springfilter.parser.node.FieldNode;
@@ -44,7 +44,7 @@ class DalRestApiV1ControllerTest {
     private DalManager dalManager;
 
     @MockitoBean
-    private WebDalOperationAdapterRegistry adapterRegistry;
+    private DalOperationAdapterRegistry adapterRegistry;
 
     @MockitoBean
     private FilterStringConverter filterStringConverter;
@@ -54,7 +54,7 @@ class DalRestApiV1ControllerTest {
         doReturn(new DalRestApiV1ControllerTestConfig.MockDalService())
             .when(dalManager).getServiceByName("company");
 
-        var adapter = new WebDalOperationAdapter<>(
+        var adapter = new DelegatingDalOperationAdapter<>(
             new DalRestApiV1ControllerTestConfig.MockDalService()
         );
         doReturn(adapter).when(adapterRegistry).get("company");
@@ -170,7 +170,7 @@ class DalRestApiV1ControllerTest {
         FieldNode unknownField = new FieldNode("nope");
         doReturn(unknownField).when(filterStringConverter).convert("nope:1");
         @SuppressWarnings("unchecked")
-        WebDalOperationAdapter<Object, Long> rejecting = mock(WebDalOperationAdapter.class);
+        DelegatingDalOperationAdapter<Object, Long> rejecting = mock(DelegatingDalOperationAdapter.class);
         doThrow(DalInvalidFilterException.unknownField("nope", "nope"))
             .when(rejecting).read(any(), any());
         doReturn(rejecting).when(adapterRegistry).get("strict");
@@ -190,7 +190,7 @@ class DalRestApiV1ControllerTest {
         // DalInvalidSortException — on every backend and from the security interceptor — and maps to a
         // generic 400 distinct from the filter detail.
         @SuppressWarnings("unchecked")
-        WebDalOperationAdapter<Object, Long> rejecting = mock(WebDalOperationAdapter.class);
+        DelegatingDalOperationAdapter<Object, Long> rejecting = mock(DelegatingDalOperationAdapter.class);
         doThrow(DalInvalidSortException.unknownProperty("nope", "nope"))
             .when(rejecting).read(any(), any());
         doReturn(rejecting).when(adapterRegistry).get("strict");

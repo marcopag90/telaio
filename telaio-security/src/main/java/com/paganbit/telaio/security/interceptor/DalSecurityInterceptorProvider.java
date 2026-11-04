@@ -7,6 +7,7 @@ import com.paganbit.telaio.security.adapter.*;
 import com.paganbit.telaio.security.annotation.DalSecurity;
 import com.paganbit.telaio.security.exception.DalAccessDeniedMessageResolver;
 import org.aopalliance.intercept.MethodInterceptor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.core.annotation.AnnotationUtils;
 
 import java.util.function.Predicate;
@@ -39,7 +40,7 @@ public class DalSecurityInterceptorProvider implements DalAdapterInterceptorProv
 
     @Override
     @SuppressWarnings("rawtypes")
-    public MethodInterceptor getInterceptor(DalAdapterContext context) {
+    public MethodInterceptor getInterceptor(@NonNull DalAdapterContext context) {
         DalSecurity definition =
             AnnotationUtils.findAnnotation(context.dalBeanClass(), DalSecurity.class);
 

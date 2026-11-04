@@ -1,6 +1,5 @@
-package com.paganbit.telaio.web.registry;
+package com.paganbit.telaio.core.adapter;
 
-import com.paganbit.telaio.core.adapter.DalOperationAdapter;
 import com.paganbit.telaio.core.exception.DalNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -8,13 +7,13 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 
-class DefaultWebDalOperationAdapterRegistryTest {
+class InMemoryDalOperationAdapterRegistryTest {
 
-    private DefaultWebDalOperationAdapterRegistry registry;
+    private InMemoryDalOperationAdapterRegistry registry;
 
     @BeforeEach
     void setUp() {
-        registry = new DefaultWebDalOperationAdapterRegistry();
+        registry = new InMemoryDalOperationAdapterRegistry();
     }
 
     @Test

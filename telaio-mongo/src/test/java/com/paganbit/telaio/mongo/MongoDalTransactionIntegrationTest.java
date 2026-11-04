@@ -162,7 +162,11 @@ class MongoDalTransactionIntegrationTest {
             // withReplicaSet(): multi-document transactions need a replica set; Testcontainers 2.x
             // starts a standalone mongod unless asked otherwise. Image from the root pom's
             // testcontainers.image.mongodb surefire property, with a fallback for IDE runs.
+            // GLIBC_TUNABLES: mongod refuses to start on Linux kernels 6.19 through 7.0.13 (SERVER-121912,
+            // a TCMalloc/rseq incompatibility); letting glibc own rseq is the documented workaround and is
+            // harmless on other kernels. Drop it once the CI runner kernel is 7.0.14 or newer.
             return new MongoDBContainer(System.getProperty("testcontainers.image.mongodb", "mongo:8"))
+                .withEnv("GLIBC_TUNABLES", "glibc.pthread.rseq=1")
                 .withReplicaSet();
         }
     }

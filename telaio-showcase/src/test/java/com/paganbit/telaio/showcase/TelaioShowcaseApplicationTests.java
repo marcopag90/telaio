@@ -2,6 +2,7 @@ package com.paganbit.telaio.showcase;
 
 import com.paganbit.telaio.core.Dal;
 import com.paganbit.telaio.core.adapter.DalOperationAdapter;
+import com.paganbit.telaio.core.adapter.DalOperationAdapterRegistry;
 import com.paganbit.telaio.core.annotation.DalService;
 import com.paganbit.telaio.core.registry.DalManager;
 import com.paganbit.telaio.showcase.dal.announcement.AnnouncementDalService;
@@ -9,7 +10,6 @@ import com.paganbit.telaio.showcase.dal.announcement.AnnouncementRepository;
 import com.paganbit.telaio.showcase.dal.notification.NotificationDalService;
 import com.paganbit.telaio.showcase.dal.notification.NotificationRepository;
 import com.paganbit.telaio.showcase.dal.product.ProductPriceHistoryRepository;
-import com.paganbit.telaio.web.registry.WebDalOperationAdapterRegistry;
 import com.turkraft.springfilter.parser.node.FilterNode;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -46,7 +46,7 @@ class TelaioShowcaseApplicationTests {
     private DalManager dalManager;
 
     @Autowired
-    private WebDalOperationAdapterRegistry adapterRegistry;
+    private DalOperationAdapterRegistry adapterRegistry;
 
     @Autowired
     private AnnouncementDalService announcementDal;

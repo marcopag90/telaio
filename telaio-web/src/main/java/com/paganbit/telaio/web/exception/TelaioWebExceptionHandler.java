@@ -101,7 +101,7 @@ public class TelaioWebExceptionHandler {
     }
 
     /**
-     * Maps a missing entity or resource to {@code 404 Not Found}.
+     * Maps a missing entity or DAL to {@code 404 Not Found}.
      *
      * <p>{@link DalNotFoundException} is matched here (rather than by the broader
      * {@link DalRegistryException} handler below) because, although it extends
@@ -110,11 +110,7 @@ public class TelaioWebExceptionHandler {
      * {@code DalNotFoundException} lands here while any other {@code DalRegistryException}
      * falls through to the {@code 500} handler.</p>
      */
-    @ExceptionHandler({
-        DalEntityNotFoundException.class,
-        DalNotFoundException.class,
-        DalResourceNotFoundException.class
-    })
+    @ExceptionHandler({DalEntityNotFoundException.class, DalNotFoundException.class})
     ProblemDetail handleNotFound(RuntimeException ex) {
         log.debug("Resource not found: {}", ex.getMessage());
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
