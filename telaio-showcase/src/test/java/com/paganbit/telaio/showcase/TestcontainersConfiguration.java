@@ -27,6 +27,11 @@ public class TestcontainersConfiguration {
         // withReplicaSet() is mandatory here: the showcase declares a real MongoTransactionManager
         // (MongoConfiguration), so every notifications operation runs in a multi-document
         // transaction, which a standalone mongod — the Testcontainers 2.x default — rejects.
-        return new MongoDBContainer("mongo:8").withReplicaSet();
+        // GLIBC_TUNABLES: mongod refuses to start on Linux kernels 6.19 through 7.0.13 (SERVER-121912,
+        // a TCMalloc/rseq incompatibility); letting glibc own rseq is the documented workaround and is
+        // harmless on other kernels. Drop it once the CI runner kernel is 7.0.14 or newer.
+        return new MongoDBContainer("mongo:8")
+            .withEnv("GLIBC_TUNABLES", "glibc.pthread.rseq=1")
+            .withReplicaSet();
     }
 }
