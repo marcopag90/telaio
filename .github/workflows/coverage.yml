@@ -20,7 +20,9 @@ jobs:
   # Only tags trigger a real publish; workflow_dispatch is for a manual dry run.
   coverage:
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    # Pinned for the same reason as ci.yml's build job: the coverage run executes the mongo:8
+    # Testcontainer tests, which MongoDB blocks on Linux kernels 6.19 through 7.0.13 (SERVER-121912).
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     # REQUIRED REPO SETTING: the github-pages environment must allow deployments from tags.
     # It is created allowing only the default branch, so with a tag-only trigger the very first
