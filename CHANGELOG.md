@@ -27,6 +27,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `"<Entity> was not found for id: [<id>]"` instead of `"Resource not found with ID: <id>"`; status, title
   and media type are unchanged. Migration: a client or test that matched the old text matches the new one.
 
+### 🔨 Dependency Upgrades
+
+- Spring Boot 4.1.1 → 4.1.2 (parent POM).
+- SpringDoc OpenAPI 3.1.0 → 3.2.0 (managed by `telaio-bom`; Scalar UI upgraded to 0.6.x, whose model
+  links changed from `#model/name` to `#models/Name`).
+- Lombok 1.18.46 → 1.18.48, JaCoCo 0.8.15 → 0.8.16, central-publishing-maven-plugin 0.11.0 → 0.12.0.
+
 ## [2.0.1] - 2026-09-06
 
 ### 🔄 Improvements
