@@ -25,7 +25,9 @@ import java.util.Map;
  * <p>Defines HTTP endpoint signatures for create, read, readOne, update, and delete operations
  * on dynamic DAL services, identified by name.
  * Path constants are aliases of the shared wire contract in
- * {@link com.paganbit.telaio.rest.contract.v1.DalApiV1}.</p>
+ * {@link com.paganbit.telaio.rest.contract.v1.DalApiV1}; the URI templates and the HTTP method of each
+ * operation come from {@link DalRestOperationMapping}, the one mapping shared with the error handler and
+ * the OpenAPI generator.</p>
  *
  * <p>Integrates OpenAPI annotations for automatic documentation.</p>
  *
@@ -42,7 +44,7 @@ public interface DalRestApiV1 {
     String REQUEST_PARAM_FILTER = com.paganbit.telaio.rest.contract.v1.DalApiV1.REQUEST_PARAM_FILTER;
 
     @PostMapping(
-        value = "{" + PATH_VARIABLE_DAL_NAME + "}",
+        value = DalRestOperationMapping.COLLECTION_PATH,
         consumes = MediaType.APPLICATION_JSON_VALUE,
         produces = MediaType.APPLICATION_JSON_VALUE
     )
@@ -61,7 +63,7 @@ public interface DalRestApiV1 {
     Object create(@PathVariable String dalName, @RequestBody Map<String, Object> input);
 
     @GetMapping(
-        value = "{" + PATH_VARIABLE_DAL_NAME + "}",
+        value = DalRestOperationMapping.COLLECTION_PATH,
         produces = MediaType.APPLICATION_JSON_VALUE
     )
     @ResponseStatus(HttpStatus.OK)
@@ -83,7 +85,7 @@ public interface DalRestApiV1 {
     );
 
     @GetMapping(
-        value = "{" + PATH_VARIABLE_DAL_NAME + "}/{" + PATH_VARIABLE_ID + "}",
+        value = DalRestOperationMapping.ITEM_PATH,
         produces = MediaType.APPLICATION_JSON_VALUE
     )
     @ResponseStatus(HttpStatus.OK)
@@ -101,7 +103,7 @@ public interface DalRestApiV1 {
     );
 
     @PatchMapping(
-        value = "{" + PATH_VARIABLE_DAL_NAME + "}/{" + PATH_VARIABLE_ID + "}",
+        value = DalRestOperationMapping.ITEM_PATH,
         consumes = MediaType.APPLICATION_JSON_VALUE,
         produces = MediaType.APPLICATION_JSON_VALUE
     )
@@ -128,7 +130,7 @@ public interface DalRestApiV1 {
         @RequestBody Map<String, Object> patch
     );
 
-    @DeleteMapping(value = "{" + PATH_VARIABLE_DAL_NAME + "}/{" + PATH_VARIABLE_ID + "}")
+    @DeleteMapping(value = DalRestOperationMapping.ITEM_PATH)
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Delete an object in the specified DAL by ID")
     @ApiResponse(responseCode = "204", description = "Entity deleted")

@@ -1,5 +1,6 @@
 package com.paganbit.telaio.web.exception;
 
+import com.paganbit.telaio.web.DalRestApiV1Controller;
 import io.swagger.v3.oas.annotations.Hidden;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,14 +22,17 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * {@code DalAccessDeniedMessageResolver}) stays on the exception for server-side logging and auditing, and is
  * never written to the response.</p>
  *
- * <p>Registered only when Spring Security is on the classpath (the web module depends on it
- * {@code optional}); see {@code TelaioWebAutoConfiguration}. It is separate advice from
- * {@link TelaioWebExceptionHandler} precisely so the core web handler stays free of any Spring Security type.</p>
+ * <p>Scoped to {@link DalRestApiV1Controller} like {@link TelaioWebExceptionHandler}: a host application's own
+ * controllers keep Spring Security's default behavior for access denials. Registered only when Spring Security
+ * is on the classpath (the web module depends on it {@code optional}); see {@code TelaioWebAutoConfiguration}.
+ * It is a separate advice class precisely so the main web handler stays loadable without any Spring Security
+ * type — a nested class would not do: Spring registers the member classes of an imported component
+ * unconditionally.</p>
  *
  * @author Marco Pagan
  * @since 1.0.0
  */
-@RestControllerAdvice
+@RestControllerAdvice(assignableTypes = DalRestApiV1Controller.class)
 @Order(1000)
 @Hidden
 public class TelaioAccessDeniedExceptionHandler {

@@ -54,6 +54,26 @@ public final class DalRestOperationMapping {
     }
 
     /**
+     * Returns the absolute collection path of a DAL, e.g. {@code /dal/v1/products}. Passing
+     * {@link #COLLECTION_PATH} gives the templated form {@code /dal/v1/{dalName}}.
+     *
+     * @param dalName the DAL name, or a path template
+     */
+    public static String collectionPath(String dalName) {
+        return DalApiV1.BASE_PATH + "/" + dalName;
+    }
+
+    /**
+     * Returns the absolute item path template of a DAL, e.g. {@code /dal/v1/products/{id}}. Passing
+     * {@link #COLLECTION_PATH} gives the fully templated form {@code /dal/v1/{dalName}/{id}}.
+     *
+     * @param dalName the DAL name, or a path template
+     */
+    public static String itemPath(String dalName) {
+        return collectionPath(dalName) + "/{" + DalApiV1.PATH_VARIABLE_ID + "}";
+    }
+
+    /**
      * Returns the HTTP method serving the given operation.
      */
     public static HttpMethod httpMethod(DalOperationType operation) {

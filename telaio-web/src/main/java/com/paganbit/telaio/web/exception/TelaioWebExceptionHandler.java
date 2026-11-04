@@ -5,6 +5,7 @@ import com.paganbit.telaio.core.registry.DalDefinitionRegistry;
 import com.paganbit.telaio.rest.contract.DalIdCodecException;
 import com.paganbit.telaio.rest.contract.v1.DalApiV1;
 import com.paganbit.telaio.rest.contract.v1.ValidationError;
+import com.paganbit.telaio.web.DalRestApiV1Controller;
 import com.paganbit.telaio.web.DalRestOperationMapping;
 import com.paganbit.telaio.web.channel.DalRestChannelDefinition;
 import com.turkraft.springfilter.parser.InvalidSyntaxException;
@@ -25,13 +26,19 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Translates the DAL exceptions that surface at the REST boundary into RFC 9457 {@link ProblemDetail}
+ * Translates the DAL exceptions that surface on the REST channel into RFC 9457 {@link ProblemDetail}
  * responses ({@code application/problem+json}) — the single, framework-native error standard for this API.
+ *
+ * <p>The advice applies to {@link DalRestApiV1Controller} only: a host application's own controllers keep
+ * their own error handling (and Spring Security's default behavior for access denials). The Spring
+ * Security translation lives in {@link TelaioAccessDeniedExceptionHandler}, a separate advice with the same
+ * scope registered only when Spring Security is on the classpath, so this class never references a Spring
+ * Security type.</p>
  *
  * @author Marco Pagan
  * @since 1.0.0
  */
-@RestControllerAdvice
+@RestControllerAdvice(assignableTypes = DalRestApiV1Controller.class)
 @Order(1000)
 @Hidden
 public class TelaioWebExceptionHandler {

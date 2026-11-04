@@ -7,6 +7,7 @@ import com.paganbit.telaio.core.registry.DalDefinitionEntry;
 import com.paganbit.telaio.openapi.generator.DalPathsGenerator;
 import com.paganbit.telaio.openapi.introspection.DalEntitySchemaResolver;
 import com.paganbit.telaio.web.DalRestApiV1;
+import com.paganbit.telaio.web.DalRestOperationMapping;
 import com.paganbit.telaio.web.TelaioOpenApiGroupCustomizer;
 import com.paganbit.telaio.web.channel.DalRestChannelDefinition;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -104,10 +105,8 @@ public class DalOpenApiCustomizer implements TelaioOpenApiGroupCustomizer {
      * synthesized per-DAL operations stand alone.
      */
     private void removeGenericTemplatedPaths(OpenAPI openApi) {
-        String collectionPath = DalRestApiV1.BASE_PATH + "/{" + DalRestApiV1.PATH_VARIABLE_DAL_NAME + "}";
-        String itemPath = collectionPath + "/{" + DalRestApiV1.PATH_VARIABLE_ID + "}";
-        openApi.getPaths().remove(collectionPath);
-        openApi.getPaths().remove(itemPath);
+        openApi.getPaths().remove(DalRestOperationMapping.collectionPath(DalRestOperationMapping.COLLECTION_PATH));
+        openApi.getPaths().remove(DalRestOperationMapping.itemPath(DalRestOperationMapping.COLLECTION_PATH));
     }
 
     /**

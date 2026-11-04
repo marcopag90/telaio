@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.paganbit.telaio.core.adapter.DalOperationType;
 import com.paganbit.telaio.openapi.introspection.DalEntitySchemaResolver;
 import com.paganbit.telaio.web.DalRestApiV1;
+import com.paganbit.telaio.web.DalRestOperationMapping;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.PathItem;
@@ -28,10 +29,11 @@ import java.util.function.Predicate;
  * id, with real request/response schemas, a documented {@code q} filter parameter, pagination parameters,
  * and the standard error responses.
  *
- * <p>Two paths are produced per DAL: a collection path ({@code /dal/v1/<name>}) carrying create (POST) and
- * read-page (GET), and an item path ({@code /dal/v1/<name>/{id}}) carrying read-one (GET), update (PATCH)
- * and delete (DELETE). Operations are tagged per DAL when {@code tagPerDal} is enabled, so Swagger UI
- * groups each DAL's operations together.</p>
+ * <p>Two paths are produced per DAL — the collection path ({@code /dal/v1/<name>}) and the item path
+ * ({@code /dal/v1/<name>/{id}}) — and each exposed operation lands on the path and HTTP method
+ * {@link DalRestOperationMapping} assigns it, so the document cannot drift from the controller contract.
+ * Operations are tagged per DAL when {@code tagPerDal} is enabled, so Swagger UI groups each DAL's
+ * operations together.</p>
  *
  * @author Marco Pagan
  * @since 1.0.0
@@ -91,34 +93,41 @@ public class DalPathsGenerator {
     ) {
         Schema<?> entityRef = schemaResolver.resolveAndRegister(entityClass, openApi);
         String tag = tagPerDal ? capitalize(dalName) : DEFAULT_TAG;
-        String collectionPath = "%s/%s".formatted(DalRestApiV1.BASE_PATH, dalName);
-        String itemPath = "%s/{%s}".formatted(collectionPath, DalRestApiV1.PATH_VARIABLE_ID);
 
         PathItem collection = new PathItem();
-        if (exposedOperations.contains(DalOperationType.CREATE)) {
-            collection.post(createOperation(dalName, tag, entityRef, problemDetailRef));
-        }
-        if (exposedOperations.contains(DalOperationType.READ)) {
-            collection.get(readOperation(dalName, tag, entityClass, entityRef, problemDetailRef));
-        }
-
         PathItem item = new PathItem();
-        if (exposedOperations.contains(DalOperationType.READ_ONE)) {
-            item.get(readOneOperation(dalName, tag, entityRef, idClass, problemDetailRef));
-        }
-        if (exposedOperations.contains(DalOperationType.UPDATE)) {
-            item.patch(updateOperation(dalName, tag, entityRef, idClass, problemDetailRef));
-        }
-        if (exposedOperations.contains(DalOperationType.DELETE)) {
-            item.delete(deleteOperation(dalName, tag, idClass, problemDetailRef));
+        for (DalOperationType operation : exposedOperations) {
+            PathItem target = DalRestOperationMapping.COLLECTION_OPERATIONS.contains(operation) ? collection : item;
+            PathItem.HttpMethod method =
+                PathItem.HttpMethod.valueOf(DalRestOperationMapping.httpMethod(operation).name());
+            target.operation(method,
+                describe(operation, dalName, tag, entityClass, entityRef, idClass, problemDetailRef));
         }
 
         if (!collection.readOperations().isEmpty()) {
-            openApi.getPaths().addPathItem(collectionPath, collection);
+            openApi.getPaths().addPathItem(DalRestOperationMapping.collectionPath(dalName), collection);
         }
         if (!item.readOperations().isEmpty()) {
-            openApi.getPaths().addPathItem(itemPath, item);
+            openApi.getPaths().addPathItem(DalRestOperationMapping.itemPath(dalName), item);
         }
+    }
+
+    private Operation describe(
+        DalOperationType operation,
+        String dalName,
+        String tag,
+        Class<?> entityClass,
+        Schema<?> entityRef,
+        Class<?> idClass,
+        Schema<?> problemDetailRef
+    ) {
+        return switch (operation) {
+            case CREATE -> createOperation(dalName, tag, entityRef, problemDetailRef);
+            case READ -> readOperation(dalName, tag, entityClass, entityRef, problemDetailRef);
+            case READ_ONE -> readOneOperation(dalName, tag, entityRef, idClass, problemDetailRef);
+            case UPDATE -> updateOperation(dalName, tag, entityRef, idClass, problemDetailRef);
+            case DELETE -> deleteOperation(dalName, tag, idClass, problemDetailRef);
+        };
     }
 
     private Operation createOperation(
