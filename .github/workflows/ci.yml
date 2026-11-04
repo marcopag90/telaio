@@ -117,11 +117,7 @@ jobs:
     # !cancelled() keeps cancel-in-progress working and suppresses the implicit
     # success() so the comparison alone decides.
     if: ${{ !cancelled() && needs.changes.result != 'skipped' && needs.changes.outputs.code != 'false' }}
-    # Pinned, not ubuntu-latest: the tests start a mongo:8 Testcontainer, and MongoDB refuses to run
-    # on Linux kernels 6.19 through 7.0.13 (SERVER-121912). ubuntu-latest moved to Ubuntu 26.04 with
-    # such a kernel in late 2026; 24.04 keeps an older one. Lift the pin once the runner image ships
-    # kernel 7.0.14 or newer.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
