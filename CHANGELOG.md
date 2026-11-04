@@ -6,10 +6,68 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### ⭐ New Features
+
+- **Invocation channels.** `telaio-core` gains `DalChannel` (an open value type keyed by id, `DalChannel.of("rest")`,
+  `DalChannel.IN_PROCESS`) and the `DalChannelDefinition` SPI: a channel module registers one bean that names its
+  channel and answers which operations each DAL exposes on it. Core assembles **one adapter chain per
+  (channel, DAL)** and enforces that answer with its own exposure interceptor, outermost in every chain; a context
+  without channel modules builds no chain. A third-party channel plugs in without touching core.
+- **`@DalWeb(operations = …)`** (`telaio-web`) declares what a DAL exposes on REST, stacked on the `@DalService`
+  class like `@DalAudit` and `@DalMetrics`. Opt-out: absent = every operation, present = only the listed ones,
+  **`operations = {}` = not on REST** (no endpoint, no OpenAPI entry, the same `404` as an unknown name).
+  `@DalService(internal = true)` wins on every channel. `DalChannels.REST` is the channel id; `DalRestChannelDefinition`
+  the definition bean; `DalRestOperationMapping` the one place mapping operations onto URIs and HTTP methods, shared by
+  the controller contract, the `Allow` header and the OpenAPI document.
+
+### 🐞 Bug Fixes
+
+- **`/dal/v1/{dalName}/{id}` no longer tells an internal DAL from an unknown name.** The `@DalId` resolver looked the
+  DAL bean up under the client-supplied path segment, so an internal DAL answered the item routes like an exposed one
+  and an unknown name surfaced as a `500`. It now resolves the DAL through its registered definition: unknown and
+  internal both answer the `404` the collection route already gave, and the path segment never reaches the bean
+  factory.
+
 ### ⛔ Deprecations & Removals
 
+- **Breaking (telaio-core):** `@DalService` loses `operations`; the annotation states identity only (`name`,
+  `internal`). Exposure is declared per channel by the channel module's annotation. Migration: for every
+  `@DalService(name = "x", operations = {…})` write `@DalService(name = "x")` plus `@DalWeb(operations = {…})` from
+  `telaio-web`; a DAL declared without `operations` needs nothing (absent `@DalWeb` = every operation, as before).
+- **Breaking (telaio-core):** `DalDefinitionEntry.exposedOperations()` and the four-argument constructor are removed;
+  the entry keeps `name`, `dalClass`, `internal`. The startup check "a non-internal DAL must expose at least one
+  operation" is dropped (`{}` now means "not on this channel"). Migration: ask the channel's `DalChannelDefinition`
+  (`exposedOperations(dalClass)`) instead of the entry.
+- **Breaking (telaio-core):** `DalOperationAdapterRegistry` is keyed by channel: `register(DalChannel, String,
+  DalOperationAdapter)` and `get(DalChannel, String)`. Migration: `registry.get(DalChannels.REST, name)` for the REST
+  chain; a custom registry bean implements the new signatures.
+- **Breaking (telaio-core):** `DalOperationAdapter<I, E>` becomes `DalOperationAdapter<I>` with `Object` results
+  (`Object create`, `Page<Object> read`, `Object readOne`, `Optional<Object> update`): the result is the entity or its
+  role-filtered JSON projection, which the old `E` never was. `DelegatingDalOperationAdapter<E, I>` becomes
+  `DelegatingDalOperationAdapter<I>`. `Dal<E, I>` is untouched. Migration: drop the second type argument.
+- **Breaking (telaio-core):** `DalAdapterContext` becomes `record (DalDefinitionEntry definition, DalChannel channel,
+  DalCatalog catalog)` and `DalInterceptionContext` becomes `record (DalDefinitionEntry definition)`; both are built
+  with `of(…)`, keep `dalName()` / `dalBeanClass()` as accessors, and the adapter context exposes the new read-only
+  `DalCatalog` (`DalRegistry` + `DalDefinitionRegistry`) instead of `DalManager`. `DalManager` now extends
+  `DalCatalog`. Migration: `DalAdapterContext.of(entry, channel, catalog)` / `DalInterceptionContext.of(entry)` in
+  tests of a custom provider; readers of `dalName()` / `dalBeanClass()` are unaffected; a provider that called
+  `context.dalManager()` uses `context.catalog()` for lookups and injects what it needs to register.
+- **Breaking (telaio-web):** `WebDalExposureInterceptor`, `WebDalExposureInterceptorProvider` and
+  `com.paganbit.telaio.web.exception.DalOperationNotExposedException` are removed. Core raises
+  `com.paganbit.telaio.core.exception.DalOperationNotExposedException(dalName, operation, channel)`; `telaio-web` only
+  translates it (405 + `Allow` computed from the DAL's `@DalWeb`, or 404 with an empty body when the URI serves
+  nothing — wire behavior unchanged). Migration: a consumer `@ExceptionHandler` on the web type moves to the core type.
+- **Breaking (telaio-web):** `TelaioWebExceptionHandler` and `TelaioAccessDeniedExceptionHandler` are scoped to
+  `DalRestApiV1Controller` (`assignableTypes`). A host application that unknowingly relied on Telaio's 400/403/404/409
+  handlers for its own controllers gets Spring's defaults again (Spring Security's 401/redirect for an
+  `AccessDeniedException`). Migration: add your own `@RestControllerAdvice` for your controllers.
+- **Breaking (telaio-web, telaio-security):** constructor changes on `TelaioWebExceptionHandler` (now takes
+  `DalDefinitionRegistry` and `DalRestChannelDefinition`), `DalIdArgumentResolver` (`DalCatalog` instead of
+  `DalManager`), `DalOpenApiCustomizer` (gains `DalRestChannelDefinition`) and `DalSecurityInterceptorProvider` (gains a
+  `DalAdapterRegistry`, since the context no longer carries `DalManager`). Migration: only code constructing these
+  classes by hand (tests) is affected; the auto-configurations wire them.
 - **Breaking:** the operation-adapter assembly moved from `telaio-web` to `telaio-core`, package
-  `com.paganbit.telaio.core.adapter`, so every remote boundary shares one chain. Renamed on the way:
+  `com.paganbit.telaio.core.adapter`, so every channel shares one assembler. Renamed on the way:
   `com.paganbit.telaio.web.registry.WebDalOperationAdapterRegistry` → `DalOperationAdapterRegistry`,
   `web.registry.DefaultWebDalOperationAdapterRegistry` → `InMemoryDalOperationAdapterRegistry`,
   `web.registry.WebDalOperationAdapterAssembler` → `DalOperationAdapterAssembler`,

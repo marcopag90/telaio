@@ -134,8 +134,9 @@ via the core `DalInterceptorProvider` SPI, separate from the operation adapter c
 **Pluggable Security**: `DalAuthAdapter` controls operation-level authorization; `DalRbacAdapter` controls field
 visibility. Ship with `PropertyBased` and `JsonView` implementations, or provide your own.
 
-**Boundary Control**: `@DalService(internal = true)` hides a DAL entirely. `@DalService(operations = {…})` exposes only
-specific operations (the rest return 404/405).
+**Channel Control**: `@DalService(internal = true)` hides a DAL from every channel. Each channel module declares the
+operations a DAL exposes on it with its own annotation: `@DalWeb(operations = {…})` for REST (the rest return
+404/405; `{}` hides the DAL from REST).
 
 ## Module Dependency Graph
 

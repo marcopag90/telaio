@@ -18,14 +18,14 @@ itself is compiled to and distributed as Java 21, so this is a property of the d
 | DAL               | Highlights                                                                             | Key File                 |
 |-------------------|----------------------------------------------------------------------------------------|--------------------------|
 | **announcements** | Baseline: no security, no audit, metrics disabled                                      | `AnnouncementDalService` |
-| **articles**      | Read-only (via `operations`), audit, default filter via type-safe builder (`@Filterable`), role-based visibility | `ArticleDalService`      |
+| **articles**      | Read-only on REST (`@DalWeb`), audit, default filter via type-safe builder (`@Filterable`), role-based visibility | `ArticleDalService`      |
 | **products**      | Full: auth + property-based RBAC, lifecycle hooks, multi-entity transactions           | `ProductDalService`      |
 | **employees**     | JsonView RBAC with hierarchical role visibility                                        | `EmployeeDalService`     |
 | **bulletins**     | Custom auth adapter (admin writes), metrics disabled                                   | `BulletinDalService`     |
 | **departments**   | Simple CRUD example                                                                    | `DepartmentDalService`   |
 | **translations**  | Composite ID (`TranslationId`) — [Base64 `{id}` segment](../rest-api.md#composite-ids) | `TranslationDalService`  |
 | **app-settings**  | Internal DAL (no REST/OpenAPI)                                                         | `AppSettingDalService`   |
-| **feed**          | Append-only, `operations={CREATE,READ}`                                                | `FeedEntryDalService`    |
+| **feed**          | Append-only, `@DalWeb(operations={CREATE,READ})`                                       | `FeedEntryDalService`    |
 | **tickets**       | Calls another DAL over the remote `telaio-rest-client` (DAL-to-DAL round-trip)         | `SupportTicketDalService`|
 | **notifications** | MongoDB backend (`MongoDal`, `String` id, `@Version`), real `MongoTransactionManager` on a replica set, audit on a non-JPA store | `NotificationDalService` |
 

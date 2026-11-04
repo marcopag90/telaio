@@ -6,7 +6,7 @@ that springdoc would otherwise derive from the generic `DalRestApiV1Controller`.
 ## Purpose
 
 - **Per-DAL documentation:** Each registered DAL gets its own concrete endpoint descriptions
-- **Operation control:** Respects `@DalService(internal)` and `@DalService(operations)` to omit non-exposed endpoints
+- **Operation control:** Respects `@DalService(internal)` and `@DalWeb(operations)` — read through the REST channel definition — to omit non-exposed endpoints
 - **Schema generation:** Introspects entity types to document request/response schemas
 - **Filter documentation:** Documents the `q` parameter with Turkraft filter syntax
 - **Field visibility:** Derives `readOnly`/`writeOnly` from Jackson `@JsonProperty` access annotations
@@ -59,12 +59,15 @@ public class AppSettingDalService extends JpaDal<AppSetting, String> {
 → `app-settings` is **not** documented in OpenAPI (it is internal).
 
 ```java
-@DalService(name = "articles", operations = {DalOperationType.READ, DalOperationType.READ_ONE})
+@DalService(name = "articles")
+@DalWeb(operations = {DalOperationType.READ, DalOperationType.READ_ONE})
 public class ArticleDalService extends JpaDal<Article, Long> {
 }
 ```
 
-→ OpenAPI shows **only** the two read operations; create/update/delete are omitted.
+→ OpenAPI shows **only** the two read operations; create/update/delete are omitted. The document reads `@DalWeb`
+through the REST channel definition of `telaio-web`, so it always matches what the endpoints enforce; a DAL with
+`@DalWeb(operations = {})` is not documented at all, like an internal one.
 
 ### Field Visibility
 

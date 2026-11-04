@@ -8,7 +8,7 @@ exposure control.
 Telaio enforces security at **four distinct layers**:
 
 ```
-1. Exposure (Structural)    @DalService(operations = {…})
+1. Exposure (Structural)    @DalWeb(operations = {…})
                             ↓ Return 404/405, no OpenAPI
 
 2. Authentication          Spring Security (outside Telaio)
@@ -80,15 +80,18 @@ Three traits of this entity drive the examples that follow:
 
 **Purpose**: Hide operations from the API surface entirely.
 
-**Mechanism**: `@DalService(operations = {…})`
+**Mechanism**: `@DalWeb(operations = {…})` — the REST channel's own annotation, stacked on the `@DalService` class.
+Exposure answers *from where* an operation may be called; it is declared per channel and enforced by core, once,
+for every chain of that channel.
 
 ```java
-@DalService(name = "articles", operations = {DalOperationType.READ, DalOperationType.READ_ONE})
+@DalService(name = "articles")
+@DalWeb(operations = {DalOperationType.READ, DalOperationType.READ_ONE})
 public class ArticleDalService extends JpaDal<Article, Long> {
 }
 ```
 
-This DAL exposes **only** READ and READ_ONE (list and read-one). CREATE, UPDATE, DELETE are not exposed.
+This DAL exposes **only** READ and READ_ONE (list and read-one) on REST. CREATE, UPDATE, DELETE are not exposed.
 
 **Behavior**:
 
@@ -96,9 +99,10 @@ This DAL exposes **only** READ and READ_ONE (list and read-one). CREATE, UPDATE,
   `Allow: GET` header (empty body) — each URI still exposes a GET sibling (`READ` on the collection,
   `READ_ONE` on the item).
 - **404 Not Found** (empty body) is returned when the URI exposes no operation at all (e.g. the item URI of an
-  append-only DAL declared with `operations = {CREATE, READ}`). An `internal = true` DAL also answers 404, but via a
-  different path: it is never registered on the web boundary, so the response is the same "DAL service not found"
-  `ProblemDetail` a nonexistent name gets — its existence is not revealed either way.
+  append-only DAL declared with `@DalWeb(operations = {CREATE, READ})`). An `internal = true` DAL, or one declared
+  `@DalWeb(operations = {})`, also answers 404, but via a different path: it has no chain on the REST channel, so the
+  response is the same "DAL service not found" `ProblemDetail` a nonexistent name gets — its existence is not
+  revealed either way.
 - The hidden operations are **omitted from OpenAPI documentation**.
 - The underlying `Dal` bean retains all methods, so trusted in-process code can still call them.
 
@@ -465,8 +469,8 @@ public class Employee {
 
 - **Authorization** (`DalAuthAdapter`): Identity-conditional. "Does this principal have permission?" → 403 if denied.
   The operation is still documented in OpenAPI.
-- **Exposure** (`@DalService(operations = …)`): Structural. "Is this operation published?" → 404/405 if not. The
-  operation is omitted from OpenAPI.
+- **Exposure** (`@DalWeb(operations = …)`): Structural. "Is this operation published on this channel?" → 404/405 if
+  not. The operation is omitted from OpenAPI.
 
 **Use exposure** for:
 
@@ -520,7 +524,7 @@ and passes it to your adapters.
 
 ## Best Practices
 
-1. **Start with exposure**: If a resource is structurally read-only, use `@DalService(operations = {READ, READ_ONE})`
+1. **Start with exposure**: If a resource is structurally read-only, use `@DalWeb(operations = {READ, READ_ONE})`
    rather than denial in an adapter.
 
 2. **Deny by default**: Use bare `@DalSecurity` (which defaults to `DenyAll`) and explicitly grant access in

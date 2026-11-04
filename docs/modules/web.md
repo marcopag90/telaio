@@ -1,8 +1,8 @@
 # Telaio: Web Module
 
 The web module exposes DAL operations as REST endpoints. It implements the HTTP binding, request routing, error
-handling, and the REST-specific exposure check; the adapter chain that wires together security, audit and the DAL
-bean is assembled by `telaio-core` and shared with every remote boundary.
+handling, and declares the `rest` channel: which operations each DAL exposes there (`@DalWeb`). The adapter chain
+that wires together exposure, security, audit and the DAL bean is assembled by `telaio-core`, one per channel.
 
 ## Purpose
 
@@ -27,23 +27,29 @@ bean is assembled by `telaio-core` and shared with every remote boundary.
 | Annotation | Target    | Purpose                                                                                                            |
 |------------|-----------|--------------------------------------------------------------------------------------------------------------------|
 | `@DalId`   | Parameter | Extracts and converts the entity ID from the path variable (default: `id`). The conversion uses the DAL's ID type. |
+| `@DalWeb`  | Class     | Declares the operations a DAL exposes on REST (opt-out: absent = all five, `operations = {…}` = only those, `operations = {}` = not on REST). `@DalService(internal = true)` wins. |
 
 ### Request/Response Handling
 
 The operation adapters the controller invokes (`DelegatingDalOperationAdapter`), their registry
-(`DalOperationAdapterRegistry`) and the startup assembler (`DalOperationAdapterAssembler`) live in
-`telaio-core` since 3.0.0, so every remote boundary shares one chain. See
-[Operation adapter assembly](core.md#operation-adapter-assembly). `telaio-web` contributes the REST-specific
-exposure interceptor below to that chain.
+(`DalOperationAdapterRegistry`, keyed by channel and DAL name) and the startup assembler
+(`DalOperationAdapterAssembler`) live in `telaio-core` since 3.0.0; the controller resolves the `rest` chain
+(`DalChannels.REST`). See [Operation adapter assembly](core.md#operation-adapter-assembly).
 
-### Exposure Control & Error Handling
+### The REST Channel
+
+| Type                       | Purpose                                                                                                                                                                                              |
+|----------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `DalChannels`              | `DalChannels.REST = DalChannel.of("rest")`, the channel id this module declares.                                                                                                                     |
+| `DalRestChannelDefinition` | The `DalChannelDefinition` bean of the REST channel: reads `@DalWeb` (through the class hierarchy) and answers which operations a DAL exposes. Core builds the `rest` chains from it and enforces the answer. |
+| `DalRestOperationMapping`  | The one mapping of operations onto the REST surface: URI templates, collection (`CREATE`, `READ`) vs item (`READ_ONE`, `UPDATE`, `DELETE`) groups, HTTP methods, and the `Allow` computation. Shared by the contract, the exception handler and `telaio-openapi`. |
+
+### Error Handling
 
 | Type                                 | Purpose                                                                                                                                                                                                                                                                                       |
 |--------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `WebDalExposureInterceptor`          | Outermost interceptor: enforces `@DalService(operations)` and `internal` flag. Raises `DalOperationNotExposedException` (→ 405 + `Allow` header or 404).                                                                                                                                      |
-| `DalOperationNotExposedException`    | Exception: operation is not exposed (404 or 405).                                                                                                                                                                                                                                             |
-| `TelaioWebExceptionHandler`          | Global exception handler: maps `DalEntityValidationException` (400), Turkraft's `InvalidSyntaxException` (400 `"Malformed filter expression"`), `DalInvalidFilterException` (400 `"Invalid filter expression"`, including the RBAC subclass `DalFilterFieldNotReadableException`), `DalInvalidSortException` (400 `"Invalid sort parameter"`, including `DalSortFieldNotReadableException`), `DalIdCodecException` (400 `"Malformed resource identifier"`), `DalEntityNotFoundException` / `DalNotFoundException` (404), `OptimisticLockingFailureException` (409, generic detail), `DalRegistryException` (500, generic detail), and `DalOperationNotExposedException` (405/404) to RFC 9457 `ProblemDetail`. |
-| `TelaioAccessDeniedExceptionHandler` | Global exception handler: maps Spring Security's `AccessDeniedException` (including `DalAccessDeniedException`) to 403 `ProblemDetail` with minimal detail (OWASP CWE-209). Registered only when Spring Security is present.                                                                  |
+| `TelaioWebExceptionHandler`          | Exception handler scoped to `DalRestApiV1Controller`: maps `DalEntityValidationException` (400), Turkraft's `InvalidSyntaxException` (400 `"Malformed filter expression"`), `DalInvalidFilterException` (400 `"Invalid filter expression"`, including the RBAC subclass `DalFilterFieldNotReadableException`), `DalInvalidSortException` (400 `"Invalid sort parameter"`, including `DalSortFieldNotReadableException`), `DalIdCodecException` (400 `"Malformed resource identifier"`), `DalEntityNotFoundException` / `DalNotFoundException` (404), `OptimisticLockingFailureException` (409, generic detail), `DalRegistryException` (500, generic detail) to RFC 9457 `ProblemDetail`; and core's `DalOperationNotExposedException` to 405 with an `Allow` header computed from the DAL's `@DalWeb` through `DalRestOperationMapping`, or 404 (empty body) when the URI serves nothing. |
+| `TelaioAccessDeniedExceptionHandler` | Exception handler scoped to `DalRestApiV1Controller`: maps Spring Security's `AccessDeniedException` (including `DalAccessDeniedException`) to 403 `ProblemDetail` with minimal detail (OWASP CWE-209). Registered only when Spring Security is present. A host's own controllers keep Spring Security's default behavior.                                                                  |
 | `ValidationError`                    | Detail object in validation error responses: `object`, `field`, `rejectValue`, `message`                                                                                                                                                                                                      |
 
 ### Configuration
@@ -95,7 +101,8 @@ Details: see [REST API Guide](../rest-api.md).
 
 ```java
 
-@DalService(name = "articles", operations = {DalOperationType.READ, DalOperationType.READ_ONE})
+@DalService(name = "articles")
+@DalWeb(operations = {DalOperationType.READ, DalOperationType.READ_ONE})
 public class ArticleDalService extends JpaDal<Article, Long> {
 }
 ```
@@ -104,7 +111,11 @@ public class ArticleDalService extends JpaDal<Article, Long> {
 
 - 405 Method Not Allowed (with an `Allow` header listing only the exposed sibling methods — here `Allow: GET`) if the
   collection/item URI is otherwise active
-- 404 Not Found if no operations are exposed
+- 404 Not Found (empty body) if the URI exposes no operation
+
+`@DalWeb` absent means every operation; `@DalWeb(operations = {})` takes the DAL off REST entirely (same 404 as an
+unknown name, not documented in OpenAPI). The rule is enforced by core's exposure interceptor; this module declares
+it (`DalRestChannelDefinition`) and translates the rejection.
 
 ### Hide a DAL Entirely
 

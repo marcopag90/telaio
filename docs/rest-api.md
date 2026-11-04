@@ -456,7 +456,7 @@ client.
 ### 404 Not Found
 
 **If the operation isn't exposed and the URI exposes no sibling method** (e.g. the item URI of a DAL declared
-with `operations = {CREATE, READ}` only):
+with `@DalWeb(operations = {CREATE, READ})` only):
 
 Deliberately empty body, so the response doesn't reveal that the operation exists:
 
@@ -465,8 +465,9 @@ Deliberately empty body, so the response doesn't reveal that the operation exist
 (empty body)
 ```
 
-**If the DAL name is unknown — or the DAL is `internal = true`** (internal DALs are never registered on the web
-boundary, so the response is identical to a nonexistent name and doesn't reveal their existence):
+**If the DAL name is unknown, the DAL is `internal = true`, or it is declared `@DalWeb(operations = {})`** (neither
+has a chain on the REST channel, so the response is identical to a nonexistent name and doesn't reveal their
+existence):
 
 ```json
 {
@@ -500,9 +501,10 @@ If the operation exists but the HTTP method doesn't (e.g., DELETE on a read-only
 Allow: GET
 ```
 
-This happens when `@DalService(operations = {READ, READ_ONE})` excludes UPDATE and DELETE: a PATCH or DELETE on
+This happens when `@DalWeb(operations = {READ, READ_ONE})` excludes UPDATE and DELETE: a PATCH or DELETE on
 `/dal/v1/articles/{id}` is rejected with `Allow: GET`, because READ_ONE (GET) is the only operation exposed on the
-item URI.
+item URI. The rejection comes from core's exposure interceptor; `telaio-web` computes the `Allow` header from the
+same `@DalWeb`.
 
 ### 409 Conflict
 

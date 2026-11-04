@@ -16,9 +16,10 @@ annotations. This keeps autoconfigurations self-contained, testable, and free of
 in-process calls) via the core's `DalInterceptorProvider` SPI. This keeps cross-cutting logic separate from the web
 boundary.
 
-**Boundary Control**: Exposure is a boundary concern only. A DAL can be hidden entirely (`internal = true`) or
-restricted to specific operations (`operations = {…}`). The underlying `Dal` bean retains all methods, so trusted
-in-process code is never affected.
+**Channel Control**: Exposure is a channel concern only. A DAL can be hidden from every channel (`internal = true`)
+or restricted to specific operations on one channel by that channel module's annotation (`@DalWeb(operations = {…})`
+for REST). Core builds one adapter chain per (channel, DAL) and enforces the declared exposure with a single
+interceptor; the underlying `Dal` bean retains all methods, so trusted in-process code is never affected.
 
 **Shared Wire Contract**: everything the server and the remote client must agree on to interoperate — path and
 parameter constants, the ID encoding, the validation-error payload — lives in `telaio-rest-contract`, so the two
@@ -103,16 +104,16 @@ sequenceDiagram
     Code ->> Spring: @DalService public class ProductDalService extends JpaDal
     Spring ->> PostProc: Detect @DalService
     PostProc ->> Manager: Register DAL with name "products"
-    Manager ->> Manager: Store definition (name, operations, internal, etc.)
-    Note over Assembler: At startup
-    Assembler ->> Registry: Assemble operation adapters (if not internal)
+    Manager ->> Manager: Store definition (name, class, internal)
+    Note over Assembler: At startup, per channel definition (rest: @DalWeb)
+    Assembler ->> Registry: Assemble one adapter per (channel, DAL) exposing something
     Note over Controller: At request time
     Client ->> Controller: POST /dal/v1/products { name, price, ... }
-    Controller ->> Registry: Lookup "products" adapter
+    Controller ->> Registry: Lookup (rest, "products") adapter
     Registry ->> Controller: Return DalOperationAdapter
     Controller ->> Registry: Invoke adapter.create(input)
     Note over Registry: Adapter chain executes
-    Registry ->> Registry: 1. WebDalExposureInterceptor (check if op exposed)
+    Registry ->> Registry: 1. DalExposureInterceptor (core: is CREATE exposed on rest?)
     Registry ->> Registry: 2. DalAuditDeniedInterceptor (record if denied)
     Registry ->> Registry: 3. DalSecurityInterceptor (authz + RBAC field filtering)
     Registry ->> Registry: 4. DelegatingDalOperationAdapter (call Dal.create)
@@ -127,9 +128,12 @@ sequenceDiagram
 **Key points**:
 
 1. **Registration** happens once at startup via `DalDefinitionBeanPostProcessor` and `DalFactoryPostProcessor`; the
-   operation adapters are assembled separately by `DalOperationAdapterAssembler` (in `telaio-core`) and published
-   to the `DalOperationAdapterRegistry`, from which `telaio-web` resolves them.
-2. **Exposure check** (step 1) returns 404 or 405 for non-exposed operations before reaching the DAL.
+   operation adapters are assembled separately by `DalOperationAdapterAssembler` (in `telaio-core`), one per
+   (channel, DAL) for every `DalChannelDefinition` bean present, and published to the `DalOperationAdapterRegistry`,
+   from which `telaio-web` resolves the `rest` chain.
+2. **Exposure check** (step 1) is core's `DalExposureInterceptor`, parameterized with the operations the channel
+   definition declared for the DAL (`@DalWeb` on REST); a non-exposed operation raises
+   `DalOperationNotExposedException`, which `telaio-web` translates into 404 or 405 before the DAL is reached.
 3. **Audit denied** (step 2) records failed authorization attempts.
 4. **Security** (step 3) runs the `DalAuthAdapter` to check if the principal can perform the operation, then applies
    the `DalRbacAdapter` to filter input/output fields by role and to reject a filter that references a field the
@@ -139,8 +143,8 @@ sequenceDiagram
 
 ## Per-Request Adapter Chain (REST Boundary)
 
-When a REST request arrives at `DalRestApiV1Controller`, it flows through the **adapter chain** assembled by `telaio-core`, to which `telaio-web`
-contributes the exposure check. This chain is
+When a REST request arrives at `DalRestApiV1Controller`, it flows through the `rest` **adapter chain** assembled by
+`telaio-core` from the exposure `telaio-web` declares through its `DalChannelDefinition`. This chain is
 responsible for exposure control, security checks, and RBAC filtering. Note that RBAC is not a separate interceptor:
 the `DalSecurityInterceptor` first checks authorization via the `DalAuthAdapter`, then applies the `DalRbacAdapter`
 to check the filter's field references and to filter fields — the diagram shows them as distinct steps only to make
@@ -148,7 +152,7 @@ the logical order visible:
 
 ```mermaid
 graph TD
-    A["HTTP Request<br/>POST /dal/v1/products<br/>{ name, price, costPrice }"] -->|1| B["WebDalExposureInterceptor<br/>(outermost)"]
+    A["HTTP Request<br/>POST /dal/v1/products<br/>{ name, price, costPrice }"] -->|1| B["DalExposureInterceptor<br/>(core, outermost)"]
     B -->|Check: is CREATE<br/>exposed?| C{Operation<br/>Exposed?}
     C -->|No| D["404 or 405<br/>+ Allow header"]
     C -->|Yes| E["DalAuditDeniedInterceptor"]
@@ -253,15 +257,15 @@ graph TD
     G -->|Process| H["Entity in DB"]
     H -->|Output: Filter fields<br/>the principal<br/>can read| I["Filtered Entity"]
     I -->|Response| Z
-    J["Structural Exposure<br/>@DalService operations={…}"] -->|vs| K["Conditional Authorization<br/>DalAuthAdapter"]
+    J["Structural Exposure<br/>@DalWeb operations={…}"] -->|vs| K["Conditional Authorization<br/>DalAuthAdapter"]
     J -->|Hides operations<br/>from API<br/>404/405<br/>no OpenAPI| L["Read-only<br/>or<br/>structural restriction"]
     K -->|Denies operations<br/>per principal<br/>403 in logs<br/>stays in OpenAPI| M["Identity-conditional<br/>authorization"]
 ```
 
 **Four layers** (in order of checking):
 
-1. **Exposure**: `@DalService(operations = {…})` — if the operation isn't in the list, return 404/405 immediately. This
-   is structural: the operation never exists for anyone.
+1. **Exposure**: `@DalWeb(operations = {…})` — if the operation isn't in the list, return 404/405 immediately. This
+   is structural: the operation never exists for anyone on that channel.
 2. **Authentication**: Spring Security principals must be authenticated (handled by `SecurityConfiguration` in the
    showcase).
 3. **Operation-Level Authorization** (`DalAuthAdapter`): Does the authenticated principal have permission for this
@@ -287,7 +291,7 @@ graph LR
     C["telaio-security<br/>TelaioSecurityAutoConfiguration"] -->|Registers| D["DalSecurityInterceptorProvider<br/>(creates DalSecurityInterceptor)"]
     E["telaio-audit<br/>TelaioAuditAutoConfiguration"] -->|Registers| F["DalAuditInterceptorProvider<br/>DalAuditEventStore"]
     G["telaio-metrics<br/>TelaioMetricsAutoConfiguration"] -->|Registers| H["DalMetricsInterceptorProvider<br/>DalMetricsStore<br/>DalMetricsFlushScheduler"]
-    I["telaio-web<br/>TelaioWebAutoConfiguration"] -->|Registers via @Import / @Bean| J["DalRestApiV1Controller<br/>WebDalExposureInterceptorProvider"]
+    I["telaio-web<br/>TelaioWebAutoConfiguration"] -->|Registers via @Import / @Bean| J["DalRestApiV1Controller<br/>DalRestChannelDefinition"]
     K["telaio-openapi<br/>TelaioOpenApiAutoConfiguration"] -->|Registers| L["DalOpenApiCustomizer<br/>DalPathsGenerator"]
 ```
 
@@ -346,8 +350,8 @@ Here's a complete walkthrough of a PATCH request to update a product:
 3. DalOperationAdapter.update() is called (the chain assembled by telaio-core)
    ↓
 
-4. WebDalExposureInterceptor checks: Is UPDATE in @DalService(operations = {…})?
-   If not → 404 or 405 (empty body)
+4. DalExposureInterceptor (core) checks: Is UPDATE in @DalWeb(operations = {…})?
+   If not → DalOperationNotExposedException, translated by telaio-web to 404 or 405 (empty body)
    If yes → continue
    ↓
 

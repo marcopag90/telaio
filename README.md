@@ -90,8 +90,8 @@ Telaio collapses that into one abstraction:
   ones. See
   [Server-side filtering](#server-side-filtering--baseline-filters-and-the-type-safe-builder).
 - **Exposure control without extra code.** `@DalService(internal = true)` keeps a DAL fully functional in-process while
-  hiding it from REST and OpenAPI entirely; `@DalService(operations =
-  {...})` exposes only a CRUD subset (e.g. read-only) and answers everything else with `404`/`405`.
+  hiding it from every channel; `@DalWeb(operations = {...})` exposes only a CRUD subset on REST (e.g. read-only) and
+  answers everything else with `404`/`405`, and `@DalWeb(operations = {})` takes the DAL off REST altogether.
 - **Opt-in structured audit.** `@DalAudit` records every operation (principal, arguments, outcome, duration) as logfmt
   or JSON Lines, under a dedicated logger category, ready for log aggregation/SIEM ingestion.
 - **Metrics on by default.** Every DAL is timed per operation (counts, error rate, latency percentiles) without any
