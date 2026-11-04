@@ -1,7 +1,8 @@
 # Telaio: Web Module
 
 The web module exposes DAL operations as REST endpoints. It implements the HTTP binding, request routing, error
-handling, and the adapter chain that wires together security, audit, metrics, and the DAL bean.
+handling, and the REST-specific exposure check; the adapter chain that wires together security, audit and the DAL
+bean is assembled by `telaio-core` and shared with every remote boundary.
 
 ## Purpose
 
@@ -19,7 +20,7 @@ handling, and the adapter chain that wires together security, audit, metrics, an
 | Type                     | Purpose                                                                                                                                                                                                                                                                 |
 |--------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `DalRestApiV1`           | Interface defining the HTTP endpoint signatures. Base path: `/dal/v1`. Endpoints: `POST /{dalName}` (201), `GET /{dalName}` (200), `GET /{dalName}/{id}` (200), `PATCH /{dalName}/{id}` (200/204), `DELETE /{dalName}/{id}` (204). Filter param: `q` (Turkraft syntax). |
-| `DalRestApiV1Controller` | Implementation (not component-scanned; registered via `@Import`). Routes requests to the appropriate DAL via `WebDalOperationAdapterRegistry`.                                                                                                                          |
+| `DalRestApiV1Controller` | Implementation (not component-scanned; registered via `@Import`). Routes requests to the appropriate DAL via the `DalOperationAdapterRegistry` assembled by `telaio-core` (see [core](core.md#operation-adapter-assembly)).                                                                                                                          |
 
 ### Annotations
 
@@ -29,11 +30,11 @@ handling, and the adapter chain that wires together security, audit, metrics, an
 
 ### Request/Response Handling
 
-| Type                              | Purpose                                                                                                                                               |
-|-----------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `WebDalOperationAdapter`          | Implements `DalOperationAdapter<I, E>` backed by a `Dal`: `create`, `read`, `readOne`, `update`, `delete`. Exposes the entity directly to the caller. |
-| `WebDalOperationAdapterRegistry`  | Registry: `register(String, DalOperationAdapter)` and `DalOperationAdapter<Object,Object> get(String)` (the controller calls `get(dalName)`).         |
-| `WebDalOperationAdapterAssembler` | Assembles adapters for all exposed operations of all DALs at startup. Respects `@DalService(internal)` and `@DalService(operations)`.                 |
+The operation adapters the controller invokes (`DelegatingDalOperationAdapter`), their registry
+(`DalOperationAdapterRegistry`) and the startup assembler (`DalOperationAdapterAssembler`) live in
+`telaio-core` since 3.0.0, so every remote boundary shares one chain. See
+[Operation adapter assembly](core.md#operation-adapter-assembly). `telaio-web` contributes the REST-specific
+exposure interceptor below to that chain.
 
 ### Exposure Control & Error Handling
 
@@ -41,7 +42,7 @@ handling, and the adapter chain that wires together security, audit, metrics, an
 |--------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `WebDalExposureInterceptor`          | Outermost interceptor: enforces `@DalService(operations)` and `internal` flag. Raises `DalOperationNotExposedException` (→ 405 + `Allow` header or 404).                                                                                                                                      |
 | `DalOperationNotExposedException`    | Exception: operation is not exposed (404 or 405).                                                                                                                                                                                                                                             |
-| `TelaioWebExceptionHandler`          | Global exception handler: maps `DalEntityValidationException` (400), Turkraft's `InvalidSyntaxException` (400 `"Malformed filter expression"`), `DalInvalidFilterException` (400 `"Invalid filter expression"`, including the RBAC subclass `DalFilterFieldNotReadableException`), `DalInvalidSortException` (400 `"Invalid sort parameter"`, including `DalSortFieldNotReadableException`), `DalIdCodecException` (400 `"Malformed resource identifier"`), `DalEntityNotFoundException` / `DalNotFoundException` / `DalResourceNotFoundException` (404), `OptimisticLockingFailureException` (409, generic detail), `DalRegistryException` (500, generic detail), and `DalOperationNotExposedException` (405/404) to RFC 9457 `ProblemDetail`. |
+| `TelaioWebExceptionHandler`          | Global exception handler: maps `DalEntityValidationException` (400), Turkraft's `InvalidSyntaxException` (400 `"Malformed filter expression"`), `DalInvalidFilterException` (400 `"Invalid filter expression"`, including the RBAC subclass `DalFilterFieldNotReadableException`), `DalInvalidSortException` (400 `"Invalid sort parameter"`, including `DalSortFieldNotReadableException`), `DalIdCodecException` (400 `"Malformed resource identifier"`), `DalEntityNotFoundException` / `DalNotFoundException` (404), `OptimisticLockingFailureException` (409, generic detail), `DalRegistryException` (500, generic detail), and `DalOperationNotExposedException` (405/404) to RFC 9457 `ProblemDetail`. |
 | `TelaioAccessDeniedExceptionHandler` | Global exception handler: maps Spring Security's `AccessDeniedException` (including `DalAccessDeniedException`) to 403 `ProblemDetail` with minimal detail (OWASP CWE-209). Registered only when Spring Security is present.                                                                  |
 | `ValidationError`                    | Detail object in validation error responses: `object`, `field`, `rejectValue`, `message`                                                                                                                                                                                                      |
 

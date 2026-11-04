@@ -1,15 +1,20 @@
-package com.paganbit.telaio.web.registry;
+package com.paganbit.telaio.core.adapter;
 
-import com.paganbit.telaio.core.adapter.DalOperationAdapter;
 import com.paganbit.telaio.core.exception.DalNotFoundException;
 
 /**
  * Holds the assembled {@link DalOperationAdapter} of each DAL, indexed by name.
  *
+ * <p>Populated at startup by the {@link DalOperationAdapterAssembler}; every remote boundary resolves the
+ * adapter of a DAL from here instead of reaching the {@link com.paganbit.telaio.core.Dal} bean directly,
+ * so the cross-cutting interceptors woven around it always apply. Per-operation exposure is one of those
+ * interceptors, contributed by the boundary module that enforces it; the registry itself does not
+ * enforce it.</p>
+ *
  * @author Marco Pagan
- * @since 1.0.0
+ * @since 3.0.0
  */
-public interface WebDalOperationAdapterRegistry {
+public interface DalOperationAdapterRegistry {
 
     /**
      * Registers a pre-built adapter for the given DAL name.

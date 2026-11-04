@@ -1,8 +1,8 @@
 package com.paganbit.telaio.web;
 
 import com.paganbit.telaio.core.adapter.DalOperationAdapter;
+import com.paganbit.telaio.core.adapter.DalOperationAdapterRegistry;
 import com.paganbit.telaio.core.exception.DalInvalidFilterException;
-import com.paganbit.telaio.web.registry.WebDalOperationAdapterRegistry;
 import com.turkraft.springfilter.converter.FilterStringConverter;
 import com.turkraft.springfilter.parser.node.FilterNode;
 import org.springframework.data.domain.Pageable;
@@ -23,11 +23,11 @@ import java.util.Map;
 @RestController
 public class DalRestApiV1Controller implements DalRestApiV1 {
 
-    private final WebDalOperationAdapterRegistry adapterRegistry;
+    private final DalOperationAdapterRegistry adapterRegistry;
     private final FilterStringConverter filterStringConverter;
 
     DalRestApiV1Controller(
-        WebDalOperationAdapterRegistry adapterRegistry,
+        DalOperationAdapterRegistry adapterRegistry,
         FilterStringConverter filterStringConverter
     ) {
         this.adapterRegistry = adapterRegistry;

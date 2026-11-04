@@ -23,7 +23,7 @@ import java.util.Objects;
  * {@link DalInterceptorProvider} beans.
  *
  * <p>Because the proxy is applied to the {@link Dal} bean itself, the contributed interceptors
- * apply to every invocation channel — web adapters, messaging consumers, or plain programmatic
+ * apply to every invocation channel — remote-boundary adapters, messaging consumers, or plain programmatic
  * calls. Beans for which no provider contributes an interceptor are returned unchanged.</p>
  *
  * <p>The proxy is class-based (CGLIB), so injection points typed to the concrete service class keep

@@ -85,10 +85,9 @@ public final class DalPayloadCodec {
             throw new DalClientMalformedResponseException(
                 "The response is not a DAL API v1 page (missing 'content' array or 'page' metadata)");
         }
-        List<E> content = new ArrayList<>();
-        for (JsonNode element : root.path("content")) {
-            content.add(toEntity(element, entityType));
-        }
+        List<E> content = root.path("content").valueStream()
+            .map(element -> toEntity(element, entityType))
+            .toList();
         DalPage.Metadata metadata = objectMapper.treeToValue(root.path("page"), DalPage.Metadata.class);
         return new DalPage<>(content, metadata);
     }

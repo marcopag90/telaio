@@ -14,8 +14,8 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.StreamSupport;
 
 /**
  * Creates the metrics table from a per-vendor DDL script.
@@ -67,10 +67,9 @@ public class JdbcDalMetricsSchemaInitializer extends DataSourceScriptDatabaseIni
     @Override
     protected void runScripts(Scripts scripts) {
         Charset encoding = scripts.getEncoding() != null ? scripts.getEncoding() : StandardCharsets.UTF_8;
-        List<Resource> substituted = new ArrayList<>();
-        for (Resource script : scripts) {
-            substituted.add(substitute(script, encoding));
-        }
+        List<Resource> substituted = StreamSupport.stream(scripts.spliterator(), false)
+            .map(script -> substitute(script, encoding))
+            .toList();
         Scripts resolved = new Scripts(substituted)
             .continueOnError(scripts.isContinueOnError())
             .separator(scripts.getSeparator());

@@ -1,12 +1,8 @@
-package com.paganbit.telaio.web.registry;
+package com.paganbit.telaio.core.adapter;
 
 import com.paganbit.telaio.core.Dal;
-import com.paganbit.telaio.core.adapter.DalAdapterContext;
-import com.paganbit.telaio.core.adapter.DalAdapterInterceptorProvider;
-import com.paganbit.telaio.core.adapter.DalOperationAdapter;
 import com.paganbit.telaio.core.registry.DalDefinitionEntry;
 import com.paganbit.telaio.core.registry.DalManager;
-import com.paganbit.telaio.web.adapter.WebDalOperationAdapter;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,26 +15,30 @@ import java.util.List;
 
 /**
  * Assembles the {@link DalOperationAdapter} of each registered DAL and publishes it to the
- * {@link WebDalOperationAdapterRegistry}.
+ * {@link DalOperationAdapterRegistry}.
  *
- * <p>The base adapter (the {@link Dal} itself, exposing the entity directly) is wrapped with the
- * interceptors supplied by the available {@link DalAdapterInterceptorProvider}s, in their declared
- * order.</p>
+ * <p>The base adapter (a {@link DelegatingDalOperationAdapter} over the {@link Dal} itself, exposing the
+ * entity directly) is wrapped with the interceptors supplied by the available
+ * {@link DalAdapterInterceptorProvider}s in {@code Ordered} order, lowest value outermost.
+ * Internal DALs are skipped: they are never exposed on a remote boundary.</p>
+ *
+ * <p>Assembly runs once every singleton exists, so providers contributed by any module are collected
+ * regardless of the order in which their auto-configurations were processed.</p>
  *
  * @author Marco Pagan
- * @since 1.0.0
+ * @since 3.0.0
  */
-public class WebDalOperationAdapterAssembler implements SmartInitializingSingleton {
+public class DalOperationAdapterAssembler implements SmartInitializingSingleton {
 
-    private static final Logger log = LoggerFactory.getLogger(WebDalOperationAdapterAssembler.class);
+    private static final Logger log = LoggerFactory.getLogger(DalOperationAdapterAssembler.class);
 
     private final DalManager dalManager;
-    private final WebDalOperationAdapterRegistry registry;
+    private final DalOperationAdapterRegistry registry;
     private final List<DalAdapterInterceptorProvider> interceptorProviders;
 
-    public WebDalOperationAdapterAssembler(
+    public DalOperationAdapterAssembler(
         DalManager dalManager,
-        WebDalOperationAdapterRegistry registry,
+        DalOperationAdapterRegistry registry,
         List<DalAdapterInterceptorProvider> interceptorProviders
     ) {
         this.dalManager = dalManager;
@@ -51,7 +51,7 @@ public class WebDalOperationAdapterAssembler implements SmartInitializingSinglet
     public void afterSingletonsInstantiated() {
         for (DalDefinitionEntry entry : dalManager.getAllDefinitions()) {
             if (entry.internal()) {
-                log.debug("DAL '{}' is internal — not exposed via REST", entry.name());
+                log.debug("DAL '{}' is internal — not exposed on any remote boundary", entry.name());
                 continue;
             }
             log.debug("Assembling operation adapter for DAL: {}", entry.name());
@@ -78,6 +78,6 @@ public class WebDalOperationAdapterAssembler implements SmartInitializingSinglet
     @SuppressWarnings({"unchecked", "rawtypes"})
     private DalOperationAdapter<?, ?> buildBase(DalDefinitionEntry entry) {
         Dal<?, ?> dalService = dalManager.getServiceByName(entry.name());
-        return new WebDalOperationAdapter(dalService);
+        return new DelegatingDalOperationAdapter(dalService);
     }
 }

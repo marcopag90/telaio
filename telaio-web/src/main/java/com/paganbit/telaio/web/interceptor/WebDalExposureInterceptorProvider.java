@@ -5,6 +5,7 @@ import com.paganbit.telaio.core.adapter.DalAdapterInterceptorProvider;
 import com.paganbit.telaio.core.adapter.DalOperationType;
 import com.paganbit.telaio.core.registry.DalDefinitionEntry;
 import org.aopalliance.intercept.MethodInterceptor;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.util.EnumSet;
@@ -28,7 +29,7 @@ public class WebDalExposureInterceptorProvider implements DalAdapterInterceptorP
     private static final Set<DalOperationType> ALL_OPERATIONS = EnumSet.allOf(DalOperationType.class);
 
     @Override
-    public @Nullable MethodInterceptor getInterceptor(DalAdapterContext context) {
+    public @Nullable MethodInterceptor getInterceptor(@NonNull DalAdapterContext context) {
         DalDefinitionEntry entry = context.dalManager().getDefinitionByName(context.dalName());
         Set<DalOperationType> exposed = entry.exposedOperations();
         if (exposed.containsAll(ALL_OPERATIONS)) {

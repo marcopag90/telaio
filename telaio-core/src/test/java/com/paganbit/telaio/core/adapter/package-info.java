@@ -1,4 +1,4 @@
 @NullMarked
-package com.paganbit.telaio.web.registry;
+package com.paganbit.telaio.core.adapter;
 
 import org.jspecify.annotations.NullMarked;

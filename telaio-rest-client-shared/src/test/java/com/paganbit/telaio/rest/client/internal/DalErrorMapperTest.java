@@ -80,10 +80,10 @@ class DalErrorMapperTest {
     @Test
     void notFoundWithProblemBodyIsNotFound() {
         DalClientException ex = map(HttpStatus.NOT_FOUND, """
-            {"status": 404, "detail": "Resource not found with ID: 5"}""");
+            {"status": 404, "detail": "Product was not found for id: [5]"}""");
 
         assertThat(ex).isInstanceOf(DalClientNotFoundException.class);
-        assertThat(ex.getMessage()).isEqualTo("Resource not found with ID: 5");
+        assertThat(ex.getMessage()).isEqualTo("Product was not found for id: [5]");
     }
 
     @Test

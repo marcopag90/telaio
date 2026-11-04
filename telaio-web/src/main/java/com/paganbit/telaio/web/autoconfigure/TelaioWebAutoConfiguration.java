@@ -1,6 +1,5 @@
 package com.paganbit.telaio.web.autoconfigure;
 
-import com.paganbit.telaio.core.adapter.DalAdapterInterceptorProvider;
 import com.paganbit.telaio.core.autoconfigure.TelaioCoreAutoConfiguration;
 import com.paganbit.telaio.core.registry.DalManager;
 import com.paganbit.telaio.core.version.TelaioVersionProvider;
@@ -12,9 +11,6 @@ import com.paganbit.telaio.web.annotation.DalIdArgumentResolver;
 import com.paganbit.telaio.web.exception.TelaioAccessDeniedExceptionHandler;
 import com.paganbit.telaio.web.exception.TelaioWebExceptionHandler;
 import com.paganbit.telaio.web.interceptor.WebDalExposureInterceptorProvider;
-import com.paganbit.telaio.web.registry.DefaultWebDalOperationAdapterRegistry;
-import com.paganbit.telaio.web.registry.WebDalOperationAdapterAssembler;
-import com.paganbit.telaio.web.registry.WebDalOperationAdapterRegistry;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
@@ -22,7 +18,9 @@ import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.autoconfigure.condition.*;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -49,30 +47,14 @@ import java.util.List;
 @EnableConfigurationProperties(TelaioWebProperties.class)
 public class TelaioWebAutoConfiguration {
 
-    @Bean
-    @ConditionalOnMissingBean
-    WebDalOperationAdapterRegistry dalOperationAdapterRegistry() {
-        return new DefaultWebDalOperationAdapterRegistry();
-    }
-
     /**
-     * Enforces per-operation exposure ({@code @DalService(operations = ...)}) at the REST boundary as the
-     * outermost interceptor, so calls to non-exposed operations are rejected
-     * before any other concern runs.
+     * Enforces per-operation exposure ({@code @DalService(operations = ...)}) at the REST boundary.
+     * Collected by core's {@code DalOperationAdapterAssembler} as the outermost interceptor, so calls to
+     * non-exposed operations are rejected before any other concern runs.
      */
     @Bean
     WebDalExposureInterceptorProvider dalExposureInterceptorProvider() {
         return new WebDalExposureInterceptorProvider();
-    }
-
-    @Bean
-    @ConditionalOnBean(DalManager.class)
-    WebDalOperationAdapterAssembler dalOperationAdapterAssembler(
-        DalManager dalManager,
-        WebDalOperationAdapterRegistry registry,
-        List<DalAdapterInterceptorProvider> interceptorProviders
-    ) {
-        return new WebDalOperationAdapterAssembler(dalManager, registry, interceptorProviders);
     }
 
     @Bean

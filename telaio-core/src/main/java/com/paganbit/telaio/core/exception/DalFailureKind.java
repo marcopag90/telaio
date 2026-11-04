@@ -11,14 +11,15 @@ import java.util.List;
  *
  * <p>This is the single, shared taxonomy consumed by the cross-cutting modules (audit, metrics)
  * so that client-caused failures do not inflate error rates or pollute audit trails as service
- * faults. The kinds mirror the HTTP statuses telaio-web maps the same exceptions to:</p>
+ * faults. The kinds are the client-vs-server fault split that every remote boundary maps to its
+ * own status codes:</p>
  *
  * <ul>
- *   <li>{@link #VALIDATION} — the payload failed validation ({@code 400});</li>
+ *   <li>{@link #VALIDATION} — the payload failed validation;</li>
  *   <li>{@link #NOT_FOUND} — the target entity does not exist or is hidden by the DAL's
- *       default filter ({@code 404});</li>
- *   <li>{@link #CONFLICT} — a versioned entity was modified concurrently ({@code 409});</li>
- *   <li>{@link #SERVER_ERROR} — anything else ({@code 500}).</li>
+ *       default filter;</li>
+ *   <li>{@link #CONFLICT} — a versioned entity was modified concurrently;</li>
+ *   <li>{@link #SERVER_ERROR} — anything else.</li>
  * </ul>
  *
  * @author Marco Pagan
