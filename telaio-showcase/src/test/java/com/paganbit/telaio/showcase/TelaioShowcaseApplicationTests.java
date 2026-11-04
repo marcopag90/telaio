@@ -121,7 +121,7 @@ class TelaioShowcaseApplicationTests {
 
     @Test
     void dalWithoutSecurityDefinitionIsPermittedByDefault() {
-        DalOperationAdapter<Object, Object> adapter = adapterRegistry.get("widgets");
+        DalOperationAdapter<Object> adapter = adapterRegistry.get("widgets");
 
         Map<String, Object> props = Map.of("name", "w");
         // A DAL declared without @DalSecurity is open by default (PermitAll fallback), so the

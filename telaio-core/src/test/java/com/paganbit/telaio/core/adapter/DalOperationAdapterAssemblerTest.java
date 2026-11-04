@@ -46,7 +46,7 @@ class DalOperationAdapterAssemblerTest {
 
         assembler.afterSingletonsInstantiated();
 
-        DalOperationAdapter<Object, Object> adapter = registry.get("testDal");
+        DalOperationAdapter<Object> adapter = registry.get("testDal");
         assertNotNull(adapter);
         assertEquals(TestDalService.CREATED, adapter.create(Map.of("k", "v")));
     }
@@ -72,7 +72,7 @@ class DalOperationAdapterAssemblerTest {
         final var assembler = new DalOperationAdapterAssembler(dalManager, registry, List.of(provider));
         assembler.afterSingletonsInstantiated();
 
-        DalOperationAdapter<Object, Object> adapter = registry.get("testDal");
+        DalOperationAdapter<Object> adapter = registry.get("testDal");
         adapter.delete(1L);
 
         assertTrue(intercepted.get(), "Provider interceptor should be woven around the adapter");

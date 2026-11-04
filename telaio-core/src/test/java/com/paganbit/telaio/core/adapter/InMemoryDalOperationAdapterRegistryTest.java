@@ -18,7 +18,7 @@ class InMemoryDalOperationAdapterRegistryTest {
 
     @Test
     void register_andGet_shouldReturnStoredAdapter() {
-        DalOperationAdapter<?, ?> adapter = mock(DalOperationAdapter.class);
+        DalOperationAdapter<?> adapter = mock(DalOperationAdapter.class);
 
         registry.register("myDal", adapter);
 
@@ -36,8 +36,8 @@ class InMemoryDalOperationAdapterRegistryTest {
 
     @Test
     void register_whenCalledTwice_firstRegistrationWins() {
-        DalOperationAdapter<?, ?> first = mock(DalOperationAdapter.class);
-        DalOperationAdapter<?, ?> second = mock(DalOperationAdapter.class);
+        DalOperationAdapter<?> first = mock(DalOperationAdapter.class);
+        DalOperationAdapter<?> second = mock(DalOperationAdapter.class);
 
         registry.register("myDal", first);
         registry.register("myDal", second);
@@ -47,8 +47,8 @@ class InMemoryDalOperationAdapterRegistryTest {
 
     @Test
     void register_multipleAdapters_eachRetrievableByName() {
-        DalOperationAdapter<?, ?> adapterA = mock(DalOperationAdapter.class);
-        DalOperationAdapter<?, ?> adapterB = mock(DalOperationAdapter.class);
+        DalOperationAdapter<?> adapterA = mock(DalOperationAdapter.class);
+        DalOperationAdapter<?> adapterB = mock(DalOperationAdapter.class);
 
         registry.register("dalA", adapterA);
         registry.register("dalB", adapterB);

@@ -50,7 +50,7 @@ class WebDalExposureInterceptorProviderTest {
             dalManager, registry, List.of(new WebDalExposureInterceptorProvider()));
         assembler.afterSingletonsInstantiated();
 
-        DalOperationAdapter<Object, Object> adapter = registry.get("partialDal");
+        DalOperationAdapter<Object> adapter = registry.get("partialDal");
         // CREATE is exposed and passes through to the DAL.
         assertEquals(TestDalService.CREATED, adapter.create(Map.of()));
         // DELETE is not exposed and is rejected before reaching the DAL.

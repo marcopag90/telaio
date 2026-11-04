@@ -59,8 +59,8 @@ public class DalOperationAdapterAssembler implements SmartInitializingSingleton 
         }
     }
 
-    private DalOperationAdapter<?, ?> assemble(DalDefinitionEntry entry) {
-        DalOperationAdapter<?, ?> base = buildBase(entry);
+    private DalOperationAdapter<?> assemble(DalDefinitionEntry entry) {
+        DalOperationAdapter<?> base = buildBase(entry);
 
         ProxyFactory proxyFactory = new ProxyFactory(base);
         proxyFactory.setInterfaces(DalOperationAdapter.class);
@@ -72,12 +72,11 @@ public class DalOperationAdapterAssembler implements SmartInitializingSingleton 
                 proxyFactory.addAdvice(interceptor);
             }
         }
-        return (DalOperationAdapter<?, ?>) proxyFactory.getProxy();
+        return (DalOperationAdapter<?>) proxyFactory.getProxy();
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private DalOperationAdapter<?, ?> buildBase(DalDefinitionEntry entry) {
+    private DalOperationAdapter<?> buildBase(DalDefinitionEntry entry) {
         Dal<?, ?> dalService = dalManager.getServiceByName(entry.name());
-        return new DelegatingDalOperationAdapter(dalService);
+        return new DelegatingDalOperationAdapter<>(dalService);
     }
 }

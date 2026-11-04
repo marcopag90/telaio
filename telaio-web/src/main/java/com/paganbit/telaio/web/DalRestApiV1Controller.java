@@ -76,8 +76,7 @@ public class DalRestApiV1Controller implements DalRestApiV1 {
         adapter(dalName).delete(id);
     }
 
-    @SuppressWarnings("unchecked")
-    private <I, E> DalOperationAdapter<I, E> adapter(String dalName) {
-        return (DalOperationAdapter<I, E>) adapterRegistry.get(dalName);
+    private DalOperationAdapter<Object> adapter(String dalName) {
+        return adapterRegistry.get(dalName);
     }
 }

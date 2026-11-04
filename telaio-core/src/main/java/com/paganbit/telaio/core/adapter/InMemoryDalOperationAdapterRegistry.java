@@ -12,20 +12,20 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class InMemoryDalOperationAdapterRegistry implements DalOperationAdapterRegistry {
 
-    private final ConcurrentHashMap<String, DalOperationAdapter<?, ?>> adapters = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, DalOperationAdapter<?>> adapters = new ConcurrentHashMap<>();
 
     @Override
-    public void register(String name, DalOperationAdapter<?, ?> adapter) {
+    public void register(String name, DalOperationAdapter<?> adapter) {
         adapters.putIfAbsent(name, adapter);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public DalOperationAdapter<Object, Object> get(String name) {
+    public DalOperationAdapter<Object> get(String name) {
         final var adapter = adapters.get(name);
         if (adapter == null) {
             throw new DalNotFoundException(name);
         }
-        return (DalOperationAdapter<Object, Object>) adapter;
+        return (DalOperationAdapter<Object>) adapter;
     }
 }

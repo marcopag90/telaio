@@ -101,7 +101,7 @@ class DalExposureInterceptorTest {
      * An adapter sub-interface declaring an operation without {@link DalOperation}: a programming error
      * the interceptor must surface instead of silently letting the call through.
      */
-    interface UnannotatedAdapter extends DalOperationAdapter<Object, Object> {
+    interface UnannotatedAdapter extends DalOperationAdapter<Object> {
 
         void extra();
     }

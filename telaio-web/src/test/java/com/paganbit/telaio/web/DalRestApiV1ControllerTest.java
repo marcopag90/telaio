@@ -170,7 +170,7 @@ class DalRestApiV1ControllerTest {
         FieldNode unknownField = new FieldNode("nope");
         doReturn(unknownField).when(filterStringConverter).convert("nope:1");
         @SuppressWarnings("unchecked")
-        DelegatingDalOperationAdapter<Object, Long> rejecting = mock(DelegatingDalOperationAdapter.class);
+        DelegatingDalOperationAdapter<Long> rejecting = mock(DelegatingDalOperationAdapter.class);
         doThrow(DalInvalidFilterException.unknownField("nope", "nope"))
             .when(rejecting).read(any(), any());
         doReturn(rejecting).when(adapterRegistry).get("strict");
@@ -190,7 +190,7 @@ class DalRestApiV1ControllerTest {
         // DalInvalidSortException — on every backend and from the security interceptor — and maps to a
         // generic 400 distinct from the filter detail.
         @SuppressWarnings("unchecked")
-        DelegatingDalOperationAdapter<Object, Long> rejecting = mock(DelegatingDalOperationAdapter.class);
+        DelegatingDalOperationAdapter<Long> rejecting = mock(DelegatingDalOperationAdapter.class);
         doThrow(DalInvalidSortException.unknownProperty("nope", "nope"))
             .when(rejecting).read(any(), any());
         doReturn(rejecting).when(adapterRegistry).get("strict");
@@ -215,7 +215,7 @@ class DalRestApiV1ControllerTest {
 
     @Test
     void updateCompany_concurrentModification_shouldReturnConflict() throws Exception {
-        DalOperationAdapter<Object, Object> adapter = mock();
+        DalOperationAdapter<Object> adapter = mock();
         doThrow(new OptimisticLockingFailureException("Row was updated by another transaction"))
             .when(adapter).update(any(), anyMap());
         doReturn(adapter).when(adapterRegistry).get("company");
@@ -233,7 +233,7 @@ class DalRestApiV1ControllerTest {
 
     @Test
     void deleteCompany_concurrentModification_shouldReturnConflict() throws Exception {
-        DalOperationAdapter<Object, Object> adapter = mock();
+        DalOperationAdapter<Object> adapter = mock();
         doThrow(new OptimisticLockingFailureException("Row was updated or deleted by another transaction"))
             .when(adapter).delete(any());
         doReturn(adapter).when(adapterRegistry).get("company");

@@ -489,7 +489,7 @@ class DalSecurityInterceptorTest {
     /**
      * Sub-interface of DalOperationAdapter with an intentionally unannotated method for testing.
      */
-    interface UnannotatedAdapter extends DalOperationAdapter<Object, Object> {
+    interface UnannotatedAdapter extends DalOperationAdapter<Object> {
         void unannotated();
     }
 }

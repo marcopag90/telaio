@@ -9,56 +9,57 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Exposes the CRUD operations of a DAL as entity-returning methods.
+ * Exposes the CRUD operations of a DAL to a channel.
  *
- * <p>An instance is assembled for each registered DAL and invoked by callers. The exposed entity is
- * the single object on the boundary (no DTO layer): cross-cutting behavior is applied around it through
- * {@link DalAdapterInterceptorProvider}.</p>
+ * <p>An instance is assembled for each (channel, DAL) pair and invoked by that channel. There is no DTO
+ * layer: every result is the entity itself, or its role-filtered JSON projection when a cross-cutting
+ * concern woven around the adapter (through {@link DalAdapterInterceptorProvider}) replaces it. That is
+ * why results are typed {@code Object}: a channel serializes whatever comes back, it does not inspect
+ * it.</p>
  *
  * @param <I> the entity identifier type
- * @param <E> the entity type returned to the caller
  * @author Marco Pagan
  * @since 1.0.0
  */
-public interface DalOperationAdapter<I, E> {
+public interface DalOperationAdapter<I> {
 
     /**
      * Creates an entity from the given properties.
      *
      * @param input the properties of the entity to create
-     * @return the created entity
+     * @return the created entity, or its projection
      */
     @DalOperation(DalOperationType.CREATE)
-    E create(Map<String, Object> input);
+    Object create(Map<String, Object> input);
 
     /**
      * Reads a page of entities matching the given filter.
      *
      * @param filter   the filter to apply, or {@code null} for no filtering
      * @param pageable the pagination and sorting information
-     * @return a page of entities
+     * @return a page of entities, or of their projections
      */
     @DalOperation(DalOperationType.READ)
-    Page<E> read(@Nullable FilterNode filter, Pageable pageable);
+    Page<Object> read(@Nullable FilterNode filter, Pageable pageable);
 
     /**
      * Reads a single entity by its identifier.
      *
      * @param id the entity identifier
-     * @return the entity
+     * @return the entity, or its projection
      */
     @DalOperation(DalOperationType.READ_ONE)
-    E readOne(I id);
+    Object readOne(I id);
 
     /**
      * Applies a partial update to the entity with the given identifier.
      *
      * @param id    the entity identifier
      * @param patch the properties to update
-     * @return the updated entity, or {@link Optional#empty()} if no entity was updated
+     * @return the updated entity (or its projection), or {@link Optional#empty()} if no entity was updated
      */
     @DalOperation(DalOperationType.UPDATE)
-    Optional<E> update(I id, Map<String, Object> patch);
+    Optional<Object> update(I id, Map<String, Object> patch);
 
     /**
      * Deletes the entity with the given identifier.

@@ -30,7 +30,7 @@ class DelegatingDalOperationAdapterTest {
     @Mock
     private Dal<Company, Long> dal;
 
-    private DelegatingDalOperationAdapter<Company, Long> adapter;
+    private DelegatingDalOperationAdapter<Long> adapter;
 
     @BeforeEach
     void setUp() {

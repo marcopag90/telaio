@@ -22,7 +22,7 @@ public interface DalOperationAdapterRegistry {
      * @param name    the DAL name
      * @param adapter the adapter to register
      */
-    void register(String name, DalOperationAdapter<?, ?> adapter);
+    void register(String name, DalOperationAdapter<?> adapter);
 
     /**
      * Retrieves the adapter registered under the given DAL name.
@@ -31,5 +31,5 @@ public interface DalOperationAdapterRegistry {
      * @return the registered adapter
      * @throws DalNotFoundException if no adapter is registered for the given name
      */
-    DalOperationAdapter<Object, Object> get(String name);
+    DalOperationAdapter<Object> get(String name);
 }
