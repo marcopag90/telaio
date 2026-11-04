@@ -5,8 +5,10 @@ import com.paganbit.telaio.core.Dal;
 import com.paganbit.telaio.core.adapter.DalAdapterContext;
 import com.paganbit.telaio.core.adapter.DalAdapterInterceptorProvider;
 import com.paganbit.telaio.core.adapter.DalOperationAdapter;
+import com.paganbit.telaio.core.channel.DalChannel;
 import com.paganbit.telaio.core.exception.DalSortFieldNotReadableException;
 import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
+import com.paganbit.telaio.core.registry.DalDefinitionEntry;
 import com.paganbit.telaio.core.registry.DalManager;
 import com.paganbit.telaio.security.adapter.DenyAllDalAuthAdapter;
 import com.paganbit.telaio.security.adapter.NoopDalRbacAdapter;
@@ -39,7 +41,7 @@ import static org.mockito.Mockito.*;
 /**
  * Unit tests for {@link DalSecurityInterceptorProvider}: that it resolves the authorization and RBAC
  * adapter classes from a DAL's {@link DalSecurity} (or the module defaults when absent), looks them up
- * through the {@link DalManager}, and wires them into the produced {@link DalSecurityInterceptor}.
+ * through the injected adapter registry, and wires them into the produced {@link DalSecurityInterceptor}.
  */
 @ExtendWith(MockitoExtension.class)
 class DalSecurityInterceptorProviderTest {
@@ -53,7 +55,8 @@ class DalSecurityInterceptorProviderTest {
     void setUp() {
         provider = new DalSecurityInterceptorProvider(
             new DefaultDalAccessDeniedMessageResolver(),
-            new JsonPropertyPathResolver(JsonMapper.builder().build()));
+            new JsonPropertyPathResolver(JsonMapper.builder().build()),
+            dalManager);
         // Every produced interceptor carries a field-existence predicate for its DAL's entity.
         Dal<?, ?> dal = mock(Dal.class);
         lenient().doReturn(FieldEntity.class).when(dal).getEntityClass();
@@ -185,8 +188,8 @@ class DalSecurityInterceptorProviderTest {
         return PageRequest.of(0, 10, Sort.by(property));
     }
 
-    private DalAdapterContext contextFor(Class<?> dalBeanClass) {
-        return new DalAdapterContext("myDal", dalBeanClass, dalManager);
+    private DalAdapterContext contextFor(Class<? extends Dal<?, ?>> dalBeanClass) {
+        return DalAdapterContext.of(new DalDefinitionEntry("myDal", dalBeanClass), DalChannel.of("test"), dalManager);
     }
 
     private MethodInvocation createInvocation() throws NoSuchMethodException {
@@ -206,18 +209,18 @@ class DalSecurityInterceptorProviderTest {
     // Test DALs & adapters
     // ------------------------------------------------------------------------
 
-    static class UnsecuredDal {
+    abstract static class UnsecuredDal implements Dal<Object, Long> {
     }
 
     @DalSecurity
-    static class BareSecuredDal {
+    abstract static class BareSecuredDal implements Dal<Object, Long> {
     }
 
     @DalSecurity(authAdapterClass = CustomAuthAdapter.class, rbacAdapterClass = CustomRbacAdapter.class)
-    static class SecuredDal {
+    abstract static class SecuredDal implements Dal<Object, Long> {
     }
 
-    static class InheritedSecuredDal extends SecuredDal {
+    abstract static class InheritedSecuredDal extends SecuredDal {
     }
 
     static class CustomAuthAdapter extends DenyAllDalAuthAdapter<Object> {

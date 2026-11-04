@@ -1,9 +1,12 @@
 package com.paganbit.telaio.web.exception;
 
 import com.paganbit.telaio.core.exception.*;
+import com.paganbit.telaio.core.registry.DalDefinitionRegistry;
 import com.paganbit.telaio.rest.contract.DalIdCodecException;
 import com.paganbit.telaio.rest.contract.v1.DalApiV1;
 import com.paganbit.telaio.rest.contract.v1.ValidationError;
+import com.paganbit.telaio.web.DalRestOperationMapping;
+import com.paganbit.telaio.web.channel.DalRestChannelDefinition;
 import com.turkraft.springfilter.parser.InvalidSyntaxException;
 import io.swagger.v3.oas.annotations.Hidden;
 import org.slf4j.Logger;
@@ -19,6 +22,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Translates the DAL exceptions that surface at the REST boundary into RFC 9457 {@link ProblemDetail}
@@ -33,6 +37,18 @@ import java.util.List;
 public class TelaioWebExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(TelaioWebExceptionHandler.class);
+
+    private final DalDefinitionRegistry definitions;
+    private final DalRestChannelDefinition restChannel;
+
+    /**
+     * @param definitions the DAL definitions, to find the class of the DAL a rejected call targeted
+     * @param restChannel the REST channel definition, to compute what that DAL still exposes
+     */
+    public TelaioWebExceptionHandler(DalDefinitionRegistry definitions, DalRestChannelDefinition restChannel) {
+        this.definitions = definitions;
+        this.restChannel = restChannel;
+    }
 
     @ExceptionHandler(DalEntityValidationException.class)
     ProblemDetail handleEntityValidationException(DalEntityValidationException ex) {
@@ -141,22 +157,29 @@ public class TelaioWebExceptionHandler {
     }
 
     /**
-     * Maps a non-exposed operation to {@code 405 Method Not Allowed} (with an {@code Allow} header listing
-     * the operations the target URI still exposes) or, when the URI exposes nothing, to
+     * Maps core's rejection of a non-exposed operation to {@code 405 Method Not Allowed} (with an
+     * {@code Allow} header listing the methods the target URI still serves, computed from the DAL's
+     * {@code @DalWeb} through the REST channel definition) or, when the URI serves nothing, to
      * {@code 404 Not Found} so the URI's existence is not revealed. Both intentionally carry an empty body
      * (the {@code 404} variant must not hint that the operation exists), so this branch does not use
      * {@link ProblemDetail}.
      */
     @ExceptionHandler(DalOperationNotExposedException.class)
     ResponseEntity<Void> handleOperationNotExposed(DalOperationNotExposedException ex) {
-        log.debug("Operation not exposed (attempted={}, uriHasNoExposedOperations={})",
-            ex.attemptedOperation(), ex.uriHasNoExposedOperations());
-        if (ex.uriHasNoExposedOperations()) {
+        Set<HttpMethod> allowed = allowedMethods(ex);
+        log.debug("Operation not exposed (dal={}, attempted={}, allowed={})",
+            ex.dalName(), ex.operation(), allowed);
+        if (allowed.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
-            .allow(ex.allowedMethods().toArray(HttpMethod[]::new))
+            .allow(allowed.toArray(HttpMethod[]::new))
             .build();
+    }
+
+    private Set<HttpMethod> allowedMethods(DalOperationNotExposedException ex) {
+        Class<?> dalClass = definitions.getDefinitionByName(ex.dalName()).dalClass();
+        return DalRestOperationMapping.allowedMethods(restChannel.exposedOperations(dalClass), ex.operation());
     }
 
     private List<ValidationError> toValidationErrors(List<FieldError> fieldErrors) {

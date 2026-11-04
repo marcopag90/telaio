@@ -1,10 +1,8 @@
 package com.paganbit.telaio.core.beans.registration;
 
 import com.paganbit.telaio.core.Dal;
-import com.paganbit.telaio.core.adapter.DalOperationType;
 import com.paganbit.telaio.core.annotation.DalService;
 import com.paganbit.telaio.core.exception.DalDefinitionException;
-import com.paganbit.telaio.core.registry.DalDefinitionEntry;
 import com.paganbit.telaio.core.registry.DalManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,10 +10,6 @@ import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.util.ClassUtils;
-
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.Set;
 
 /**
  * Registers beans annotated with {@link DalService} into the {@link DalManager}.
@@ -61,11 +55,9 @@ public class DalDefinitionBeanPostProcessor implements BeanPostProcessor {
                  by another BeanPostProcessor (e.g., DalInterceptionBeanPostProcessor)
                  */
                 final var dalClass = (Class<? extends Dal<?, ?>>) ClassUtils.getUserClass(bean.getClass());
-                final var exposedOperations = resolveExposedOperations(definition);
-                log.debug("Registering DAL bean with name: {} (internal={}, operations={})",
-                    definition.name(), definition.internal(), exposedOperations);
-                dalManager.register(
-                    new DalDefinitionEntry(definition.name(), dalClass, definition.internal(), exposedOperations));
+                log.debug("Registering DAL bean with name: {} (internal={})",
+                    definition.name(), definition.internal());
+                dalManager.register(DalServiceDefinitions.entryOf(definition, dalClass));
             } catch (Exception e) {
                 throw new DalDefinitionException(
                     "Failed to register DAL bean for class: %s".formatted(bean.getClass().getName()), e
@@ -73,28 +65,5 @@ public class DalDefinitionBeanPostProcessor implements BeanPostProcessor {
             }
         }
         return bean;
-    }
-
-    /**
-     * Builds the exposed-operation set from the annotation, warning about configurations that are likely
-     * mistakes: declaring {@code operations} on an {@code internal} DAL (it has no remote boundary, so the
-     * set is ignored), or exposing a write that cannot be paired with a read-by-id.
-     */
-    private Set<DalOperationType> resolveExposedOperations(DalService definition) {
-        final var operations = definition.operations().length == 0
-            ? EnumSet.noneOf(DalOperationType.class)
-            : EnumSet.copyOf(Arrays.asList(definition.operations()));
-
-        if (definition.internal() && !operations.equals(EnumSet.allOf(DalOperationType.class))) {
-            log.debug("DAL '{}' is internal — its @DalService(operations=...) is ignored (no remote boundary)",
-                definition.name());
-        }
-        if (!definition.internal()
-            && (operations.contains(DalOperationType.UPDATE) || operations.contains(DalOperationType.DELETE))
-            && !operations.contains(DalOperationType.READ_ONE)) {
-            log.debug("DAL '{}' exposes UPDATE/DELETE without READ_ONE: callers cannot read back the entity by id",
-                definition.name());
-        }
-        return operations;
     }
 }

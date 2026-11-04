@@ -6,6 +6,7 @@ import com.paganbit.telaio.core.annotation.DalService;
 import com.paganbit.telaio.jpa.JpaDal;
 import com.paganbit.telaio.security.DalSecurityContextHelper;
 import com.paganbit.telaio.showcase.role.UserRole;
+import com.paganbit.telaio.web.annotation.DalWeb;
 import com.turkraft.springfilter.parser.node.FilterNode;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.Authentication;
@@ -16,13 +17,14 @@ import org.springframework.security.core.Authentication;
  * Exposes the {@link Article} entity as a <b>read-only</b> REST resource, leaving field-level RBAC at its
  * default (no filtering):
  * <ul>
- *   <li><b>Read-only by exposure</b> — {@code @DalService(operations = {READ, READ_ONE})} publishes only
- *       the two read operations. Create/update/delete are <em>structurally</em> absent: they are omitted
- *       from the OpenAPI document and a write request is rejected before reaching the DAL. Because the
- *       collection and item URIs still answer their read sibling, a write returns {@code 405 Method Not
- *       Allowed}. This states "this resource has no writes" more honestly than documenting write endpoints
- *       that deny everyone at runtime. For identity-aware authorization (writes allowed for some principals,
- *       denied with an auditable {@code 403} for others) see {@code bulletins}.</li>
+ *   <li><b>Read-only by exposure</b> — {@code @DalWeb(operations = {READ, READ_ONE})} publishes only
+ *       the two read operations on the REST channel. Create/update/delete are <em>structurally</em>
+ *       absent: they are omitted from the OpenAPI document and a write request is rejected by core's
+ *       exposure interceptor before reaching the DAL. Because the collection and item URIs still answer
+ *       their read sibling, a write returns {@code 405 Method Not Allowed}. This states "this resource has
+ *       no writes" more honestly than documenting write endpoints that deny everyone at runtime. For
+ *       identity-aware authorization (writes allowed for some principals, denied with an auditable
+ *       {@code 403} for others) see {@code bulletins}.</li>
  *   <li><b>Field-level RBAC</b> is left at the default (no field hidden). See {@code product} and
  *       {@code employee} for the two RBAC strategies.</li>
  *   <li><b>Audit</b> via {@code @DalAudit} (every exposed operation recorded).</li>
@@ -41,7 +43,8 @@ import org.springframework.security.core.Authentication;
  * already refactor-safe on the field name — the generated builder also type-checks the operator and its
  * value against the field's type.
  */
-@DalService(name = "articles", operations = {DalOperationType.READ, DalOperationType.READ_ONE})
+@DalService(name = "articles")
+@DalWeb(operations = {DalOperationType.READ, DalOperationType.READ_ONE})
 @DalAudit(operations = {DalOperationType.READ, DalOperationType.READ_ONE})
 public class ArticleDalService extends JpaDal<Article, Long> {
 

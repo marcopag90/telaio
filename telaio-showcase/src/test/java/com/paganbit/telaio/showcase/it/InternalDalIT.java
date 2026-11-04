@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * End-to-end verification of an <em>internal</em> DAL ({@code app-settings},
  * {@link AppSettingDalService}). An internal DAL must be fully usable in-process while being entirely
- * absent from every remote boundary:
+ * absent from every channel:
  * <ul>
  *     <li>it has no REST endpoint — requests return {@code 404}, indistinguishable from a DAL that does
  *     not exist, so its presence is not even revealed;</li>

@@ -4,8 +4,11 @@ import com.paganbit.telaio.audit.annotation.DalAudit;
 import com.paganbit.telaio.audit.event.DalAuditEventStore;
 import com.paganbit.telaio.audit.event.DalAuditOutcomeClassifier;
 import com.paganbit.telaio.audit.principal.DalAuditPrincipalResolver;
+import com.paganbit.telaio.core.Dal;
 import com.paganbit.telaio.core.adapter.DalAdapterContext;
 import com.paganbit.telaio.core.adapter.DalAdapterInterceptorProvider;
+import com.paganbit.telaio.core.channel.DalChannel;
+import com.paganbit.telaio.core.registry.DalDefinitionEntry;
 import com.paganbit.telaio.core.registry.DalManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,14 +61,14 @@ class DalAuditDeniedInterceptorProviderTest {
         assertThat(provider.getOrder()).isLessThan(DalAdapterInterceptorProvider.SECURITY_PRECEDENCE);
     }
 
-    private DalAdapterContext context(Class<?> dalBeanClass) {
-        return new DalAdapterContext("testDal", dalBeanClass, dalManager);
+    private DalAdapterContext context(Class<? extends Dal<?, ?>> dalBeanClass) {
+        return DalAdapterContext.of(new DalDefinitionEntry("testDal", dalBeanClass), DalChannel.of("test"), dalManager);
     }
 
     @DalAudit
-    static class Audited {
+    abstract static class Audited implements Dal<Object, Long> {
     }
 
-    static class NotAudited {
+    abstract static class NotAudited implements Dal<Object, Long> {
     }
 }

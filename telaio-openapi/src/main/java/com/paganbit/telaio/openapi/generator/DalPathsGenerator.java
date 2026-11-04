@@ -78,7 +78,7 @@ public class DalPathsGenerator {
      * @param idClass           the DAL's identifier type
      * @param problemDetailRef  a {@code $ref} schema for the RFC 9457 {@code ProblemDetail} error body,
      *                          shared across every {@code 400}/{@code 404}/{@code 500} response
-     * @param exposedOperations the CRUD operations the DAL exposes on the remote boundary
+     * @param exposedOperations the CRUD operations the DAL exposes on the REST channel
      */
     @SuppressWarnings("squid:S1075")
     public void generate(

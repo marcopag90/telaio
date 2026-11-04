@@ -3,6 +3,7 @@ package com.paganbit.telaio.showcase;
 import com.paganbit.telaio.core.Dal;
 import com.paganbit.telaio.core.adapter.DalOperationAdapter;
 import com.paganbit.telaio.core.adapter.DalOperationAdapterRegistry;
+import com.paganbit.telaio.web.channel.DalChannels;
 import com.paganbit.telaio.core.annotation.DalService;
 import com.paganbit.telaio.core.registry.DalManager;
 import com.paganbit.telaio.showcase.dal.announcement.AnnouncementDalService;
@@ -86,12 +87,12 @@ class TelaioShowcaseApplicationTests {
 
     @Test
     void allOperationAdaptersAreAssembled() {
-        assertNotNull(adapterRegistry.get("articles"));
-        assertNotNull(adapterRegistry.get("products"));
-        assertNotNull(adapterRegistry.get("announcements"));
-        assertNotNull(adapterRegistry.get("employees"));
-        assertNotNull(adapterRegistry.get("departments"));
-        assertNotNull(adapterRegistry.get("notifications"));
+        assertNotNull(adapterRegistry.get(DalChannels.REST, "articles"));
+        assertNotNull(adapterRegistry.get(DalChannels.REST, "products"));
+        assertNotNull(adapterRegistry.get(DalChannels.REST, "announcements"));
+        assertNotNull(adapterRegistry.get(DalChannels.REST, "employees"));
+        assertNotNull(adapterRegistry.get(DalChannels.REST, "departments"));
+        assertNotNull(adapterRegistry.get(DalChannels.REST, "notifications"));
     }
 
     /**
@@ -121,7 +122,7 @@ class TelaioShowcaseApplicationTests {
 
     @Test
     void dalWithoutSecurityDefinitionIsPermittedByDefault() {
-        DalOperationAdapter<Object> adapter = adapterRegistry.get("widgets");
+        DalOperationAdapter<Object> adapter = adapterRegistry.get(DalChannels.REST, "widgets");
 
         Map<String, Object> props = Map.of("name", "w");
         // A DAL declared without @DalSecurity is open by default (PermitAll fallback), so the

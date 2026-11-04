@@ -6,6 +6,7 @@ import com.paganbit.telaio.openapi.customizer.DalOpenApiCustomizer;
 import com.paganbit.telaio.openapi.generator.DalPathsGenerator;
 import com.paganbit.telaio.openapi.generator.FilterParameterDescriber;
 import com.paganbit.telaio.openapi.introspection.DalEntitySchemaResolver;
+import com.paganbit.telaio.web.channel.DalRestChannelDefinition;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
@@ -31,6 +32,7 @@ class TelaioOpenApiAutoConfigurationTest {
     void byDefault_withDalManager_shouldRegisterBeans() {
         contextRunner
             .withBean(DalManager.class, () -> mock(DalManager.class))
+            .withBean(DalRestChannelDefinition.class, DalRestChannelDefinition::new)
             .run(context -> {
                 assertThat(context).hasSingleBean(DalOpenApiCustomizer.class);
                 assertThat(context).hasSingleBean(DalPathsGenerator.class);
@@ -43,8 +45,19 @@ class TelaioOpenApiAutoConfigurationTest {
     void whenDisabled_shouldNotRegisterCustomizer() {
         contextRunner
             .withBean(DalManager.class, () -> mock(DalManager.class))
+            .withBean(DalRestChannelDefinition.class, DalRestChannelDefinition::new)
             .withPropertyValues("telaio.openapi.enabled=false")
             .run(context -> assertThat(context).doesNotHaveBean(DalOpenApiCustomizer.class));
+    }
+
+    @Test
+    void withoutRestChannelDefinition_shouldNotRegisterCustomizer() {
+        contextRunner
+            .withBean(DalManager.class, () -> mock(DalManager.class))
+            .run(context -> {
+                assertThat(context).doesNotHaveBean(DalOpenApiCustomizer.class);
+                assertThat(context).hasSingleBean(DalPathsGenerator.class);
+            });
     }
 
     @Test
@@ -57,6 +70,7 @@ class TelaioOpenApiAutoConfigurationTest {
         DalOpenApiCustomizer custom = mock(DalOpenApiCustomizer.class);
         contextRunner
             .withBean(DalManager.class, () -> mock(DalManager.class))
+            .withBean(DalRestChannelDefinition.class, DalRestChannelDefinition::new)
             .withBean(DalOpenApiCustomizer.class, () -> custom)
             .run(context -> assertThat(context.getBean(DalOpenApiCustomizer.class)).isSameAs(custom));
     }
@@ -66,6 +80,7 @@ class TelaioOpenApiAutoConfigurationTest {
         new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(TelaioOpenApiAutoConfiguration.class))
             .withBean(DalManager.class, () -> mock(DalManager.class))
+            .withBean(DalRestChannelDefinition.class, DalRestChannelDefinition::new)
             .run(context -> assertThat(context).doesNotHaveBean(DalOpenApiCustomizer.class));
     }
 }

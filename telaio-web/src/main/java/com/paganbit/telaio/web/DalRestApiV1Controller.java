@@ -3,6 +3,7 @@ package com.paganbit.telaio.web;
 import com.paganbit.telaio.core.adapter.DalOperationAdapter;
 import com.paganbit.telaio.core.adapter.DalOperationAdapterRegistry;
 import com.paganbit.telaio.core.exception.DalInvalidFilterException;
+import com.paganbit.telaio.web.channel.DalChannels;
 import com.turkraft.springfilter.converter.FilterStringConverter;
 import com.turkraft.springfilter.parser.node.FilterNode;
 import org.springframework.data.domain.Pageable;
@@ -14,8 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 /**
- * Exposes the registered DAL services over REST, delegating each request to the corresponding
- * {@link DalOperationAdapter}.
+ * Exposes the registered DAL services over REST, delegating each request to the
+ * {@link DalOperationAdapter} assembled for the {@link DalChannels#REST} channel.
  *
  * @author Marco Pagan
  * @since 1.0.0
@@ -77,6 +78,6 @@ public class DalRestApiV1Controller implements DalRestApiV1 {
     }
 
     private DalOperationAdapter<Object> adapter(String dalName) {
-        return adapterRegistry.get(dalName);
+        return adapterRegistry.get(DalChannels.REST, dalName);
     }
 }

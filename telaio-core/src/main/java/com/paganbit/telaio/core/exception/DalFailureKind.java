@@ -11,7 +11,7 @@ import java.util.List;
  *
  * <p>This is the single, shared taxonomy consumed by the cross-cutting modules (audit, metrics)
  * so that client-caused failures do not inflate error rates or pollute audit trails as service
- * faults. The kinds are the client-vs-server fault split that every remote boundary maps to its
+ * faults. The kinds are the client-vs-server fault split that every channel maps to its
  * own status codes:</p>
  *
  * <ul>

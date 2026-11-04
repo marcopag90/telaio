@@ -19,8 +19,8 @@ import java.time.Clock;
  *
  * <p>Ordered as {@link DalAdapterInterceptorProvider#AUDIT_PRECEDENCE} — outside the security
  * phase, so authorization rejections are observed. This provider is consulted by core's
- * {@code DalOperationAdapterAssembler} when it builds the adapter of each DAL, so the interceptor
- * applies on every remote boundary; the Dal-level audit interceptor applies regardless.</p>
+ * {@code DalOperationAdapterAssembler} when it builds the adapter chain of each (channel, DAL), so the
+ * interceptor applies on every channel; the Dal-level audit interceptor applies regardless.</p>
  *
  * @author Marco Pagan
  * @since 1.0.0

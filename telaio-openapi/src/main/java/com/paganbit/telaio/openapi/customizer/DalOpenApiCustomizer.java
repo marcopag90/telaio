@@ -1,12 +1,14 @@
 package com.paganbit.telaio.openapi.customizer;
 
 import com.paganbit.telaio.core.Dal;
+import com.paganbit.telaio.core.adapter.DalOperationType;
+import com.paganbit.telaio.core.registry.DalCatalog;
 import com.paganbit.telaio.core.registry.DalDefinitionEntry;
-import com.paganbit.telaio.core.registry.DalManager;
 import com.paganbit.telaio.openapi.generator.DalPathsGenerator;
 import com.paganbit.telaio.openapi.introspection.DalEntitySchemaResolver;
 import com.paganbit.telaio.web.DalRestApiV1;
 import com.paganbit.telaio.web.TelaioOpenApiGroupCustomizer;
+import com.paganbit.telaio.web.channel.DalRestChannelDefinition;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.PathItem;
@@ -25,8 +27,10 @@ import java.util.Set;
  * id, and error responses.
  *
  * <p>It removes the two templated paths ({@code /dal/v1/{dalName}} and {@code /dal/v1/{dalName}/{id}}),
- * then iterates the {@link DalManager} registry and delegates to {@link DalPathsGenerator} to synthesize a
- * typed path-set for every DAL.</p>
+ * then iterates the {@link DalCatalog} and delegates to {@link DalPathsGenerator} to synthesize a typed
+ * path-set for every DAL on the REST channel, documenting only the operations the DAL exposes there as
+ * answered by the {@link DalRestChannelDefinition} (its {@code @DalWeb}). Internal DALs and DALs that
+ * expose nothing on REST are not documented at all.</p>
  *
  * <p>It is a {@link TelaioOpenApiGroupCustomizer} — a plain (non-global) {@code OpenApiCustomizer}. Springdoc
  * therefore applies it to the <em>default</em> {@code /v3/api-docs} document (the natural place for a
@@ -41,16 +45,19 @@ public class DalOpenApiCustomizer implements TelaioOpenApiGroupCustomizer {
 
     private static final Logger log = LoggerFactory.getLogger(DalOpenApiCustomizer.class);
 
-    private final DalManager dalManager;
+    private final DalCatalog catalog;
+    private final DalRestChannelDefinition restChannel;
     private final DalPathsGenerator pathsGenerator;
     private final DalEntitySchemaResolver schemaResolver;
 
     public DalOpenApiCustomizer(
-        DalManager dalManager,
+        DalCatalog catalog,
+        DalRestChannelDefinition restChannel,
         DalPathsGenerator pathsGenerator,
         DalEntitySchemaResolver schemaResolver
     ) {
-        this.dalManager = dalManager;
+        this.catalog = catalog;
+        this.restChannel = restChannel;
         this.pathsGenerator = pathsGenerator;
         this.schemaResolver = schemaResolver;
     }
@@ -67,16 +74,22 @@ public class DalOpenApiCustomizer implements TelaioOpenApiGroupCustomizer {
         // 400/404/500 responses.
         Schema<?> problemDetailRef = schemaResolver.resolveAndRegister(ProblemDetail.class, openApi);
 
-        for (DalDefinitionEntry entry : dalManager.getAllDefinitions()) {
+        for (DalDefinitionEntry entry : catalog.getAllDefinitions()) {
             if (entry.internal()) {
-                // Internal DALs have no remote boundary: they are not documented.
+                // Internal DALs are on no channel: they are not documented.
                 log.debug("DAL '{}' is internal — not documented in OpenAPI", entry.name());
                 continue;
             }
+            Set<DalOperationType> exposed = restChannel.exposedOperations(entry.dalClass());
+            if (exposed.isEmpty()) {
+                // Not on REST: no endpoint, so nothing to document.
+                log.debug("DAL '{}' exposes no operation on REST — not documented in OpenAPI", entry.name());
+                continue;
+            }
             try {
-                Dal<?, ?> dal = dalManager.getServiceByName(entry.name());
+                Dal<?, ?> dal = catalog.getServiceByName(entry.name());
                 pathsGenerator.generate(openApi, entry.name(), dal.getEntityClass(), dal.getIdClass(),
-                    problemDetailRef, entry.exposedOperations());
+                    problemDetailRef, exposed);
             } catch (RuntimeException ex) {
                 // A single misbehaving DAL must not break documentation for all the others.
                 log.warn("Skipping OpenAPI generation for DAL '{}': {}", entry.name(), ex.getMessage());

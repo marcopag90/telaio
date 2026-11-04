@@ -2,11 +2,16 @@ package com.paganbit.telaio.web;
 
 import com.paganbit.telaio.core.adapter.DalOperationAdapter;
 import com.paganbit.telaio.core.adapter.DalOperationAdapterRegistry;
+import com.paganbit.telaio.core.adapter.DalOperationType;
 import com.paganbit.telaio.core.adapter.DelegatingDalOperationAdapter;
 import com.paganbit.telaio.core.exception.DalInvalidFilterException;
 import com.paganbit.telaio.core.exception.DalInvalidSortException;
 import com.paganbit.telaio.core.exception.DalNotFoundException;
+import com.paganbit.telaio.core.exception.DalOperationNotExposedException;
+import com.paganbit.telaio.core.registry.DalDefinitionEntry;
 import com.paganbit.telaio.core.registry.DalManager;
+import com.paganbit.telaio.web.annotation.DalWeb;
+import com.paganbit.telaio.web.channel.DalChannels;
 import com.paganbit.telaio.web.exception.TelaioWebExceptionHandler;
 import com.turkraft.springfilter.converter.FilterStringConverter;
 import com.turkraft.springfilter.parser.InvalidSyntaxException;
@@ -57,8 +62,8 @@ class DalRestApiV1ControllerTest {
         var adapter = new DelegatingDalOperationAdapter<>(
             new DalRestApiV1ControllerTestConfig.MockDalService()
         );
-        doReturn(adapter).when(adapterRegistry).get("company");
-        doThrow(new DalNotFoundException("unknown")).when(adapterRegistry).get("unknown");
+        doReturn(adapter).when(adapterRegistry).get(DalChannels.REST, "company");
+        doThrow(new DalNotFoundException("unknown")).when(adapterRegistry).get(DalChannels.REST, "unknown");
     }
 
     @Test
@@ -173,7 +178,7 @@ class DalRestApiV1ControllerTest {
         DelegatingDalOperationAdapter<Long> rejecting = mock(DelegatingDalOperationAdapter.class);
         doThrow(DalInvalidFilterException.unknownField("nope", "nope"))
             .when(rejecting).read(any(), any());
-        doReturn(rejecting).when(adapterRegistry).get("strict");
+        doReturn(rejecting).when(adapterRegistry).get(DalChannels.REST, "strict");
 
         mockMvc.perform(get("/dal/v1/strict")
                 .param("q", "nope:1")
@@ -193,7 +198,7 @@ class DalRestApiV1ControllerTest {
         DelegatingDalOperationAdapter<Long> rejecting = mock(DelegatingDalOperationAdapter.class);
         doThrow(DalInvalidSortException.unknownProperty("nope", "nope"))
             .when(rejecting).read(any(), any());
-        doReturn(rejecting).when(adapterRegistry).get("strict");
+        doReturn(rejecting).when(adapterRegistry).get(DalChannels.REST, "strict");
 
         mockMvc.perform(get("/dal/v1/strict")
                 .param("sort", "nope,desc")
@@ -214,11 +219,57 @@ class DalRestApiV1ControllerTest {
     }
 
     @Test
+    void writeOnReadOnlyDal_shouldReturn405WithAllowListingTheExposedSiblings() throws Exception {
+        // The REST chain of a @DalWeb({READ, READ_ONE}) DAL rejects DELETE with core's exception; the
+        // handler recomputes what the item URI still serves from the same @DalWeb: GET only.
+        DalOperationAdapter<Object> adapter = mock();
+        doThrow(new DalOperationNotExposedException("articles", DalOperationType.DELETE, DalChannels.REST))
+            .when(adapter).delete(any());
+        doReturn(adapter).when(adapterRegistry).get(DalChannels.REST, "articles");
+        doReturn(new DalDefinitionEntry("articles", ReadOnlyDalService.class))
+            .when(dalManager).getDefinitionByName("articles");
+        doReturn(new DalRestApiV1ControllerTestConfig.MockDalService())
+            .when(dalManager).getServiceByName("articles");
+
+        mockMvc.perform(delete("/dal/v1/articles/1"))
+            .andExpect(status().isMethodNotAllowed())
+            .andExpect(header().string("Allow", "GET"))
+            .andExpect(content().string(""));
+    }
+
+    @Test
+    void itemRouteOfAppendOnlyDal_shouldReturn404WithEmptyBody() throws Exception {
+        // @DalWeb({CREATE, READ}): the item URI serves nothing, so its existence is not revealed.
+        DalOperationAdapter<Object> adapter = mock();
+        doThrow(new DalOperationNotExposedException("feed", DalOperationType.READ_ONE, DalChannels.REST))
+            .when(adapter).readOne(any());
+        doReturn(adapter).when(adapterRegistry).get(DalChannels.REST, "feed");
+        doReturn(new DalDefinitionEntry("feed", AppendOnlyDalService.class))
+            .when(dalManager).getDefinitionByName("feed");
+        doReturn(new DalRestApiV1ControllerTestConfig.MockDalService())
+            .when(dalManager).getServiceByName("feed");
+
+        mockMvc.perform(get("/dal/v1/feed/1").accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isNotFound())
+            .andExpect(content().string(""));
+    }
+
+    @Test
+    void dalHiddenFromRest_shouldAnswerLikeAnUnknownName() throws Exception {
+        // @DalWeb({}) builds no REST chain: the registry miss is the same 404 an unknown name gets.
+        doThrow(new DalNotFoundException("hidden")).when(adapterRegistry).get(DalChannels.REST, "hidden");
+
+        mockMvc.perform(get("/dal/v1/hidden").accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.detail").value("DAL service not found: hidden"));
+    }
+
+    @Test
     void updateCompany_concurrentModification_shouldReturnConflict() throws Exception {
         DalOperationAdapter<Object> adapter = mock();
         doThrow(new OptimisticLockingFailureException("Row was updated by another transaction"))
             .when(adapter).update(any(), anyMap());
-        doReturn(adapter).when(adapterRegistry).get("company");
+        doReturn(adapter).when(adapterRegistry).get(DalChannels.REST, "company");
 
         mockMvc.perform(patch("/dal/v1/company/1")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -236,7 +287,7 @@ class DalRestApiV1ControllerTest {
         DalOperationAdapter<Object> adapter = mock();
         doThrow(new OptimisticLockingFailureException("Row was updated or deleted by another transaction"))
             .when(adapter).delete(any());
-        doReturn(adapter).when(adapterRegistry).get("company");
+        doReturn(adapter).when(adapterRegistry).get(DalChannels.REST, "company");
 
         mockMvc.perform(delete("/dal/v1/company/1"))
             .andExpect(status().isConflict())
@@ -244,5 +295,13 @@ class DalRestApiV1ControllerTest {
             .andExpect(jsonPath("$.status").value(409))
             .andExpect(jsonPath("$.detail")
                 .value("The resource was modified concurrently; re-read and retry"));
+    }
+
+    @DalWeb(operations = {DalOperationType.READ, DalOperationType.READ_ONE})
+    static class ReadOnlyDalService extends DalRestApiV1ControllerTestConfig.MockDalService {
+    }
+
+    @DalWeb(operations = {DalOperationType.CREATE, DalOperationType.READ})
+    static class AppendOnlyDalService extends DalRestApiV1ControllerTestConfig.MockDalService {
     }
 }

@@ -8,9 +8,9 @@ import com.paganbit.telaio.web.DalRestApiV1;
 import com.paganbit.telaio.web.DalRestApiV1Controller;
 import com.paganbit.telaio.web.TelaioOpenApiGroupCustomizer;
 import com.paganbit.telaio.web.annotation.DalIdArgumentResolver;
+import com.paganbit.telaio.web.channel.DalRestChannelDefinition;
 import com.paganbit.telaio.web.exception.TelaioAccessDeniedExceptionHandler;
 import com.paganbit.telaio.web.exception.TelaioWebExceptionHandler;
-import com.paganbit.telaio.web.interceptor.WebDalExposureInterceptorProvider;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
@@ -48,13 +48,13 @@ import java.util.List;
 public class TelaioWebAutoConfiguration {
 
     /**
-     * Enforces per-operation exposure ({@code @DalService(operations = ...)}) at the REST boundary.
-     * Collected by core's {@code DalOperationAdapterAssembler} as the outermost interceptor, so calls to
-     * non-exposed operations are rejected before any other concern runs.
+     * The REST channel definition that core's operation adapter assembler consults to build the
+     * (rest, DAL) chains. Reads {@link com.paganbit.telaio.web.annotation.DalWeb} to decide which
+     * operations each DAL exposes over REST.
      */
     @Bean
-    WebDalExposureInterceptorProvider dalExposureInterceptorProvider() {
-        return new WebDalExposureInterceptorProvider();
+    DalRestChannelDefinition dalRestChannelDefinition() {
+        return new DalRestChannelDefinition();
     }
 
     @Bean

@@ -1,7 +1,6 @@
 package com.paganbit.telaio.core.beans.registration;
 
 import com.paganbit.telaio.core.Dal;
-import com.paganbit.telaio.core.adapter.DalOperationType;
 import com.paganbit.telaio.core.annotation.DalService;
 import com.paganbit.telaio.core.exception.DalDefinitionException;
 import com.paganbit.telaio.core.registry.DalDefinitionEntry;
@@ -17,7 +16,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
-import java.util.EnumSet;
 import java.util.Map;
 import java.util.Optional;
 
@@ -49,30 +47,6 @@ class DalDefinitionBeanPostProcessorTest {
         assertEquals("testDal", captor.getValue().name());
         assertEquals(TestDalService.class, captor.getValue().dalClass());
         assertFalse(captor.getValue().internal());
-    }
-
-    @Test
-    void postProcessAfterInitialization_withDefaultDalService_shouldExposeFullCrudSurface() {
-        TestDalService testDalService = new TestDalService();
-
-        processor.postProcessAfterInitialization(testDalService, "testDalService");
-
-        ArgumentCaptor<DalDefinitionEntry> captor = ArgumentCaptor.forClass(DalDefinitionEntry.class);
-        verify(dalManager).register(captor.capture());
-        assertEquals(EnumSet.allOf(DalOperationType.class), captor.getValue().exposedOperations());
-    }
-
-    @Test
-    void postProcessAfterInitialization_withPartialDalService_shouldExposeOnlyDeclaredOperations() {
-        PartialDalService partialDalService = new PartialDalService();
-
-        processor.postProcessAfterInitialization(partialDalService, "partialDalService");
-
-        ArgumentCaptor<DalDefinitionEntry> captor = ArgumentCaptor.forClass(DalDefinitionEntry.class);
-        verify(dalManager).register(captor.capture());
-        assertEquals(
-            EnumSet.of(DalOperationType.CREATE, DalOperationType.READ),
-            captor.getValue().exposedOperations());
     }
 
     @Test
@@ -176,10 +150,6 @@ class DalDefinitionBeanPostProcessorTest {
 
     @DalService(name = "internalDal", internal = true)
     static class InternalDalService extends TestDalService {
-    }
-
-    @DalService(name = "partialDal", operations = {DalOperationType.CREATE, DalOperationType.READ})
-    static class PartialDalService extends TestDalService {
     }
 
     static class TestEntity {

@@ -2,6 +2,7 @@ package com.paganbit.telaio.security.autoconfigure;
 
 import com.paganbit.telaio.core.adapter.DalAdapterInterceptorProvider;
 import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
+import com.paganbit.telaio.core.registry.DalManager;
 import com.paganbit.telaio.security.adapter.DenyAllDalAuthAdapter;
 import com.paganbit.telaio.security.adapter.NoopDalRbacAdapter;
 import com.paganbit.telaio.security.adapter.PermitAllDalAuthAdapter;
@@ -29,6 +30,7 @@ class TelaioSecurityAutoConfigurationTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
         .withBean(JsonPropertyPathResolver.class, () -> new JsonPropertyPathResolver(JsonMapper.builder().build()))
+        .withBean(DalManager.class, () -> mock(DalManager.class))
         .withConfiguration(AutoConfigurations.of(TelaioSecurityAutoConfiguration.class));
 
     @Test
@@ -109,7 +111,8 @@ class TelaioSecurityAutoConfigurationTest {
     void customInterceptorProvider_replacesDefault() {
         DalSecurityInterceptorProvider custom = new DalSecurityInterceptorProvider(
             mock(DalAccessDeniedMessageResolver.class),
-            new JsonPropertyPathResolver(JsonMapper.builder().build()));
+            new JsonPropertyPathResolver(JsonMapper.builder().build()),
+            mock(DalManager.class));
         contextRunner
             .withBean("customProvider", DalSecurityInterceptorProvider.class, () -> custom)
             .run(context -> {

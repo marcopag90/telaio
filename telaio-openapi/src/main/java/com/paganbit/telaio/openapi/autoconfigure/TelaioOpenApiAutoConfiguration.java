@@ -8,6 +8,7 @@ import com.paganbit.telaio.openapi.generator.DalPathsGenerator;
 import com.paganbit.telaio.openapi.generator.FilterParameterDescriber;
 import com.paganbit.telaio.openapi.introspection.DalEntitySchemaResolver;
 import com.paganbit.telaio.web.autoconfigure.TelaioWebAutoConfiguration;
+import com.paganbit.telaio.web.channel.DalRestChannelDefinition;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -22,7 +23,9 @@ import tools.jackson.databind.ObjectMapper;
  *
  * <p>Registers a springdoc {@link OpenApiCustomizer} that auto-generates concrete, per-DAL operations for
  * the dynamic Telaio REST endpoints. Active only in a servlet web application that has springdoc on the
- * classpath and a {@link DalManager} bean, and unless {@code telaio.openapi.enabled=false}. Every
+ * classpath and a {@link DalManager} bean, and unless {@code telaio.openapi.enabled=false}. The customizer
+ * itself additionally requires a {@link DalRestChannelDefinition} bean: with no REST channel there is
+ * nothing to document. Every
  * collaborator is a {@code @ConditionalOnMissingBean} so consumers can override any single piece.</p>
  *
  * @author Marco Pagan
@@ -73,12 +76,14 @@ public class TelaioOpenApiAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnBean(DalRestChannelDefinition.class)
     @ConditionalOnMissingBean
     DalOpenApiCustomizer dalOpenApiCustomizer(
         DalManager dalManager,
+        DalRestChannelDefinition restChannel,
         DalPathsGenerator pathsGenerator,
         DalEntitySchemaResolver schemaResolver
     ) {
-        return new DalOpenApiCustomizer(dalManager, pathsGenerator, schemaResolver);
+        return new DalOpenApiCustomizer(dalManager, restChannel, pathsGenerator, schemaResolver);
     }
 }

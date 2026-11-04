@@ -23,7 +23,7 @@ class OpenApiDocsIT extends AbstractShowcaseIT {
             "notifications");
 
     /**
-     * DALs that expose the full CRUD surface (no {@code @DalService(operations = …)} restriction):
+     * DALs that expose the full CRUD surface (no {@code @DalWeb(operations = …)} restriction):
      * {@code POST}/{@code GET} on the collection and {@code GET}/{@code PATCH}/{@code DELETE} on the item.
      */
     private static final List<String> FULL_CRUD_DALS =
@@ -46,7 +46,7 @@ class OpenApiDocsIT extends AbstractShowcaseIT {
             assertThat(item.has("delete")).as("DELETE /dal/v1/%s/{id}", dal).isTrue();
         }
 
-        // 'articles' is read-only by exposure (@DalService(operations = {READ, READ_ONE})): only the two
+        // 'articles' is read-only by exposure (@DalWeb(operations = {READ, READ_ONE})): only the two
         // read operations are documented; the write operations are structurally absent from the document.
         JsonNode articlesCollection = paths.get("/dal/v1/articles");
         assertThat(articlesCollection).as("collection path for 'articles'").isNotNull();

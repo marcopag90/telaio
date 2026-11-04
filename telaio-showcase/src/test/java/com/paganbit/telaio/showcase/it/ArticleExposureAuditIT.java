@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Use case — a read-only resource via per-operation exposure, audit, and an implicit row-level read
- * filter. {@code articles} is declared with {@code operations = {READ, READ_ONE}} (writes are not exposed,
+ * filter. {@code articles} is declared with {@code @DalWeb(operations = {READ, READ_ONE})} (writes are not exposed,
  * so they never reach the DAL), {@code @DalAudit}, and a
  * {@code defaultFilter()} that hides non-{@code PUBLISHED} articles from non-power users. This exercises
  * all three end-to-end.
@@ -46,7 +46,7 @@ class ArticleExposureAuditIT extends AbstractShowcaseIT {
             "status", "DRAFT",
             "revisionCount", 0
         ));
-        // Writes are not exposed (operations = {READ, READ_ONE}); each URI still answers its read sibling,
+        // Writes are not exposed (@DalWeb(operations = {READ, READ_ONE})); each URI still answers its read sibling,
         // so a write is rejected with 405 (not exposed) rather than 403 (authorization).
         for (String user : new String[]{DEVELOPER, ADMIN, USER}) {
             assertThat(create(user, DAL, createBody).getStatusCode())

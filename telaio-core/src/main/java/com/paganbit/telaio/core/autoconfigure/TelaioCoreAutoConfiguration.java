@@ -9,6 +9,7 @@ import com.paganbit.telaio.core.beans.DefaultDalPropertyMerger;
 import com.paganbit.telaio.core.beans.registration.DalDefinitionBeanPostProcessor;
 import com.paganbit.telaio.core.beans.registration.DalFactoryPostProcessor;
 import com.paganbit.telaio.core.beans.registration.DalInterceptionBeanPostProcessor;
+import com.paganbit.telaio.core.channel.DalChannelDefinition;
 import com.paganbit.telaio.core.interceptor.DalInterceptorProvider;
 import com.paganbit.telaio.core.json.JsonFieldNameSortRewriter;
 import com.paganbit.telaio.core.json.JsonPropertyPathResolver;
@@ -125,17 +126,22 @@ public class TelaioCoreAutoConfiguration {
     }
 
     /**
-     * Assembles one interceptor-wrapped adapter per non-internal DAL after all singletons exist and
-     * publishes it to the {@link DalOperationAdapterRegistry}.
-     * Providers from every module (audit, security, any remote-boundary module)
-     * are collected regardless of autoconfiguration order.
+     * Assembles one interceptor-wrapped adapter chain per (channel, DAL) after all singletons exist and
+     * publishes each to the {@link DalOperationAdapterRegistry}.
+     *
+     * <p>Every {@link DalChannelDefinition} bean contributed by a channel module defines one channel and
+     * the operations each DAL exposes on it; internal DALs and DALs exposing nothing on a channel get no
+     * chain there. With no channel module present, no chain is built. Providers from every module (audit,
+     * security, any channel module) are collected regardless of autoconfiguration order.</p>
      */
     @Bean
     DalOperationAdapterAssembler dalOperationAdapterAssembler(
         DalManager dalManager,
         DalOperationAdapterRegistry registry,
+        ObjectProvider<DalChannelDefinition> channelDefinitions,
         List<DalAdapterInterceptorProvider> interceptorProviders
     ) {
-        return new DalOperationAdapterAssembler(dalManager, registry, interceptorProviders);
+        return new DalOperationAdapterAssembler(
+            dalManager, registry, channelDefinitions.orderedStream().toList(), interceptorProviders);
     }
 }

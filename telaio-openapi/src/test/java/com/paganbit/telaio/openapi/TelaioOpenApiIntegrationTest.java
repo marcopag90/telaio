@@ -46,6 +46,19 @@ class TelaioOpenApiIntegrationTest {
     }
 
     @Test
+    void apiDocs_shouldOmitOperationsNotExposedByDalWeb() throws Exception {
+        JsonNode paths = apiDocs().get("paths");
+
+        // 'archives' is @DalWeb(operations = {READ, READ_ONE}): the two reads are documented, the writes
+        // are structurally absent — read through the REST channel definition, not through core.
+        assertThat(paths.get("/dal/v1/archives").has("get")).isTrue();
+        assertThat(paths.get("/dal/v1/archives").has("post")).isFalse();
+        assertThat(paths.get("/dal/v1/archives/{id}").has("get")).isTrue();
+        assertThat(paths.get("/dal/v1/archives/{id}").has("patch")).isFalse();
+        assertThat(paths.get("/dal/v1/archives/{id}").has("delete")).isFalse();
+    }
+
+    @Test
     void apiDocs_shouldRegisterEntityAndErrorSchemas() throws Exception {
         JsonNode schemas = apiDocs().get("components").get("schemas");
 

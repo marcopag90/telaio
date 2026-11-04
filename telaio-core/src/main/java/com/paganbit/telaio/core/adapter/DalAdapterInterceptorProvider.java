@@ -19,9 +19,10 @@ import org.springframework.core.Ordered;
 public interface DalAdapterInterceptorProvider extends Ordered {
 
     /**
-     * Order of the exposure phase — the outermost interceptor, applied before audit so that calls to
-     * operations a DAL does not expose on the remote boundary are rejected without reaching
-     * audit, security, or the {@link com.paganbit.telaio.core.Dal} itself.
+     * Order of the exposure phase — core's own {@link DalExposureInterceptor}, which the assembler
+     * always places outermost so that calls to operations a DAL does not expose on the chain's channel
+     * are rejected without reaching audit, security, or the {@link com.paganbit.telaio.core.Dal}
+     * itself. No provider runs outside it.
      */
     int EXPOSURE_PRECEDENCE = Ordered.HIGHEST_PRECEDENCE;
 

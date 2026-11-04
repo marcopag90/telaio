@@ -23,8 +23,8 @@ import java.util.Objects;
  * {@link DalInterceptorProvider} beans.
  *
  * <p>Because the proxy is applied to the {@link Dal} bean itself, the contributed interceptors
- * apply to every invocation channel — remote-boundary adapters, messaging consumers, or plain programmatic
- * calls. Beans for which no provider contributes an interceptor are returned unchanged.</p>
+ * apply to every invocation channel — operation adapters of any channel module, messaging consumers, or
+ * plain programmatic calls. Beans for which no provider contributes an interceptor are returned unchanged.</p>
  *
  * <p>The proxy is class-based (CGLIB), so injection points typed to the concrete service class keep
  * working. As with any Spring proxy, self-invocations inside the DAL bypass the interceptors.</p>
@@ -56,7 +56,7 @@ public class DalInterceptionBeanPostProcessor implements BeanPostProcessor {
             return bean;
         }
 
-        final var context = new DalInterceptionContext(definition.name(), dalBeanClass);
+        final var context = DalInterceptionContext.of(DalServiceDefinitions.entryOf(definition, dalBeanClass));
         final var interceptors = providers().stream()
             .map(provider -> provider.getInterceptor(context))
             .filter(Objects::nonNull)

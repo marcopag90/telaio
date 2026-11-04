@@ -1,6 +1,19 @@
 package com.paganbit.telaio.core.autoconfigure;
 
+import com.paganbit.telaio.core.Dal;
+import com.paganbit.telaio.core.adapter.DalOperationAdapter;
 import com.paganbit.telaio.core.adapter.DalOperationAdapterAssembler;
+import com.paganbit.telaio.core.adapter.DalOperationType;
+import com.paganbit.telaio.core.annotation.DalService;
+import com.paganbit.telaio.core.channel.DalChannel;
+import com.paganbit.telaio.core.channel.DalChannelDefinition;
+import com.paganbit.telaio.core.exception.DalNotFoundException;
+import com.paganbit.telaio.core.registry.DalCatalog;
+import com.paganbit.telaio.core.registry.DalManager;
+import com.turkraft.springfilter.parser.node.FilterNode;
+import org.jspecify.annotations.Nullable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import com.paganbit.telaio.core.adapter.DalOperationAdapterRegistry;
 import com.paganbit.telaio.core.adapter.InMemoryDalOperationAdapterRegistry;
 import com.paganbit.telaio.core.beans.DalPropertyMerger;
@@ -22,9 +35,13 @@ import org.springframework.core.convert.ConversionService;
 import org.springframework.core.convert.support.DefaultConversionService;
 import org.springframework.validation.beanvalidation.SpringValidatorAdapter;
 
+import java.util.EnumSet;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
@@ -153,6 +170,91 @@ class TelaioCoreAutoConfigurationTest {
                 assertThat(context).hasSingleBean(DalOperationAdapterRegistry.class);
                 assertThat(context).doesNotHaveBean(InMemoryDalOperationAdapterRegistry.class);
             });
+    }
+
+    @Test
+    void channelDefinitionBean_shouldGetAnAdapterChainPerDal() {
+        applicationContextRunner
+            .withBean("testChannel", DalChannelDefinition.class, ExposeAllChannel::new)
+            .withBean("widgets", WidgetDal.class, WidgetDal::new)
+            .run(context -> {
+                DalOperationAdapter<Object> adapter =
+                    context.getBean(DalOperationAdapterRegistry.class).get(TEST_CHANNEL, "widgets");
+                assertThat(adapter.create(Map.of())).isSameAs(WidgetDal.CREATED);
+            });
+    }
+
+    @Test
+    void withoutChannelDefinition_shouldAssembleNoChain() {
+        applicationContextRunner
+            .withBean("widgets", WidgetDal.class, WidgetDal::new)
+            .run(context -> {
+                DalOperationAdapterRegistry registry = context.getBean(DalOperationAdapterRegistry.class);
+                assertThatThrownBy(() -> registry.get(TEST_CHANNEL, "widgets"))
+                    .isInstanceOf(DalNotFoundException.class);
+            });
+    }
+
+    @Test
+    void dalCatalog_shouldResolveToTheDalManager() {
+        applicationContextRunner.run(context ->
+            assertThat(context.getBean(DalCatalog.class)).isSameAs(context.getBean(DalManager.class)));
+    }
+
+    private static final DalChannel TEST_CHANNEL = DalChannel.of("test");
+
+    static class ExposeAllChannel implements DalChannelDefinition {
+
+        @Override
+        public DalChannel channel() {
+            return TEST_CHANNEL;
+        }
+
+        @Override
+        public Set<DalOperationType> exposedOperations(Class<?> dalClass) {
+            return EnumSet.allOf(DalOperationType.class);
+        }
+    }
+
+    @DalService(name = "widgets")
+    static class WidgetDal implements Dal<Object, Long> {
+
+        static final Object CREATED = new Object();
+
+        @Override
+        public Object create(Map<String, Object> properties) {
+            return CREATED;
+        }
+
+        @Override
+        public Page<Object> read(@Nullable FilterNode filter, Pageable pageable) {
+            return Page.empty();
+        }
+
+        @Override
+        public Optional<Object> readOne(Long id) {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<Object> update(Long id, Map<String, Object> properties) {
+            return Optional.empty();
+        }
+
+        @Override
+        public void delete(Long id) {
+            //noop
+        }
+
+        @Override
+        public Class<Object> getEntityClass() {
+            return Object.class;
+        }
+
+        @Override
+        public Class<Long> getIdClass() {
+            return Long.class;
+        }
     }
 
     private static final class ContributedType {

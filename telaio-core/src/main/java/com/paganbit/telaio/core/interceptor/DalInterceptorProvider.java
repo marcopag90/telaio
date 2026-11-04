@@ -10,9 +10,11 @@ import org.springframework.core.Ordered;
  * {@link Dal} bean.
  *
  * <p>Unlike {@link com.paganbit.telaio.core.adapter.DalAdapterInterceptorProvider}, which targets the
- * operation adapter assembled at the remote boundary, providers of this type intercept the {@link Dal}
- * bean itself. The resulting interceptor therefore applies to every invocation channel — remote or
- * programmatic — without requiring any other Telaio module.</p>
+ * operation adapter assembled per channel, providers of this type intercept the {@link Dal} bean itself.
+ * The resulting interceptor therefore applies to every invocation channel — through a channel module or
+ * programmatic — without requiring any other Telaio module. The rule for choosing: an interceptor whose
+ * behavior depends on the channel belongs in the adapter chain; one that only observes what happened
+ * belongs here.</p>
  *
  * <p>Providers are consulted once per {@link Dal} bean during context startup and applied in
  * {@link Ordered} order, with the lowest order value being the outermost interceptor. Two

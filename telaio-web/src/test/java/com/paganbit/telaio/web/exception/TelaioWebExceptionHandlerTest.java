@@ -1,15 +1,21 @@
 package com.paganbit.telaio.web.exception;
 
 import com.paganbit.telaio.core.adapter.DalOperationType;
+import com.paganbit.telaio.core.Dal;
 import com.paganbit.telaio.core.exception.*;
+import com.paganbit.telaio.core.registry.DalDefinitionEntry;
+import com.paganbit.telaio.core.registry.DalDefinitionRegistry;
 import com.paganbit.telaio.rest.contract.DalIdCodecException;
+import com.paganbit.telaio.web.annotation.DalWeb;
+import com.paganbit.telaio.web.channel.DalChannels;
+import com.paganbit.telaio.web.channel.DalRestChannelDefinition;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.dao.OptimisticLockingFailureException;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.junit.jupiter.web.SpringJUnitWebConfig;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -19,12 +25,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.Set;
 
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringJUnitWebConfig(classes = {
     TelaioWebExceptionHandler.class,
+    DalRestChannelDefinition.class,
     TelaioWebExceptionHandlerTest.RestExceptionHandlerController.class
 })
 @WebMvcTest
@@ -46,6 +52,9 @@ class TelaioWebExceptionHandlerTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @MockitoBean
+    private DalDefinitionRegistry definitions;
+
     @Test
     void handleDalEntityValidationException() throws Exception {
         mockMvc.perform(MockMvcRequestBuilders.get(ENTITY_VALIDATION_EXCEPTION))
@@ -64,6 +73,9 @@ class TelaioWebExceptionHandlerTest {
 
     @Test
     void handleOperationNotExposed_withSiblings_shouldReturn405WithAllowHeader() throws Exception {
+        org.mockito.Mockito.doReturn(new DalDefinitionEntry("feed", ReadOnlyDal.class))
+            .when(definitions).getDefinitionByName("feed");
+
         mockMvc.perform(MockMvcRequestBuilders.get(OPERATION_NOT_EXPOSED_405))
             .andExpect(MockMvcResultMatchers.status().isMethodNotAllowed())
             .andExpect(header().string("Allow", "GET"))
@@ -72,6 +84,9 @@ class TelaioWebExceptionHandlerTest {
 
     @Test
     void handleOperationNotExposed_withoutSiblings_shouldReturn404() throws Exception {
+        org.mockito.Mockito.doReturn(new DalDefinitionEntry("feed", AppendOnlyDal.class))
+            .when(definitions).getDefinitionByName("feed");
+
         mockMvc.perform(MockMvcRequestBuilders.get(OPERATION_NOT_EXPOSED_404))
             .andExpect(MockMvcResultMatchers.status().isNotFound())
             .andExpect(content().string(""));
@@ -169,14 +184,12 @@ class TelaioWebExceptionHandlerTest {
 
         @GetMapping(OPERATION_NOT_EXPOSED_405)
         public void throwOperationNotExposedWithSiblings() {
-            throw new DalOperationNotExposedException(
-                "feed", DalOperationType.DELETE, Set.of(HttpMethod.GET), false);
+            throw new DalOperationNotExposedException("feed", DalOperationType.DELETE, DalChannels.REST);
         }
 
         @GetMapping(OPERATION_NOT_EXPOSED_404)
         public void throwOperationNotExposedWithoutSiblings() {
-            throw new DalOperationNotExposedException(
-                "feed", DalOperationType.READ_ONE, Set.of(), true);
+            throw new DalOperationNotExposedException("feed", DalOperationType.READ_ONE, DalChannels.REST);
         }
 
         @GetMapping(ENTITY_NOT_FOUND_EXCEPTION)
@@ -222,5 +235,13 @@ class TelaioWebExceptionHandlerTest {
             throw new OptimisticLockingFailureException(
                 "Row was updated or deleted by another transaction");
         }
+    }
+
+    @DalWeb(operations = {DalOperationType.READ, DalOperationType.READ_ONE})
+    abstract static class ReadOnlyDal implements Dal<Object, Long> {
+    }
+
+    @DalWeb(operations = {DalOperationType.CREATE, DalOperationType.READ})
+    abstract static class AppendOnlyDal implements Dal<Object, Long> {
     }
 }

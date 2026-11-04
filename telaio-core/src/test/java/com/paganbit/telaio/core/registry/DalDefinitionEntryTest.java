@@ -1,15 +1,12 @@
 package com.paganbit.telaio.core.registry;
 
 import com.paganbit.telaio.core.Dal;
-import com.paganbit.telaio.core.adapter.DalOperationType;
-import com.paganbit.telaio.core.exception.DalDefinitionException;
 import com.turkraft.springfilter.parser.node.FilterNode;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
-import java.util.EnumSet;
 import java.util.Map;
 import java.util.Optional;
 
@@ -32,50 +29,6 @@ class DalDefinitionEntryTest {
         DalDefinitionEntry definition = new DalDefinitionEntry("testDal", TestEntity.class);
 
         assertFalse(definition.internal());
-    }
-
-    @Test
-    void convenienceConstructor_shouldDefaultToFullCrudSurface() {
-        DalDefinitionEntry definition = new DalDefinitionEntry("testDal", TestEntity.class);
-
-        assertEquals(EnumSet.allOf(DalOperationType.class), definition.exposedOperations());
-    }
-
-    @Test
-    void constructor_shouldPreserveExposedOperations() {
-        DalDefinitionEntry definition = new DalDefinitionEntry(
-            "testDal", TestEntity.class, false,
-            EnumSet.of(DalOperationType.CREATE, DalOperationType.READ));
-
-        assertEquals(EnumSet.of(DalOperationType.CREATE, DalOperationType.READ), definition.exposedOperations());
-    }
-
-    @Test
-    void exposedOperations_shouldBeImmutable() {
-        DalDefinitionEntry definition = new DalDefinitionEntry("testDal", TestEntity.class);
-        var exposedOperations = definition.exposedOperations();
-
-        assertThrows(UnsupportedOperationException.class,
-            () -> exposedOperations.add(DalOperationType.CREATE));
-    }
-
-    @Test
-    void constructor_shouldRejectExposedDalWithNoOperations() {
-        var noOperations = EnumSet.noneOf(DalOperationType.class);
-
-        DalDefinitionException exception = assertThrows(
-            DalDefinitionException.class,
-            () -> new DalDefinitionEntry("testDal", TestEntity.class, false, noOperations));
-
-        assertTrue(exception.getMessage().contains("exposes no operation"));
-    }
-
-    @Test
-    void constructor_shouldAllowInternalDalWithNoOperations() {
-        DalDefinitionEntry definition = new DalDefinitionEntry(
-            "testDal", TestEntity.class, true, EnumSet.noneOf(DalOperationType.class));
-
-        assertTrue(definition.exposedOperations().isEmpty());
     }
 
     @Test

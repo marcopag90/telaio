@@ -8,6 +8,7 @@ import com.paganbit.telaio.core.Dal;
 import com.paganbit.telaio.core.adapter.DalOperationType;
 import com.paganbit.telaio.core.interceptor.DalInterceptionContext;
 import com.paganbit.telaio.core.interceptor.DalInterceptorProvider;
+import com.paganbit.telaio.core.registry.DalDefinitionEntry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -73,7 +74,7 @@ class DalAuditInterceptorProviderTest {
     }
 
     private static DalInterceptionContext context(Class<? extends Dal<?, ?>> dalBeanClass) {
-        return new DalInterceptionContext("testDal", dalBeanClass);
+        return DalInterceptionContext.of(new DalDefinitionEntry("testDal", dalBeanClass));
     }
 
     @DalAudit

@@ -10,6 +10,8 @@ import com.paganbit.telaio.introspection.DefaultSimpleTypePredicate;
 import com.paganbit.telaio.openapi.generator.DalPathsGenerator;
 import com.paganbit.telaio.openapi.generator.FilterParameterDescriber;
 import com.paganbit.telaio.openapi.introspection.DalEntitySchemaResolver;
+import com.paganbit.telaio.web.annotation.DalWeb;
+import com.paganbit.telaio.web.channel.DalRestChannelDefinition;
 import com.turkraft.springfilter.parser.node.FilterNode;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Operation;
@@ -51,7 +53,7 @@ class DalOpenApiCustomizerTest {
         final var describer = new FilterParameterDescriber(jsonPathResolver, simpleTypePredicate, true);
         DalPathsGenerator generator = new DalPathsGenerator(
             schemaResolver, describer, objectMapper, simpleTypePredicate, true);
-        return new DalOpenApiCustomizer(dalManager, generator, schemaResolver);
+        return new DalOpenApiCustomizer(dalManager, new DalRestChannelDefinition(), generator, schemaResolver);
     }
 
     @Test
@@ -118,9 +120,8 @@ class DalOpenApiCustomizerTest {
     void shouldDocumentOnlyExposedOperationsForPartialDal() {
         DalManager dalManager = mock(DalManager.class);
         when(dalManager.getAllDefinitions())
-            .thenReturn(List.of(new DalDefinitionEntry("products", TestProductDal.class, false,
-                EnumSet.of(DalOperationType.CREATE, DalOperationType.READ))));
-        doReturn(new TestProductDal()).when(dalManager).getServiceByName("products");
+            .thenReturn(List.of(new DalDefinitionEntry("products", AppendOnlyProductDal.class)));
+        doReturn(new AppendOnlyProductDal()).when(dalManager).getServiceByName("products");
 
         OpenAPI openApi = new OpenAPI().paths(new Paths());
         openApi.getPaths().addPathItem(GENERIC_COLLECTION, new PathItem().post(new Operation()));
@@ -135,6 +136,22 @@ class DalOpenApiCustomizerTest {
         PathItem collection = openApi.getPaths().get("/dal/v1/products");
         assertThat(collection.getPost()).isNotNull();
         assertThat(collection.getGet()).isNotNull();
+    }
+
+    @Test
+    void shouldNotDocumentDalHiddenFromRest() {
+        DalManager dalManager = mock(DalManager.class);
+        when(dalManager.getAllDefinitions())
+            .thenReturn(List.of(new DalDefinitionEntry("products", HiddenProductDal.class)));
+
+        OpenAPI openApi = new OpenAPI().paths(new Paths());
+        openApi.getPaths().addPathItem(GENERIC_COLLECTION, new PathItem().post(new Operation()));
+
+        customizer(dalManager).customise(openApi);
+
+        // @DalWeb(operations = {}) means "not on REST": no path, and the DAL is never even resolved.
+        assertThat(openApi.getPaths()).isEmpty();
+        verify(dalManager, never()).getServiceByName("products");
     }
 
     @Test
@@ -290,6 +307,14 @@ class DalOpenApiCustomizerTest {
         public Class<Long> getIdClass() {
             return Long.class;
         }
+    }
+
+    @DalWeb(operations = {DalOperationType.CREATE, DalOperationType.READ})
+    static class AppendOnlyProductDal extends TestProductDal {
+    }
+
+    @DalWeb(operations = {})
+    static class HiddenProductDal extends TestProductDal {
     }
 
     /**
