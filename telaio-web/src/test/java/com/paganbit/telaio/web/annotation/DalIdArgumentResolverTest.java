@@ -1,6 +1,8 @@
 package com.paganbit.telaio.web.annotation;
 
 import com.paganbit.telaio.core.Dal;
+import com.paganbit.telaio.core.exception.DalNotFoundException;
+import com.paganbit.telaio.core.registry.DalDefinitionEntry;
 import com.paganbit.telaio.core.registry.DalManager;
 import com.paganbit.telaio.introspection.DefaultSimpleTypePredicate;
 import com.paganbit.telaio.rest.contract.DalIdCodecException;
@@ -50,6 +52,9 @@ class DalIdArgumentResolverTest {
     @Mock
     private JavaType javaType;
 
+    private static final DalDefinitionEntry EXPOSED = new DalDefinitionEntry("testDal", StubDal.class);
+    private static final DalDefinitionEntry INTERNAL = new DalDefinitionEntry("testDal", StubDal.class, true);
+
     private DalIdArgumentResolver resolver;
     private Map<String, String> pathVariables;
 
@@ -86,6 +91,7 @@ class DalIdArgumentResolverTest {
             HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE,
             RequestAttributes.SCOPE_REQUEST
         )).thenReturn(pathVariables);
+        doReturn(EXPOSED).when(dalManager).getDefinitionByName(anyString());
         doReturn(dalService).when(dalManager).getServiceByName(anyString());
         doReturn(Long.class).when(dalService).getIdClass();
         doReturn(javaType).when(objectMapper).constructType(any(Class.class));
@@ -111,6 +117,7 @@ class DalIdArgumentResolverTest {
             HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE,
             RequestAttributes.SCOPE_REQUEST
         )).thenReturn(pathVariables);
+        doReturn(EXPOSED).when(dalManager).getDefinitionByName(anyString());
         doReturn(dalService).when(dalManager).getServiceByName(anyString());
         doReturn(ComplexId.class).when(dalService).getIdClass();
         doReturn(javaType).when(objectMapper).constructType(any(Class.class));
@@ -120,6 +127,39 @@ class DalIdArgumentResolverTest {
 
         assertEquals(complexId, result);
         verify(objectMapper).readValue(eq(json), any(JavaType.class));
+    }
+
+    @Test
+    void resolveArgument_unknownDal_shouldRaiseNotFoundWithoutTouchingTheBeanFactory() throws NoSuchMethodException {
+        Method method = TestController.class.getMethod("methodWithDalId", Object.class);
+        MethodParameter parameter = new MethodParameter(method, 0);
+
+        when(webRequest.getAttribute(
+            HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE,
+            RequestAttributes.SCOPE_REQUEST
+        )).thenReturn(pathVariables);
+        doThrow(new DalNotFoundException("testDal")).when(dalManager).getDefinitionByName("testDal");
+
+        assertThrows(DalNotFoundException.class, () ->
+            resolver.resolveArgument(parameter, null, webRequest, binderFactory));
+        verify(dalManager, never()).getServiceByName(anyString());
+    }
+
+    @Test
+    void resolveArgument_internalDal_shouldRaiseTheSameNotFoundAsAnUnknownName() throws NoSuchMethodException {
+        Method method = TestController.class.getMethod("methodWithDalId", Object.class);
+        MethodParameter parameter = new MethodParameter(method, 0);
+
+        when(webRequest.getAttribute(
+            HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE,
+            RequestAttributes.SCOPE_REQUEST
+        )).thenReturn(pathVariables);
+        doReturn(INTERNAL).when(dalManager).getDefinitionByName("testDal");
+
+        DalNotFoundException ex = assertThrows(DalNotFoundException.class, () ->
+            resolver.resolveArgument(parameter, null, webRequest, binderFactory));
+        assertEquals("DAL service not found: testDal", ex.getMessage());
+        verify(dalManager, never()).getServiceByName(anyString());
     }
 
     @Test
@@ -171,6 +211,7 @@ class DalIdArgumentResolverTest {
             HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE,
             RequestAttributes.SCOPE_REQUEST
         )).thenReturn(pathVariables);
+        doReturn(EXPOSED).when(dalManager).getDefinitionByName(anyString());
         doReturn(dalService).when(dalManager).getServiceByName(anyString());
         doReturn(ComplexId.class).when(dalService).getIdClass();
 
@@ -192,6 +233,7 @@ class DalIdArgumentResolverTest {
             HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE,
             RequestAttributes.SCOPE_REQUEST
         )).thenReturn(pathVariables);
+        doReturn(EXPOSED).when(dalManager).getDefinitionByName(anyString());
         doReturn(dalService).when(dalManager).getServiceByName(anyString());
         doReturn(ComplexId.class).when(dalService).getIdClass();
         doReturn(javaType).when(objectMapper).constructType(any(Class.class));
@@ -214,6 +256,7 @@ class DalIdArgumentResolverTest {
             HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE,
             RequestAttributes.SCOPE_REQUEST
         )).thenReturn(pathVariables);
+        doReturn(EXPOSED).when(dalManager).getDefinitionByName(anyString());
         doReturn(dalService).when(dalManager).getServiceByName(anyString());
         doReturn(Long.class).when(dalService).getIdClass();
         doReturn(javaType).when(objectMapper).constructType(any(Class.class));
@@ -241,5 +284,8 @@ class DalIdArgumentResolverTest {
     }
 
     record ComplexId(String name, int value) {
+    }
+
+    abstract static class StubDal implements Dal<Object, Object> {
     }
 }

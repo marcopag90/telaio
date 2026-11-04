@@ -78,6 +78,8 @@ class TelaioWebExceptionHandlerTest {
         adapter = mock();
         doReturn(adapter).when(adapterRegistry).get(DalChannels.REST, DAL);
         doReturn(new DalRestApiV1ControllerTestConfig.MockDalService()).when(dalManager).getServiceByName(DAL);
+        doReturn(new DalDefinitionEntry(DAL, DalRestApiV1ControllerTestConfig.MockDalService.class))
+            .when(dalManager).getDefinitionByName(DAL);
     }
 
     @Test

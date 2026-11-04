@@ -1,7 +1,9 @@
 package com.paganbit.telaio.web.annotation;
 
 import com.paganbit.telaio.core.Dal;
-import com.paganbit.telaio.core.registry.DalManager;
+import com.paganbit.telaio.core.exception.DalNotFoundException;
+import com.paganbit.telaio.core.registry.DalCatalog;
+import com.paganbit.telaio.core.registry.DalDefinitionEntry;
 import com.paganbit.telaio.rest.contract.DalIdCodec;
 import com.paganbit.telaio.web.DalRestApiV1;
 import org.apache.commons.lang3.StringUtils;
@@ -27,7 +29,10 @@ import java.util.function.Predicate;
  * context. It supports both simple IDs (e.g. {@code Long}, {@code String}) and complex IDs
  * (composite keys), which are expected to be passed as Base64-encoded JSON objects.</p>
  *
- * <p>The conversion itself is delegated to the {@link DalIdCodec}.</p>
+ * <p>The conversion itself is delegated to the {@link DalIdCodec}. The target DAL is resolved through its
+ * registered definition, never by looking a bean up under the client-supplied path segment: an unknown name
+ * and an internal DAL both raise {@link DalNotFoundException}, so the item routes answer exactly like the
+ * collection route and reveal neither.</p>
  *
  * @author Marco Pagan
  * @see DalId
@@ -36,23 +41,23 @@ import java.util.function.Predicate;
  */
 public class DalIdArgumentResolver implements HandlerMethodArgumentResolver {
 
-    private final DalManager dalManager;
+    private final DalCatalog catalog;
     private final DalIdCodec dalIdCodec;
 
     /**
      * Creates a resolver whose codec uses the given simple-type classification — typically the
      * aggregated predicate carrying backend-contributed types.
      *
-     * @param dalManager          the registry resolving the target DAL by name
+     * @param catalog             the registry resolving the target DAL and its definition by name
      * @param objectMapper        the mapper backing the id codec
      * @param simpleTypePredicate the classification deciding raw-vs-Base64 id travel
      */
     public DalIdArgumentResolver(
-        DalManager dalManager,
+        DalCatalog catalog,
         ObjectMapper objectMapper,
         Predicate<Class<?>> simpleTypePredicate
     ) {
-        this.dalManager = dalManager;
+        this.catalog = catalog;
         this.dalIdCodec = new DalIdCodec(objectMapper, simpleTypePredicate);
     }
 
@@ -87,7 +92,20 @@ public class DalIdArgumentResolver implements HandlerMethodArgumentResolver {
                 .formatted(idVariableName, DalRestApiV1.PATH_VARIABLE_DAL_NAME));
         }
 
-        Dal<?, ?> dal = dalManager.getServiceByName(dalName);
+        Dal<?, ?> dal = exposedDal(dalName);
         return dalIdCodec.decode(rawId, dal.getIdClass());
+    }
+
+    /**
+     * Resolves the DAL named by the path segment through its definition. An unknown name is rejected by
+     * the registry; an internal DAL is rejected here with the same exception, so that it is
+     * indistinguishable from a name that does not exist.
+     */
+    private Dal<?, ?> exposedDal(String dalName) {
+        DalDefinitionEntry definition = catalog.getDefinitionByName(dalName);
+        if (definition.internal()) {
+            throw new DalNotFoundException(dalName);
+        }
+        return catalog.getServiceByName(definition.name());
     }
 }

@@ -58,6 +58,8 @@ class DalRestApiV1ControllerTest {
     void setUp() {
         doReturn(new DalRestApiV1ControllerTestConfig.MockDalService())
             .when(dalManager).getServiceByName("company");
+        doReturn(new DalDefinitionEntry("company", DalRestApiV1ControllerTestConfig.MockDalService.class))
+            .when(dalManager).getDefinitionByName("company");
 
         var adapter = new DelegatingDalOperationAdapter<>(
             new DalRestApiV1ControllerTestConfig.MockDalService()
