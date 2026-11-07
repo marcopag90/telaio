@@ -12,8 +12,7 @@ import java.util.*;
  *
  * <p>Two URIs exist per DAL — the collection ({@code /dal/v1/{dalName}}) serving {@code CREATE} and
  * {@code READ}, and the item ({@code /dal/v1/{dalName}/{id}}) serving {@code READ_ONE}, {@code UPDATE}
- * and {@code DELETE}. The controller contract, the {@code Allow} header of a {@code 405} response and the
- * OpenAPI generator all read the mapping from here, so they cannot drift apart.</p>
+ * and {@code DELETE}.
  *
  * @author Marco Pagan
  * @since 3.0.0

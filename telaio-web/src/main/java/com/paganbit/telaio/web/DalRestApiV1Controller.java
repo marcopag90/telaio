@@ -6,6 +6,7 @@ import com.paganbit.telaio.core.exception.DalInvalidFilterException;
 import com.paganbit.telaio.web.channel.DalChannels;
 import com.turkraft.springfilter.converter.FilterStringConverter;
 import com.turkraft.springfilter.parser.node.FilterNode;
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PagedModel;
 import org.springframework.http.ResponseEntity;
@@ -41,7 +42,7 @@ public class DalRestApiV1Controller implements DalRestApiV1 {
     }
 
     @Override
-    public PagedModel<Object> read(String dalName, String filter, Pageable pageable) {
+    public PagedModel<Object> read(String dalName, @Nullable String filter, Pageable pageable) {
         FilterNode filterNode = StringUtils.hasText(filter) ? parseFilter(filter) : null;
         return new PagedModel<>(adapter(dalName).read(filterNode, pageable));
     }
