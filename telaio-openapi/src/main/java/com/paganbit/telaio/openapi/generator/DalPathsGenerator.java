@@ -52,7 +52,8 @@ public class DalPathsGenerator {
     private static final String CONCURRENT_MODIFICATION_MESSAGE =
         "Concurrent modification of a versioned entity — re-read and retry";
     private static final String DAL_SERVICE_OR_ENTITY_NOT_FOUND_MESSAGE = "DAL service or entity not found";
-    private static final String MALFORMED_READ_REQUEST_MESSAGE = "Malformed or inapplicable filter, or invalid pagination parameters";
+    private static final String MALFORMED_READ_REQUEST_MESSAGE =
+        "Malformed or inapplicable filter, or invalid pagination parameters";
     private static final String UNEXPECTED_ERROR_MESSAGE = "Unexpected error";
 
     public DalPathsGenerator(
@@ -98,9 +99,9 @@ public class DalPathsGenerator {
         PathItem collection = new PathItem();
         PathItem item = new PathItem();
         for (DalOperationType operation : exposedOperations) {
-            PathItem target = DalRestOperationMapping.uriGroup(operation) == DalRestOperationMapping.COLLECTION_OPERATIONS
-                ? collection
-                : item;
+            boolean onCollection =
+                DalRestOperationMapping.uriGroup(operation) == DalRestOperationMapping.COLLECTION_OPERATIONS;
+            PathItem target = onCollection ? collection : item;
             PathItem.HttpMethod method =
                 PathItem.HttpMethod.valueOf(DalRestOperationMapping.httpMethod(operation).name());
             target.operation(method,
@@ -143,7 +144,8 @@ public class DalPathsGenerator {
                 .addApiResponse(code(HttpStatus.BAD_REQUEST), problemResponse("Validation failed", problemDetailRef))
                 .addApiResponse(code(HttpStatus.FORBIDDEN), problemResponse(ACCESS_DENIED_MESSAGE, problemDetailRef))
                 .addApiResponse(code(HttpStatus.NOT_FOUND), problemResponse("DAL service not found", problemDetailRef))
-                .addApiResponse(code(HttpStatus.INTERNAL_SERVER_ERROR), problemResponse(UNEXPECTED_ERROR_MESSAGE, problemDetailRef)));
+                .addApiResponse(code(HttpStatus.INTERNAL_SERVER_ERROR),
+                    problemResponse(UNEXPECTED_ERROR_MESSAGE, problemDetailRef)));
     }
 
     private Operation readOperation(
@@ -155,10 +157,12 @@ public class DalPathsGenerator {
         pageableParameters().forEach(operation::addParametersItem);
         return operation.responses(new ApiResponses()
             .addApiResponse(code(HttpStatus.OK), jsonResponse("Page of entities", pageSchema(entityRef)))
-            .addApiResponse(code(HttpStatus.BAD_REQUEST), problemResponse(MALFORMED_READ_REQUEST_MESSAGE, problemDetailRef))
+            .addApiResponse(code(HttpStatus.BAD_REQUEST),
+                problemResponse(MALFORMED_READ_REQUEST_MESSAGE, problemDetailRef))
             .addApiResponse(code(HttpStatus.FORBIDDEN), problemResponse(ACCESS_DENIED_MESSAGE, problemDetailRef))
             .addApiResponse(code(HttpStatus.NOT_FOUND), problemResponse("DAL service not found", problemDetailRef))
-            .addApiResponse(code(HttpStatus.INTERNAL_SERVER_ERROR), problemResponse(UNEXPECTED_ERROR_MESSAGE, problemDetailRef)));
+            .addApiResponse(code(HttpStatus.INTERNAL_SERVER_ERROR),
+                problemResponse(UNEXPECTED_ERROR_MESSAGE, problemDetailRef)));
     }
 
     private Operation readOneOperation(
@@ -169,8 +173,10 @@ public class DalPathsGenerator {
             .responses(new ApiResponses()
                 .addApiResponse(code(HttpStatus.OK), jsonResponse("Entity found", entityRef))
                 .addApiResponse(code(HttpStatus.FORBIDDEN), problemResponse(ACCESS_DENIED_MESSAGE, problemDetailRef))
-                .addApiResponse(code(HttpStatus.NOT_FOUND), problemResponse(DAL_SERVICE_OR_ENTITY_NOT_FOUND_MESSAGE, problemDetailRef))
-                .addApiResponse(code(HttpStatus.INTERNAL_SERVER_ERROR), problemResponse(UNEXPECTED_ERROR_MESSAGE, problemDetailRef)));
+                .addApiResponse(code(HttpStatus.NOT_FOUND),
+                    problemResponse(DAL_SERVICE_OR_ENTITY_NOT_FOUND_MESSAGE, problemDetailRef))
+                .addApiResponse(code(HttpStatus.INTERNAL_SERVER_ERROR),
+                    problemResponse(UNEXPECTED_ERROR_MESSAGE, problemDetailRef)));
     }
 
     private Operation updateOperation(
@@ -185,9 +191,12 @@ public class DalPathsGenerator {
                 .addApiResponse(code(HttpStatus.NO_CONTENT), emptyResponse("Update applied, no content returned"))
                 .addApiResponse(code(HttpStatus.BAD_REQUEST), problemResponse("Validation failed", problemDetailRef))
                 .addApiResponse(code(HttpStatus.FORBIDDEN), problemResponse(ACCESS_DENIED_MESSAGE, problemDetailRef))
-                .addApiResponse(code(HttpStatus.NOT_FOUND), problemResponse(DAL_SERVICE_OR_ENTITY_NOT_FOUND_MESSAGE, problemDetailRef))
-                .addApiResponse(code(HttpStatus.CONFLICT), problemResponse(CONCURRENT_MODIFICATION_MESSAGE, problemDetailRef))
-                .addApiResponse(code(HttpStatus.INTERNAL_SERVER_ERROR), problemResponse(UNEXPECTED_ERROR_MESSAGE, problemDetailRef)));
+                .addApiResponse(code(HttpStatus.NOT_FOUND),
+                    problemResponse(DAL_SERVICE_OR_ENTITY_NOT_FOUND_MESSAGE, problemDetailRef))
+                .addApiResponse(code(HttpStatus.CONFLICT),
+                    problemResponse(CONCURRENT_MODIFICATION_MESSAGE, problemDetailRef))
+                .addApiResponse(code(HttpStatus.INTERNAL_SERVER_ERROR),
+                    problemResponse(UNEXPECTED_ERROR_MESSAGE, problemDetailRef)));
     }
 
     private Operation deleteOperation(String dalName, String tag, Class<?> idClass, Schema<?> problemDetailRef) {
@@ -196,9 +205,12 @@ public class DalPathsGenerator {
             .responses(new ApiResponses()
                 .addApiResponse(code(HttpStatus.NO_CONTENT), emptyResponse("Entity deleted"))
                 .addApiResponse(code(HttpStatus.FORBIDDEN), problemResponse(ACCESS_DENIED_MESSAGE, problemDetailRef))
-                .addApiResponse(code(HttpStatus.NOT_FOUND), problemResponse(DAL_SERVICE_OR_ENTITY_NOT_FOUND_MESSAGE, problemDetailRef))
-                .addApiResponse(code(HttpStatus.CONFLICT), problemResponse(CONCURRENT_MODIFICATION_MESSAGE, problemDetailRef))
-                .addApiResponse(code(HttpStatus.INTERNAL_SERVER_ERROR), problemResponse(UNEXPECTED_ERROR_MESSAGE, problemDetailRef)));
+                .addApiResponse(code(HttpStatus.NOT_FOUND),
+                    problemResponse(DAL_SERVICE_OR_ENTITY_NOT_FOUND_MESSAGE, problemDetailRef))
+                .addApiResponse(code(HttpStatus.CONFLICT),
+                    problemResponse(CONCURRENT_MODIFICATION_MESSAGE, problemDetailRef))
+                .addApiResponse(code(HttpStatus.INTERNAL_SERVER_ERROR),
+                    problemResponse(UNEXPECTED_ERROR_MESSAGE, problemDetailRef)));
     }
 
     /**
