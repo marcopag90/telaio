@@ -42,6 +42,22 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+/**
+ * Unit tests for {@link AbstractDal}: the pipeline every operation runs (conversion or merge,
+ * validation, transaction, hooks, {@code execute*} call) and the sort handling of {@code read},
+ * independently of any backend.
+ *
+ * <p>This class is the reference for the project's unit-test pattern:</p>
+ * <ul>
+ *   <li>{@link TestEntityService} is a minimal concrete DAL whose {@code execute*} methods return
+ *   canned results. The tests run against a Mockito spy of it, so one {@code execute*} or
+ *   {@code finalize*} method can be stubbed or verified while the pipeline stays real.</li>
+ *   <li>{@link FakeTransactionTemplate#spied()} runs transaction callbacks inline without a transaction
+ *   manager, and still lets a test verify that an operation went through a transaction.</li>
+ *   <li>With the {@code PER_CLASS} lifecycle the mocks are created once for the whole class, so
+ *   {@link #setUp()} resets them and rebuilds the DAL before each test.</li>
+ * </ul>
+ */
 @ExtendWith(MockitoExtension.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AbstractDalTest {
@@ -113,13 +129,13 @@ class AbstractDalTest {
     }
 
     @Test
-    void testDalInfoResolution() {
+    void constructor_resolvesEntityAndIdClassesFromTypeArguments() {
         assertEquals(TestEntity.class, service.getEntityClass());
         assertEquals(Long.class, service.getIdClass());
     }
 
     @Test
-    void testTransactionTemplateResolution() {
+    void finalizeTransaction_buildsTheTemplateFromTheGivenDefinition() {
         final var transactionDefinition = new DefaultTransactionDefinition();
         transactionDefinition.setReadOnly(true);
 
@@ -130,7 +146,7 @@ class AbstractDalTest {
     }
 
     @Test
-    void testGetters() {
+    void getters_returnTheInjectedCollaborators() {
         assertEquals(objectMapper, service.getObjectMapper());
         assertEquals(propertyMerger, service.getPropertyMerger());
         assertNotNull(service.getDalValidator());
@@ -144,17 +160,17 @@ class AbstractDalTest {
     class FilterLogicTests {
 
         @Test
-        void testDefaultFilterReturnsNullByDefault() {
+        void defaultFilter_returnsNullByDefault() {
             assertNull(service.defaultFilter());
         }
 
         @Test
-        void testCombineFilterWithNullInputReturnsNull() {
+        void combineWithDefaultFilter_withNoFilterAtAll_returnsNull() {
             assertNull(service.combineWithDefaultFilter(null));
         }
 
         @Test
-        void testCombineFilterWithSingleCombinedFilter() {
+        void combineWithDefaultFilter_withOnlyTheCallersFilter_buildsFromIt() {
             when(mockFilterBuilder.from(any())).thenReturn(mockStepWithResult);
             when(mockStepWithResult.get()).thenReturn(mockFilterNode);
             when(mockFilterBuilder.and(anyList())).thenReturn(mockStepWithResult);
@@ -166,8 +182,9 @@ class AbstractDalTest {
         }
 
         @Test
-        void testCombineFilterWithDefaultCombinedFilter() {
-            service.simulateDefaultFilter = true;
+        void combineWithDefaultFilter_withDefaultFilterEnabled_combinesBoth() {
+            final FilterNode defaultFilterNode = mock();
+            service.defaultFilterNode = defaultFilterNode;
             when(mockFilterBuilder.from(any())).thenReturn(mockStepWithResult);
             when(mockStepWithResult.get()).thenReturn(mockFilterNode);
             when(mockFilterBuilder.and(anyList())).thenReturn(mockStepWithResult);
@@ -175,7 +192,8 @@ class AbstractDalTest {
             final var result = service.combineWithDefaultFilter(mockFilterNode);
 
             assertNotNull(result);
-            verify(mockFilterBuilder, times(1)).from(any());
+            verify(mockFilterBuilder, times(1)).from(mockFilterNode);
+            verify(mockFilterBuilder, times(1)).from(defaultFilterNode);
             verify(mockFilterBuilder, times(1)).and(anyList());
             verify(mockStepWithResult, times(1)).get();
         }
@@ -185,7 +203,7 @@ class AbstractDalTest {
     class CreateTests {
 
         @Test
-        void testCreateSuccess() {
+        void create_withValidProperties_persistsAndRunsHooksInsideTheTransaction() {
             Map<String, Object> input = Map.of("id", 1L, "name", "Hello");
 
             when(mockTransactionPolicy.forCreate()).thenReturn(new DefaultTransactionDefinition());
@@ -205,7 +223,7 @@ class AbstractDalTest {
 
         @Test
         @SuppressWarnings("squid:S5778")
-        void testCreateValidationError() {
+        void create_whenValidationFails_throwsDalEntityValidationException() {
             doAnswer(invocation -> {
                 throw new DalEntityValidationException(List.of());
             }).when(mockValidatorAdapter).validate(any(TestEntity.class), any(BeanPropertyBindingResult.class));
@@ -220,7 +238,7 @@ class AbstractDalTest {
     class ReadTests {
 
         @Test
-        void testRead_withFilterAndPagination_shouldSucceed() {
+        void read_withFilterAndPagination_returnsThePageAndFinalizesEachEntity() {
             final var pageable = PageRequest.of(0, 10, Sort.by("name"));
             final var pageResult = new PageImpl<>(List.of(new TestEntity(), pageable, 1));
 
@@ -242,7 +260,7 @@ class AbstractDalTest {
         }
 
         @Test
-        void testRead_withFilterAndPagination_withEmptyResult_shouldNotCallFinalizeAfterRead() {
+        void read_withEmptyResult_doesNotCallFinalizeAfterRead() {
             final var pageable = PageRequest.of(0, 10, Sort.by("name"));
             final var pageResult = new PageImpl<TestEntity>(List.of(), pageable, 0);
 
@@ -466,7 +484,7 @@ class AbstractDalTest {
     class ReadOneTests {
 
         @Test
-        void testReadOneSuccess_shouldNotCallFinalizeAfterReadOne_onEmptyResult() {
+        void readOne_withEmptyResult_doesNotCallFinalizeAfterReadOne() {
             Long id = 1L;
 
             doReturn(spiedTransactionTemplate).when(spiedService).finalizeTransaction(
@@ -484,7 +502,7 @@ class AbstractDalTest {
         }
 
         @Test
-        void testReadOneSuccess_shouldCallFinalizeAfterReadOne_onNotEmptyResult() {
+        void readOne_withEntityFound_callsFinalizeAfterReadOne() {
             Long id = 1L;
 
             doReturn(spiedTransactionTemplate).when(spiedService).finalizeTransaction(
@@ -510,7 +528,7 @@ class AbstractDalTest {
 
         @Test
         @SuppressWarnings("squid:S5778")
-        void testUpdate_shouldThrowExceptionOnEmptyResult() {
+        void update_whenEntityIsMissingOrHidden_throwsNotFoundBeforeAnyWork() {
             when(spiedService.executeReadOne(1L)).thenReturn(Optional.empty());
 
             assertThrows(DalEntityNotFoundException.class, () -> spiedService.update(1L, Map.of()));
@@ -521,7 +539,7 @@ class AbstractDalTest {
         }
 
         @Test
-        void testUpdate_shouldSucceedOnValidInput() {
+        void update_withExistingEntity_persistsRunsHooksAndReadsBack() {
             Long id = 1L;
             TestEntity existingEntity = new TestEntity();
             existingEntity.id = id;
@@ -535,7 +553,6 @@ class AbstractDalTest {
             when(mockTransactionPolicy.forUpdate()).thenReturn(new DefaultTransactionDefinition());
             doNothing().when(propertyMerger).merge(properties, existingEntity);
             doNothing().when(spiedService).validate(existingEntity);
-            when(spiedService.executeReadOne(id)).thenReturn(Optional.of(existingEntity));
             when(spiedService.executeReadOne(id)).thenReturn(Optional.of(existingEntity));
 
             TestEntity updatedEntity = spiedService.update(id, properties).orElse(null);
@@ -554,7 +571,7 @@ class AbstractDalTest {
     class DeleteTests {
 
         @Test
-        void testDelete() {
+        void delete_withExistingEntity_removesItAndRunsHooksInsideTheTransaction() {
             Long id = 1L;
 
             doReturn(spiedTransactionTemplate).when(spiedService).finalizeTransaction(
@@ -575,7 +592,7 @@ class AbstractDalTest {
         }
 
         @Test
-        void testDelete_shouldThrowNotFoundWhenEntityIsMissingOrHidden() {
+        void delete_whenEntityIsMissingOrHidden_throwsNotFoundInsideTheTransaction() {
             // executeReadOne is the single defaultFilter enforcement point for by-id operations:
             // an entity hidden by the filter resolves to empty, exactly like a missing one
             // (simulateEmptyResult is true by default). The visibility pre-check runs INSIDE the
@@ -596,6 +613,10 @@ class AbstractDalTest {
     }
 
 
+    /**
+     * Entity under test. {@code code} travels on the wire as {@code legacy_code}, so the sort rewrite
+     * from JSON names to Java names can be observed.
+     */
     static class TestEntity {
         @Nullable
         public Long id;
@@ -606,13 +627,18 @@ class AbstractDalTest {
         public String code;
     }
 
+    /**
+     * Minimal concrete DAL with canned backend behavior. {@code simulateEmptyResult} drives
+     * {@link #executeReadOne}: empty by default, which stands for a missing or hidden entity.
+     * {@code defaultFilterNode} is what {@link #defaultFilter()} returns: {@code null}, the default,
+     * means no default filter.
+     */
     static class TestEntityService extends AbstractDal<TestEntity, Long> {
 
         boolean simulateEmptyResult = true;
-        boolean simulateDefaultFilter = false;
 
         @Nullable
-        private FilterNode filterNode;
+        FilterNode defaultFilterNode;
 
         TestEntityService() {
 
@@ -621,7 +647,7 @@ class AbstractDalTest {
         @Override
         @Nullable
         protected FilterNode defaultFilter() {
-            return simulateDefaultFilter ? filterNode : null;
+            return defaultFilterNode;
         }
 
         @Override
